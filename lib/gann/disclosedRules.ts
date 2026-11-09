@@ -14,7 +14,7 @@
  *
  * 1. **Close vs the bar's midpoint** — **class C, relabelled 2026-10-16
  *    (M-R7).** A close above the half-way point of the bar's range reads up,
- *    below reads down. The finished reading of the ref: R-001 did not find
+ *    below reads down. The finished reading of the Master Course did not find
  *    this up/down reading in Gann's text: Ch. 13 (PDF 377, 1953) lists "high,
  *    low, half-way, open, close" as five factors but gives no reading of the
  *    close against the half-way point, and Ch. 3 (PDF 72) uses the half-way
@@ -22,27 +22,27 @@
  *    so it stays context only: it feeds one measured factor
  *    (`closeVsMidpointAgrees`) and a card tile, and never a score, gate,
  *    plan or order.
- * 2. **Percentages of the extreme price**, not only of the range (ref: R-007,
- *    pp. 32-34; ref: R-005,
+ * 2. **Percentages of the extreme price**, not only of the range (*How to
+ *    Make Profits in Commodities*, pp. 32-34; *45 Years in Wall Street*,
  *    Rule 3). Divide the low by 8 and add the eighths above it (12½% to
  *    100%); divide the high by 8 and by 3. 50% and 100% of a bottom, and 50%
  *    of the high, are "the most important".
- * 3. **Day-count bands from a pivot** (ref: R-005, Rule 8):
+ * 3. **Day-count bands from a pivot** (*45 Years in Wall Street*, Rule 8):
  *    7-12, 18-21, 28-31, 42-49, 57-65, 85-92, 112-120, 150-157 and 175-185
  *    days from any important high or low.
- * 4. **The counter-move clock** (ref: R-001 Ch. 11B, 14, 17; ref: R-003
- *    Ch. IV; A09 Rule 4). Reactions in a bull market (rallies
+ * 4. **The counter-move clock** (Master Course Ch. 11B, 14, 17; *Wall Street
+ *    Stock Selector* Ch. IV; A09 Rule 4). Reactions in a bull market (rallies
  *    in a bear) usually run 2-3 weeks, 14 and 21 days most often; strong
  *    stocks seldom react into a second month; a counter-move reaching its
  *    third month signals a change in trend.
- * 5. **Tests of a level** (ref: R-007 p. 43; A09 Rule 2). Double and
+ * 5. **Tests of a level** (*Commodities* p. 43; A09 Rule 2). Double and
  *    triple tops and bottoms hold; the 4th test of a level usually breaks
  *    through.
- * 6. **Ranked fractions of the year** (ref: R-001 Ch. 13-14). From a
+ * 6. **Ranked fractions of the year** (Master Course Ch. 13-14). From a
  *    pivot: the anniversary first, then ½ year, then ¼ and ¾, then ⅓ and ⅔,
  *    then the eighths.
- * 7. **The Rule of Three on weekly and monthly bars** (ref: R-003,
- *    p. 72, which applies the rule to the weekly and monthly
+ * 7. **The Rule of Three on weekly and monthly bars** (*Wall Street Stock
+ *    Selector*, p. 72, which applies the rule to the weekly and monthly
  *    charts as well as the daily). The daily form is already scored
  *    (`ruleOfThree.ts`); this adds the two coarser readings.
  *
@@ -54,7 +54,7 @@
  * Engineering choices, labelled as such rather than dressed as sourced:
  * - The percentage-of-price anchors are the lowest low and highest high of
  *   the monthly record with the daily bars (Gann ranks the all-time extremes
- *   first, ref: R-007 p.34, ref: R-001 Ch. 9 PDF 264), the same anchors
+ *   first, *Commodities* p.34, Master Course Ch. 9 PDF 264), the same anchors
  *   the S/R list reads; until 2026-10-28 the card read a year of daily bars.
  * - A level "test" is a completed 3-Day Chart swing extreme within Gann's
  *   price-scaled 3 points of the level (rule 5 below).
@@ -237,9 +237,9 @@ export function pricePercentageLevels(low: number, high: number): PricePercentag
       importance: k === 4 ? 1 : 2,
     });
   }
-  // "100% of the low and multiples", second only to 50% (ref: R-005 Ch. IV
+  // "100% of the low and multiples", second only to 50% (45 Years Ch. IV
   // p. 30, class A, page-checked 2026-10-16; the rye table runs to 700%,
-  // ref: R-007 pp. 161-162): 200%, 300% ... above the low, projected up to
+  // Commodities pp. 161-162): 200%, 300% ... above the low, projected up to
   // 12 times the low (the compiler's 1-12 times, C-PRICE-02, W003 p.21) and
   // past the record's high to the first multiple over it, so a market at a
   // new high still has one ahead (batch review C1; the reach is an
@@ -260,7 +260,7 @@ export function pricePercentageLevels(low: number, high: number): PricePercentag
  * These join the scan's support and resistance list (added 2026-09-27, owner
  * direction to implement Gann's method throughout). The scan passes its
  * monthly history, so the anchors are the longest-range extremes it holds,
- * which Gann ranks first (ref: R-007 p. 34).
+ * which Gann ranks first (*Commodities* p. 34).
  */
 export function majorPricePercentageLevels(bars: Bar[]): number[] {
   if (bars.length === 0) return [];
@@ -274,7 +274,7 @@ export function majorPricePercentageLevels(bars: Bar[]): number[] {
 
 /**
  * The nearest multiple of the low below and above the latest close. "100% of
- * the low and its multiples" rank second only to 50% (ref: R-005 Ch. IV p.30),
+ * the low and its multiples" rank second only to 50% (45 Years Ch. IV p.30),
  * so they act as levels like the rest (2026-10-01, "every Gann method acts";
  * Gann alignment audit 2026-10-28, rest-of-gann.md R24: they had been held on
  * the card for a replay). Only the pair either side of the close joins, as the
@@ -329,7 +329,7 @@ export { DAY_COUNT_BANDS };
 /**
  * Fractions of the 360-day year from a pivot, with Gann's ranking (1 = most
  * important). A-TIME-17 (W036 p.13: "the dates marked X are the most important
- * points to watch") reads its ranking from ref: R-001 Ch. 14 (PDF 389-390,
+ * points to watch") reads its ranking from Master Course Ch. 14 (PDF 389-390,
  * 1955): "most important: anniversaries, then 1/2 year, 3/4, 1/3 and 2/3", with
  * Ch. 18 TP-1 (PDF 439) setting 1/4 beside 3/4. So rank 1 and 2 are the dates
  * marked X (`contextFactors.ts#yearFractionMajor`). Pinned in
@@ -348,7 +348,7 @@ export const YEAR_FRACTIONS: readonly { days: number; label: string; rank: numbe
   { days: 315, label: "7/8 year", rank: 5 },
   { days: 360, label: "360 days", rank: 1 },
   // The anniversary is the calendar date, a year (or years) on: Gann's 1955
-  // "anniversaries" are the same date of the month (ref: R-001 Ch. 14,
+  // "anniversaries" are the same date of the month (Master Course Ch. 14,
   // PDF 389-390). `readYearFraction` reads it against the calendar, not as a
   // count of days; `days` here is the ordinary year, for sorting only. Until
   // 2026-10-22 the 360-day count carried this label, so a pivot exactly a
@@ -601,8 +601,8 @@ export function readRuleOfThreeTimeframes(daily: Bar[]): RuleOfThreeTimeframes {
 // The 5th unit of a run: Ascension (C-TREND-08)
 //
 // "The 5th is the day, week, month, or year of Ascension and always marks
-// fast moves" (ref: R-001 Ch. 7, PDF 223); "the 5th week is also very
-// important" (ref: R-007 p. 59). Read here as the 5th consecutive close in
+// fast moves" (Master Course Ch. 7, PDF 223); "the 5th week is also very
+// important" (*Commodities* p. 59). Read here as the 5th consecutive close in
 // one direction on daily, weekly and monthly bars, an engineering reading of
 // what the 5th unit counts from (Gann does not say), mirrored for lower
 // closes (an engineering symmetry). The "4th consecutive higher week" rule is
@@ -735,7 +735,7 @@ export interface DisclosedRulesContext {
   swingMonthCounts?: PivotMonthCount[] | null;
   /** Months into the market's bear market from its top (A-TIME-06, context only). See `bearDuration.ts`. */
   bearDuration?: BearDurationReading | null;
-  /** The Overnight Chart and Gann's mechanical method on it (ref: R-001 Ch. 3). See `overnightChart.ts`. */
+  /** The Overnight Chart and Gann's mechanical method on it (Master Course Ch. 3). See `overnightChart.ts`. */
   overnight: OvernightReading | null;
   /** Rule 8: three closes around one price, on days, weeks and months. See `closeCluster.ts`. */
   closeClusters: { daily: CloseClusterReading | null; weekly: CloseClusterReading | null; monthly: CloseClusterReading | null };
@@ -1107,7 +1107,7 @@ export function describeDisclosedRules(ctx: DisclosedRulesContext): string[] {
   }
   const ss = ctx.successiveSwings;
   const nth = (n: number) => (n === 2 ? "second" : n === 3 ? "third" : "fourth");
-  // ref: R-001 p.248 names both: the advance is strongest after the second
+  // Master Course p.248 names both: the advance is strongest after the second
   // or third higher bottom, and fast moves start from the third or fourth
   // (also W003 p.17).
   if (ss && ss.higherBottoms >= 2 && ss.higherBottoms <= 4) {

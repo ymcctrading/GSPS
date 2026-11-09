@@ -55,7 +55,7 @@ describe("C-LEVELS-08: squaring price with time from a high", () => {
     expect(squareFromHigh(60, 1, 15)).toBe(45);
   });
 
-  it("brings a 100-point fall in about 100 months at the ref: R-001's 1 a month", () => {
+  it("brings a 100-point fall in about 100 months at the Master Course's 1 a month", () => {
     expect(squareFromHigh(100, 1, 100)).toBe(0);
   });
 

@@ -1,6 +1,6 @@
 /**
  * Gann's daily and weekly time rules (parity roadmap, "Daily/weekly time
- * rules"; ref: R-003 Ch. IV and ref: R-005
+ * rules"; *Wall Street Stock Selector* Ch. IV and *45 Years in Wall Street*
  * Rule 4, Tier A). `boilingPoint.ts` already carries the 6th–7th week that
  * ends fast moves; this adds the rest of the same clock:
  *

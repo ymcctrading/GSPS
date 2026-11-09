@@ -4,7 +4,7 @@
  * "Markets beyond US equities", on free data only).
  *
  * Gann traded commodities as much as stocks: grain, cotton, metals, coffee,
- * sugar (ref: R-007, W001). Futures bars and a futures broker cost money
+ * sugar (*Commodities*, W001). Futures bars and a futures broker cost money
  * (SYNTHESIZED_ROADMAP Part 6), so the funds that hold the futures stand in
  * for them. Alpaca serves their bars free and its paper broker trades them as
  * shares. This is a labelled stand-in. A fund's price is read as a price and
@@ -16,8 +16,8 @@
  * funds are here by the same Correspondence, his one law read in each market's
  * own unit, and are labelled the same way.
  *
- * They count with crypto as Gann's "two or three markets" (ref: R-006 W022
- * pp.203-204; ref: R-007), not among the five stocks
+ * They count with crypto as Gann's "two or three markets" (*Tunnel* W022
+ * pp.203-204; *Commodities*), not among the five stocks
  * (`lib/risk/gannCapital.ts`). His stock books hold stocks to "4 or 5"; his
  * commodity books hold commodities to two or three. A fund holds no company,
  * so it is the commodity it tracks.

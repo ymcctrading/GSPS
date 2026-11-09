@@ -10,8 +10,8 @@
  * (`coarse_gate_telemetry`), so DE was never scored. The coarse filter is a
  * budget device, not one of Gann's rules: Gann chose his active stocks from
  * the daily charts the night before (AGENTS.md, "WD Gann precedence", the
- * evening focus list; he ranks the groups and then the stocks in them, ref: R-002
- * Ch. XVI-XVII), which needs every chart looked at, not a
+ * evening focus list; he ranks the groups and then the stocks in them, *Truth
+ * of the Stock Tape* Ch. XVI-XVII), which needs every chart looked at, not a
  * pre-filtered few. So the whole universe is scored after the close,
  * off every person's path, and its Execute and Watch setups take the next
  * day's full-scan slots ahead of the coarse guesses.
@@ -231,7 +231,7 @@ export interface Reread {
  * The night's rows a later read of the same chart no longer bears out: the
  * day's market scan re-scored the symbol and found no Execute or Watch plan
  * on the row's side. In Gann's method a new reading of the swing structure
- * replaces the old plan (ref: R-004 Rule 6; AGENTS.md, F3.7). A failed read
+ * replaces the old plan (NSTD Rule 6; AGENTS.md, F3.7). A failed read
  * overrules nothing. Pure.
  */
 export function overruledSweepSymbols(

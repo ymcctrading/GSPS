@@ -10,23 +10,23 @@
  * - The most important monthly count origins are the extreme life low and
  *   "the date of incorporation / first trading". U.S. Steel, incorporated
  *   Feb 25 1901: Feb 1931 = 360 months, the 30-year cycle, and "a change in
- *   trend of Steel nearly always comes in the month of February" (ref: R-001,
- *   Ch. 7).
+ *   trend of Steel nearly always comes in the month of February" (Master
+ *   Stock Market Course, Ch. 7).
  * - "Dates of incorporation and first trading shift a stock's seasonal
  *   dates." From Feb 25 he lists U.S. Steel's own seasonal points: 45°, 60°,
  *   90°, 120°, 135°, 150°, 180°, 225°, 240°, 270°, 300°, 315°, 330° and 360°
- *   of the year (ref: R-001 Ch. 14). The degree list here is his.
- * - A company's anniversary used as a timing trigger (ref: R-006,
+ *   of the year (Master Course Ch. 14). The degree list here is his.
+ * - A company's anniversary used as a timing trigger (*Tunnel Thru the Air*,
  *   1927, the Major Motors campaign; Tier A as fiction, corroborating).
  * - Cycle lengths are `MAJOR_CYCLE_YEARS`, his Ch. 7 hierarchy.
  *
  * A-TIME-35, a labelled reconstruction (2026-10-21, Chuck: "build the 11 that
- * can be filled with a labelled reconstruction"): ref: R-006 p.199
+ * can be filled with a labelled reconstruction"): *Tunnel Thru the Air* p.199
  * says stocks "make fast moves up or down at certain ages" and never says
  * which. GSPS reads those ages as Gann's own cycle years (`MAJOR_CYCLE_YEARS`,
  * Ch. 7) counted from the company's birth, the count he works on U.S. Steel.
  * That pairing is ours, not his: the ages are his cycles, the claim that they
- * are the ages ref: R-006 means is the reconstruction. Context only, measured.
+ * are the ages *Tunnel* means is the reconstruction. Context only, measured.
  *
  * Engineering choices, labelled as such:
  * - The date is Wikidata's "inception" (P571), matched by SEC CIK. For most
@@ -67,7 +67,7 @@ export interface Inception {
   precision: InceptionPrecision;
 }
 
-/** Gann's U.S. Steel seasonal points (ref: R-001 Ch. 14), ranked like the year fractions from a pivot. */
+/** Gann's U.S. Steel seasonal points (Master Course Ch. 14), ranked like the year fractions from a pivot. */
 export const INCORPORATION_DEGREES: readonly { degrees: number; rank: number }[] = [
   { degrees: 45, rank: 5 },
   { degrees: 60, rank: 6 },
@@ -190,7 +190,7 @@ export function describeIncorporationCycle(r: IncorporationCycleReading): string
 /**
  * A-TIME-32: fixed counts from a founding date, research and context only.
  *
- * Source (class A as fiction, ref: R-006, 1927, printed pp.
+ * Source (class A as fiction, *The Tunnel Thru the Air*, 1927, printed pp.
  * 371-374, PDF 376-379, the hero's Bible time calculations): 7, 14 and 42
  * months, 49, 343 and 490 years, the score (20), 70 and 140 years, each added
  * to a founding or event date to find the troubled years. His own sums:

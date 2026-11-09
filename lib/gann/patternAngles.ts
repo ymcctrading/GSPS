@@ -5,7 +5,7 @@
  * Parallels trimmed the same day to the three lines Gann parallels himself.
  *
  * Sources:
- * - Tier A: ref: R-001 Ch. 2 (January 17, 1931), the Square of 90 Pattern
+ * - Tier A: Master Course Ch. 2 (January 17, 1931), the Square of 90 Pattern
  *   Chart and its angle table: 16×1, 8×1, 4×1, 3×1, 2×1, 1×1, 1×2, 1×3, 1×4,
  *   1×8 and 1×16. Gann says to keep the 3×1 "at all times" on monthly charts
  *   from any important bottom, and the 8×1 and 16×1 matter after long declines.
@@ -16,7 +16,7 @@
  *   angles from tops and bottoms forming the campaign's channel, drawn on the
  *   45° (1×1), the 2×1 and the 4×1 only. His U.S. Steel example draws a 45°
  *   down from a low.
- * - Corroboration: ref: R-031 pp. 112–113 (B16) parallels the same point line
+ * - Corroboration: Jensen pp. 112–113 (B16) parallels the same point line
  *   from the preceding top; the B17 article's visible mechanism is the same.
  *   Its undisclosed per-market "key" is not used (source note B17).
  *

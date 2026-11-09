@@ -116,8 +116,8 @@ describe("F3 cycle checks: cosinor, artifact guards, hold-out", () => {
   });
 });
 
-// X4: chance is ruled out before a cycle is credited (ref: R-021
-// 1967; Halberg et al. 2003 on the cosinor). Context only.
+// X4: chance is ruled out before a cycle is credited (Dewey, The Case for
+// Cycles 1967; Halberg et al. 2003 on the cosinor). Context only.
 describe("significance and hold-out before a cycle is credited", () => {
   const lcg = (s0: number) => {
     let seed = s0;

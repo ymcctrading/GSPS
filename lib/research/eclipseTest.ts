@@ -1,5 +1,5 @@
 /**
- * Solar eclipse dates for the eclipse test (C-ASTRO-07; ref: R-040 W029: "the
+ * Solar eclipse dates for the eclipse test (C-ASTRO-07; Meadors, W029: "the
  * day before and the day after a solar eclipse matter"). Research only: no
  * criterion, gate, plan, entry or order reads this (CYC-41). The test itself
  * is `eventDateTest.ts#eventTurnRate` with a ±1 day window.

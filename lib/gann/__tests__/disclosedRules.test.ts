@@ -28,7 +28,7 @@ function daily(closes: number[]): Bar[] {
   return closes.map((c, i) => bar(new Date(Date.UTC(2026, 0, 1) + i * 86_400_000).toISOString(), c));
 }
 
-describe("close vs bar midpoint (ref: R-001 Ch. 13)", () => {
+describe("close vs bar midpoint (Master Course Ch. 13)", () => {
   it("reads a close above the midpoint as up and below as down", () => {
     expect(readBarMidpoint([bar("2026-01-01T00:00:00Z", 10, 11, 8)])?.lastBar).toBe("up");
     expect(readBarMidpoint([bar("2026-01-01T00:00:00Z", 9, 11, 8)])?.lastBar).toBe("down");
@@ -40,7 +40,7 @@ describe("close vs bar midpoint (ref: R-001 Ch. 13)", () => {
   });
 });
 
-describe("percentages of the extreme price (ref: R-007 pp. 32-34)", () => {
+describe("percentages of the extreme price (Commodities pp. 32-34)", () => {
   it("C-PRICE-03: doubles a major low, 1184 giving 2368", () => {
     const levels = pricePercentageLevels(1184, 2500);
     expect(levels.find((l) => l.label === "100% above the low")?.price).toBe(2368);
@@ -58,7 +58,7 @@ describe("percentages of the extreme price (ref: R-007 pp. 32-34)", () => {
     expect(levels.find((l) => l.label === "4/8 of the high")?.importance).toBe(1);
   });
 
-  it("C-PRICE-02: adds the multiples of the low, projected to 12 times it and past the high (ref: R-005 Ch. IV; rye to 700%)", () => {
+  it("C-PRICE-02: adds the multiples of the low, projected to 12 times it and past the high (45 Years Ch. IV; rye to 700%)", () => {
     const levels = pricePercentageLevels(10, 45);
     const multiples = levels.filter((l) => l.multiple !== undefined).map((l) => l.price);
     // 3, 4, 7, 9 and 12 times the low, past the record's high of 45.
@@ -72,7 +72,7 @@ describe("percentages of the extreme price (ref: R-007 pp. 32-34)", () => {
     expect(pricePercentageLevels(64, 390).find((l) => l.label === "500% above the low")?.price).toBe(384);
   });
 
-  it("keeps the low's multiples out of the major levels, and gives the nearest pair either side of the close on their own (ref: R-005 Ch. IV p.30)", () => {
+  it("keeps the low's multiples out of the major levels, and gives the nearest pair either side of the close on their own (45 Years Ch. IV p.30)", () => {
     const b = [bar("2026-01-01T00:00:00Z", 10, 10, 10), bar("2026-01-02T00:00:00Z", 45, 45, 45)];
     // 50% and 100% above the low (15, 20) and 50% of the high (22.5) only.
     expect(majorPricePercentageLevels(b)).toEqual([15, 20, 22.5]);
@@ -89,7 +89,7 @@ describe("percentages of the extreme price (ref: R-007 pp. 32-34)", () => {
   });
 });
 
-describe("counter-move clock (ref: R-001 Ch. 11B; ref: R-003 Ch. IV)", () => {
+describe("counter-move clock (Master Course Ch. 11B; Stock Selector Ch. IV)", () => {
   it("classifies durations by the source's weeks and months", () => {
     expect(counterMovePhase(14)).toBe("normal");
     expect(counterMovePhase(21)).toBe("normal");
@@ -130,7 +130,7 @@ describe("counter-move clock (ref: R-001 Ch. 11B; ref: R-003 Ch. IV)", () => {
   });
 });
 
-describe("tests of a level (ref: R-007 p. 43)", () => {
+describe("tests of a level (Commodities p. 43)", () => {
   it("counts repeated swing bottoms at the same level", () => {
     // Three reactions that each bottom near 100, then price rallies away.
     const closes = [
@@ -174,7 +174,7 @@ describe("tests of a level (ref: R-007 p. 43)", () => {
   });
 });
 
-describe("day-count bands and fractions of the year (A09 Rule 8; ref: R-001 Ch. 13-14)", () => {
+describe("day-count bands and fractions of the year (A09 Rule 8; Master Course Ch. 13-14)", () => {
   function withPivotLow(daysAfter: number): Bar[] {
     // A clear major low, then a steady rise for `daysAfter` days, plus earlier swings.
     const pre = Array.from({ length: 30 }, (_, i) => 150 - i * 1.5);
@@ -215,7 +215,7 @@ describe("day-count bands and fractions of the year (A09 Rule 8; ref: R-001 Ch. 
   });
 });
 
-describe("Rule of Three on weekly and monthly bars (ref: R-003 p. 72)", () => {
+describe("Rule of Three on weekly and monthly bars (Stock Selector p. 72)", () => {
   it("resamples daily bars into Monday weeks and calendar months", () => {
     const b = daily(Array.from({ length: 70 }, (_, i) => 100 + i));
     expect(toWeeklyBars(b).length).toBe(11); // Jan 1 2026 is a Thursday

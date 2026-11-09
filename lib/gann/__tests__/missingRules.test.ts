@@ -142,7 +142,7 @@ describe("shares per point: the top warning", () => {
   });
 });
 
-// W006 pp.27-29 / ref: R-003 Ch. VII: early leaders in a bear market top
+// W006 pp.27-29 / Stock Selector Ch. VII: early leaders in a bear market top
 // first; late tops make late bottoms (A-SELECTION-03, A-TIME-08).
 describe("leadership: topping first and bottoming late", () => {
   it("marks a stock whose high came 10+ days before the market's as toppedFirst", () => {

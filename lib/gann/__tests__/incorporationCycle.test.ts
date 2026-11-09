@@ -9,7 +9,7 @@ describe("time from the company's inception (parity D3)", () => {
     expect(readIncorporationCycle(null, on("2026-02-25"))).toBeNull();
   });
 
-  it("finds every printed U.S. Steel seasonal date from the ref: R-001, Ch. 14", () => {
+  it("finds every printed U.S. Steel seasonal date from the Master Course, Ch. 14", () => {
     // His list from Feb 25 1901, read in 1931. Jun 12 (printed as 135°, out
     // of order) is left out.
     const gann: Array<[string, number]> = [
@@ -62,7 +62,7 @@ describe("time from the company's inception (parity D3)", () => {
   });
 
   it("A-TIME-35: reads the 'certain ages' of a fast move as the cycle years from inception (labelled reconstruction)", () => {
-    // ref: R-006 p.199 names the ages but not which; GSPS reads his Ch. 7 cycle years.
+    // Tunnel p.199 names the ages but not which; GSPS reads his Ch. 7 cycle years.
     expect(readIncorporationCycle(USX, on("1931-02-25"))!.completingCycles).toContain(30);
     expect(readIncorporationCycle(USX, on("1961-02-25"))!.completingCycles).toEqual(expect.arrayContaining([30, 60]));
     // Age 31 completes none of the named cycles (1, 2 and 3 are left out).

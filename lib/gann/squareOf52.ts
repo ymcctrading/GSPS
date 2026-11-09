@@ -41,7 +41,7 @@ import { majorPivots, findPivots } from "@/lib/analysis/pivots";
 export const SQUARE_OF_52_WEEKS = 52;
 
 /**
- * C-TIME-13: the calculator is 104 weeks wide, running to 520 (ref: R-001
+ * C-TIME-13: the calculator is 104 weeks wide, running to 520 (Master Course
  * Ch.14 PDF 385, 1955), so the divisions are read over two years: the
  * disclosed fractions of the first year, and the same fractions 52 weeks on.
  * The 52- and 104-week anniversaries are `timeCycles.ts`'s 1- and 2-year
@@ -73,10 +73,10 @@ function weeks(fraction: number): number {
  * and resistance level"), 5/8 = 32.5wk, 3/4 = 39wk ("very important").
  *
  * **Flags corrected 2026-10-16 (M-T6, C-TIME-46).** 3/8 (19½wk), 2/3 (35wk)
- * and 7/8 (45½wk) are in Gann's own week list: ref: R-001 Ch.14 PDF 385
+ * and 7/8 (45½wk) are in Gann's own week list: Master Course Ch.14 PDF 385
  * (1955: "6½, 13, 17, 19½, 26, 32½, 35, 39, 45½ weeks") and Ch.18 TP-2 PDF
  * 440 (the same ten divisions of the 52-week year). 1/16 (22½ days) is in
- * ref: R-007 p.58 ("How to Divide the
+ * *How to Make Profits Trading in Commodities* p.58 ("How to Divide the
  * Yearly Time Period"). All four are now `disclosed: true`. 3/16, 15/16 and
  * the whole year stay interpolated on the same grid (the whole year is the
  * anniversary, carried by `timeCycles.ts`).

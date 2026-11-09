@@ -9,7 +9,7 @@
  * the replay read the same thing, and recorded on every replayed trade
  * (`contextFactors.ts`).
  *
- * Sources (long-book notes, W023 = ref: R-001):
+ * Sources (long-book notes, W023 = Master Stock Market Course):
  * - M-P9 / C-TIME-04 / C-TIME-22, class A. Ch.4 PDF 148-150: squaring price
  *   with time is "one of the most important and valuable discoveries"; three
  *   ways, the range, the low and the high; the DJIA high of 386 projected

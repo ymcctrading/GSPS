@@ -289,7 +289,7 @@ describe("volume and accumulation", () => {
     expect(volumePillar(facts({ capitalWarning: true }), "bearish", true).passed).toBe(true);
   });
 
-  it("does not count a base price is still inside (ref: R-007 p. 62: buy when it crosses the top)", () => {
+  it("does not count a base price is still inside (Commodities p. 62: buy when it crosses the top)", () => {
     expect(volumePillar(facts({ base: { long: true, breakout: null, left: null } }), "bullish", false).passed).toBe(false);
     expect(volumePillar(facts({ base: { long: true, breakout: null, left: null } }), "bearish", false).passed).toBe(false);
   });

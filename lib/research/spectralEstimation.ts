@@ -6,7 +6,7 @@
  * found by `detectSpectralCycle`, and asks one more of Dewey's questions of it.
  *
  * Sources, in our own words:
- * - ref: R-021 (1967; W039): rounding a period drifts the
+ * - Dewey, *The Case for Cycles* (1967; W039): rounding a period drifts the
  *   phase (Benner's 9.2-year pig-iron rule, run on whole years, slipped a
  *   year every five waves); constancy of period over separate sections (five
  *   sections of 48 waves for the Lake Saki varves); wave shape, which need not

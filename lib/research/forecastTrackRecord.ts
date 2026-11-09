@@ -19,7 +19,7 @@
  *    - p is the chance of at least the observed hits if each call hit at its
  *      own base rate (Poisson-binomial upper tail).
  *
- * 2. The macro cycle (`lib/gann/macroCycle.ts`, ref: R-001 A2.1 Ch. 7
+ * 2. The macro cycle (`lib/gann/macroCycle.ts`, Master Course A2.1 Ch. 7
  *    anchors) against the monthly market record since 1871
  *    (`marketHistory.json`, Shiller's S&P composite, a stand-in for the Dow).
  *    - A month is a major high (low) when it is the highest (lowest) of the 25

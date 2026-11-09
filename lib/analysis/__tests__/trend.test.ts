@@ -4,8 +4,8 @@
  * 2026-10-15).
  *
  * The rule it carries is Gann's: higher tops with higher bottoms mean an
- * uptrend, lower tops with lower bottoms a downtrend (ref: R-004,
- * W006 pp.19-20). Anything not confirmed reads "sideways". Old
+ * uptrend, lower tops with lower bottoms a downtrend (*New Stock Trend
+ * Detector*, W006 pp.19-20). Anything not confirmed reads "sideways". Old
  * bottoms below the price are support and old tops above it resistance
  * (W006 pp.13, 24, 40-41).
  */

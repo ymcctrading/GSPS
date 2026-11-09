@@ -1,7 +1,7 @@
 /**
  * Gann's double and triple tops and bottoms (parity roadmap, "Double and
- * triple tops within a price-scaled band; the 3rd test decides"; ref: R-004
- * and ref: R-007 p. 53, Tier A).
+ * triple tops within a price-scaled band; the 3rd test decides"; *New Stock
+ * Trend Detector* and *How to Make Profits in Commodities* p. 53, Tier A).
  *
  * A top tested twice or three times at about the same level is resistance;
  * the third test decides. If the market fails there it is a place to sell (a
@@ -163,7 +163,7 @@ export function failedTestAgainst(
  * A crossing entry is held the same way: Gann passes a failed top only on a
  * daily close beyond it by the 3 points ("safest at 3", W006 Rule 3 p.46; "still
  * safer to wait for a close beyond it ... intraday pokes often reverse by the
- * close", ref: R-001 rules 4-5), and that close lifts the failure in
+ * close", Master Course rules 4-5), and that close lifts the failure in
  * `readMultipleTops`. A 15-minute crossing does not (owner, 2026-10-16: "If
  * Gann says it's a rule, then it's a rule").
  */

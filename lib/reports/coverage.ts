@@ -20,7 +20,7 @@
  * selection, score, plan or order.
  *
  * Mandate: 1. Gann judged his method by the full record, losses included
- * (ref: R-006 pp.198-199), so a stage a stock never reached is
+ * (*Tunnel Thru the Air* pp.198-199), so a stage a stock never reached is
  * stated, not hidden. 2. One session, no periodicity claim; Dewey N/A.
  * 3. Cause and Effect: each stage is the cause of the next; a mover is
  * attributed to the last stage it reached. Law of Creation: the pipeline's

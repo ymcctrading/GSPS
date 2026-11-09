@@ -1,5 +1,5 @@
 /**
- * CYC-52 (ref: R-032 W040 p. 4, applied to `decadeCycle.ts`): the decade digit's
+ * CYC-52 (Dewey, W040 p. 4, applied to `decadeCycle.ts`): the decade digit's
  * bull and bear years are a recurrent-event calendar claim, so each digit's
  * hit rate is reported against a base rate from shuffled digits.
  */

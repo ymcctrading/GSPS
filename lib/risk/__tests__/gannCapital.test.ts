@@ -40,9 +40,9 @@ describe("capitalRuleRefusal", () => {
     expect(capitalRuleRefusal({ ...base, capital: 6000, open: [{ symbol: "MSFT", qty: 100, price: 42.5 }] })).toBeNull();
     expect(capitalRuleRefusal({ ...base, capital: 6000, qty: 101, open: [{ symbol: "MSFT", qty: 100, price: 42.5 }] })?.code).toBe("capital_per_share");
   });
-  // Never-failing rule 8 (WSSS Ch. II rule 8; ref: R-005 pp.15-16): spread the
+  // Never-failing rule 8 (WSSS Ch. II rule 8; 45 Years pp.15-16): spread the
   // risk over 4 or 5 stocks. Owner, 2026-10-16: 5 for stocks. Commodities and
-  // crypto keep ref: R-006 pp.203-204's two or three markets.
+  // crypto keep Tunnel pp.203-204's two or three markets.
   it("refuses a sixth stock while five are open, and allows adding to one held", () => {
     const five = ["MSFT", "NVDA", "XOM", "JPM", "KO"].map((symbol) => ({ symbol, qty: 1, price: 42.5 }));
     expect(MAX_OPEN_STOCKS).toBe(5);
@@ -67,7 +67,7 @@ describe("capitalRuleRefusal", () => {
     const fiveStocks = [...threeStocks, ...["JPM", "KO"].map((symbol) => ({ symbol, qty: 1, price: 42.5 }))];
     expect(capitalRuleRefusal({ ...base, capital: 1e6, symbol: "DOGE/USD", open: fiveStocks })).toBeNull();
   });
-  // Commodity and currency funds stand in for Gann's commodities (ref: R-006
+  // Commodity and currency funds stand in for Gann's commodities (Tunnel
   // pp.203-204), so they share crypto's three, not the five stocks (#454).
   it("counts commodity and currency funds with crypto among the three other markets", () => {
     expect(maxOpenMarketsFor("GLD")).toBe(3);
@@ -83,7 +83,7 @@ describe("capitalRuleRefusal", () => {
   });
 });
 
-// Never-failing rule 1 (W006 p.46; ref: R-007 pp.29-30 and rule 1, pp.43-45):
+// Never-failing rule 1 (W006 p.46; Commodities pp.29-30 and rule 1, pp.43-45):
 // divide the capital into ten parts and never risk more than one on a trade.
 describe("the one-tenth risk ceiling", () => {
   it("is a tenth of the capital", () => {

@@ -9,22 +9,22 @@
  *   prices. Every open share counts against the same capital, not only the
  *   new order's.
  * - A-RISK-08 (W022 pp.203-204, class A): specialise in two or three markets
- *   and do not diversify, and never-failing rule 8 (WSSS Ch. II rule 8; ref: R-005
- *   pp.15-16): "spread risk over 4 or 5 stocks". The stock books give
+ *   and do not diversify, and never-failing rule 8 (WSSS Ch. II rule 8; 45
+ *   Years pp.15-16): "spread risk over 4 or 5 stocks". The stock books give
  *   stocks their own count, so stocks are held to `MAX_OPEN_STOCKS` (owner,
  *   2026-10-16: "5 for stocks") and crypto, which no stock book covers, to
- *   the two or three markets of ref: R-006 and ref: R-007
+ *   the two or three markets of *Tunnel* and *Commodities*
  *   (`MAX_OPEN_OTHER_MARKETS`). The commodity and currency funds count there
  *   too, as the commodities they hold (`lib/market/otherMarkets.ts`). Each
  *   class is counted on its own; an order in a symbol already held is not a
  *   new market.
  * - Never-failing rule 1 (W006 p.46, Rule 1: "never risk more than 10% of
- *   capital on one trade"; ref: R-007 p.29 "Capital Required" and p.30
+ *   capital on one trade"; *Commodities* p.29 "Capital Required" and p.30
  *   "never risk more than one-tenth of your capital on any one trade", and
- *   rule 1 of the 28, pp.43-45; WSSS Ch. II rule 1; ref: R-005 pp.15-16): a
+ *   rule 1 of the 28, pp.43-45; WSSS Ch. II rule 1; 45 Years pp.15-16): a
  *   trade risks at most `MAX_RISK_FRACTION` of the capital, qty times the
  *   entry-to-stop distance. Gann stacks it on the 30 points of capital in the
- *   same rule (ref: R-004 p.46) and on facing pages (ref: R-007 pp.29-30). The two
+ *   same rule (NSTD p.46) and on facing pages (Commodities pp.29-30). The two
  *   meet at his 3-point stop (30 points × 1/10 = 3 points a share), so the
  *   tenth binds only on a wider stop, up to his 5-point cap. "Capital" is
  *   the trading unit (`gannRiskCapital`, A-RISK-04), the capital the per-trade
@@ -117,8 +117,8 @@ export function capitalRuleRefusal(input: CapitalRuleInput): CapitalRuleRefusal 
 }
 
 /**
- * A tenth of the profits after large profits (A-RISK-07, ref: R-006,
- * W022 pp.198-199, Tier A): "never risk more than 10% of the profits on
+ * A tenth of the profits after large profits (A-RISK-07, *Tunnel Thru the
+ * Air*, W022 pp.198-199, Tier A): "never risk more than 10% of the profits on
  * the first new deal", and after a loss cut the size so the next loss is only
  * 10% of the profits that remain, so the market would have to beat him ten
  * times in a row to take them all. Read on the account's realised position:

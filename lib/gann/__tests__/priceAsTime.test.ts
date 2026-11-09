@@ -16,7 +16,7 @@ import {
 const addDays = (iso: string, d: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + d * 86_400_000).toISOString().slice(0, 10);
 const daysApart = (a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) / 86_400_000;
 
-describe("M-P9 / C-TIME-04 / C-TIME-22: a pivot's price read as time (ref: R-001 Ch.4 PDF 145, 148-150)", () => {
+describe("M-P9 / C-TIME-04 / C-TIME-22: a pivot's price read as time (Master Course Ch.4 PDF 145, 148-150)", () => {
   it("projects the 386 high as 386 calendar days, repeated, onto the printed dates", () => {
     // Ch.4 PDF 148-150: DJIA high 386 (Sept 3 1929) -> Sept 23 1930, Oct 14 1931,
     // Nov 4 1932, Nov 25 1933, Dec 16 1934, Jan 6 1936.
@@ -52,7 +52,7 @@ describe("M-P9 / C-TIME-04 / C-TIME-22: a pivot's price read as time (ref: R-001
   });
 });
 
-describe("Ch.18 TP-2: n points equal n weeks (ref: R-001 PDF 440)", () => {
+describe("Ch.18 TP-2: n points equal n weeks (Master Course PDF 440)", () => {
   it("balances a 52-point advance from the low against 52 weeks", () => {
     // TP-2: low 50, price 102, up 52 = one year in time.
     const b = timePriceBalance({ date: "2025-01-01", price: 50 }, { date: "2024-06-01", price: 60 }, addDays("2025-01-01", 364), 102, 1);
@@ -68,7 +68,7 @@ describe("Ch.18 TP-2: n points equal n weeks (ref: R-001 PDF 440)", () => {
   });
 });
 
-describe("A-PRICE-03: price ahead of or behind time, and the one-point-a-month limit (ref: R-001 Ch.4 PDF 151, Ch.6 PDF 202, Ch.18 TP-2 PDF 440)", () => {
+describe("A-PRICE-03: price ahead of or behind time, and the one-point-a-month limit (Master Course Ch.4 PDF 151, Ch.6 PDF 202, Ch.18 TP-2 PDF 440)", () => {
   it("reads price ahead of time when it has moved more points than weeks have run", () => {
     // 60 points up from the low in 52 weeks: ahead of the 52 scale.
     const b = timePriceBalance({ date: "2025-01-01", price: 50 }, { date: "2024-06-01", price: 200 }, addDays("2025-01-01", 364), 110, 1);
@@ -95,7 +95,7 @@ describe("A-PRICE-03: price ahead of or behind time, and the one-point-a-month l
   });
 });
 
-describe("C-TIME-20: fractions of the year from the low meeting fractions from the high (ref: R-001 Ch.18 TP-2 PDF 440)", () => {
+describe("C-TIME-20: fractions of the year from the low meeting fractions from the high (Master Course Ch.18 TP-2 PDF 440)", () => {
   it("flags the date where 1/4 year from the low meets 1/3 year from the high", () => {
     // High first, low 30 days later: 91 days from the low = 121 days from the high.
     const high = { date: "2025-01-01", price: 100 };
@@ -125,7 +125,7 @@ describe("C-TIME-20: fractions of the year from the low meeting fractions from t
   });
 });
 
-describe("C-TIME-14: the square of 90 in months and weeks (ref: R-001 Ch.4 PDF 125, 144; Ch.6 PDF 191-197)", () => {
+describe("C-TIME-14: the square of 90 in months and weeks (Master Course Ch.4 PDF 125, 144; Ch.6 PDF 191-197)", () => {
   it("reads 90 months from the first trade as the full square", () => {
     // U.S. Steel, first trade Mar 28 1901; the square of 90 runs from Mar 1901.
     const hits = squareOf90Counts({ date: "1901-03-28", precision: "day" }, "inception", new Date("1908-09-28T12:00:00Z"));
@@ -147,7 +147,7 @@ describe("C-TIME-14: the square of 90 in months and weeks (ref: R-001 Ch.4 PDF 1
   });
 });
 
-describe("C-TIME-07: market-day counts at multiples of 11 1/4 (ref: R-001 Ch.16 PDF 428-430; Ch.4 PDF 123)", () => {
+describe("C-TIME-07: market-day counts at multiples of 11 1/4 (Master Course Ch.16 PDF 428-430; Ch.4 PDF 123)", () => {
   const bars = (n: number, lowAt: number, highAt: number) =>
     Array.from({ length: n }, (_, i) => ({ t: addDays("2025-01-01", i), h: i === highAt ? 200 : 110, l: i === lowAt ? 50 : 100 }));
 
@@ -162,7 +162,7 @@ describe("C-TIME-07: market-day counts at multiples of 11 1/4 (ref: R-001 Ch.16 
   });
 });
 
-describe("M-T18: months from the first trade on the hexagon's rings (ref: R-001 Ch.15B PDF 422-423; Ch.6 PDF 197)", () => {
+describe("M-T18: months from the first trade on the hexagon's rings (Master Course Ch.15B PDF 422-423; Ch.6 PDF 197)", () => {
   it("puts U.S. Steel's 127th month from Mar 1901 on a ring completion", () => {
     // Ch.6 PDF 197: Oct 1911, the 128th month from Mar 1901, "out of the hexagon".
     const r = hexagonMonthsFromInception({ date: "1901-03-28", precision: "day" }, new Date("1911-10-28T12:00:00Z"));

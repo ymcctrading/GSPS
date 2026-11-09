@@ -12,7 +12,7 @@ function bar(h: number, l: number, o = (h + l) / 2, c = (h + l) / 2): Bar {
 }
 const fresh = () => { day = 0; };
 
-describe("walkOvernightChart (ref: R-001 Ch. 3 p. 68)", () => {
+describe("walkOvernightChart (Master Course Ch. 3 p. 68)", () => {
   it("moves up on higher bottoms and records the top when a low breaks by ¼ point", () => {
     fresh();
     const bars = [bar(51, 49), bar(52, 50), bar(53, 51), bar(54, 52), bar(53.5, 51.5)];

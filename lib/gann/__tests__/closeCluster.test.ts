@@ -8,7 +8,7 @@ function bar(i: number, c: number, spread = 0.5): Bar {
   return { t: new Date(start + i * DAY).toISOString(), o: c, h: c + spread, l: c - spread, c, v: 1000 };
 }
 
-describe("readCloseCluster (ref: R-001 Ch. 3, Rule 8)", () => {
+describe("readCloseCluster (Master Course Ch. 3, Rule 8)", () => {
   it("finds three closes around one price and the break that followed", () => {
     const closes = [40, 41, 42, 45, 45.1, 44.9, 46.2];
     const r = readCloseCluster(closes.map((c, i) => bar(i, c)), "daily")!;

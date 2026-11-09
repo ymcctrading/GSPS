@@ -10,40 +10,40 @@
  * Rules and sources (all Tier A):
  * - **Sections of a campaign.** Bull and bear markets run in 3-4 sections,
  *   and a signal in the 3rd or 4th counts for more than one in the 2nd
- *   (ref: R-005, Rule 5; ref: R-007 p. 51).
+ *   (*45 Years in Wall Street*, Rule 5; *Commodities* p. 51).
  * - **Over-balance of space** (the Space Rule's third stage). When a reaction
  *   exceeds the greatest reaction of the campaign, the trend has changed or
- *   will soon (ref: R-001 Ch. 7, 10A, 11A; ref: R-007 p. 51).
+ *   will soon (Master Course Ch. 7, 10A, 11A; *Commodities* p. 51).
  * - **Over-balance of time.** When a reaction lasts longer than the longest
  *   reaction of the campaign, the trend is changing; time outranks price
- *   (ref: R-007 p. 51, 1951 New Rules p. 312; A09 Rule 8).
+ *   (*Commodities* p. 51, 1951 New Rules p. 312; A09 Rule 8).
  * - **Monthly-low break.** The first break of a prior month's low since the
- *   top signals the turn, mirrored for highs (ref: R-004;
- *   ref: R-003 Ch. IV and VII). Read on the month so far,
+ *   top signals the turn, mirrored for highs (*New Stock Trend Detector*;
+ *   *Wall Street Stock Selector* Ch. IV and VII). Read on the month so far,
  *   with whether it is the campaign's first.
  * - **Time balancing.** Project a swing's duration forward from the last
  *   pivot: when the current move has lasted as long as the prior one, time
- *   has balanced (ref: R-007 pp. 97-99, 205, 293).
+ *   has balanced (*Commodities* pp. 97-99, 205, 293).
  * - **First-year high.** A stock must cross the high of the first year of
- *   the campaign before it can lead a later section (ref: R-003
- *   Ch. VII).
+ *   the campaign before it can lead a later section (*Wall Street Stock
+ *   Selector* Ch. VII).
  * - **Campaign age** (C-TIME-27). Campaigns last no more than 3 to 3½ years,
  *   with culminations in the 23rd-24th, 34th-35th, 41st-42nd, 49th-60th,
- *   67th-72nd and 84th-90th months (ref: R-001 Ch. 2, PDF 51, the 1931
+ *   67th-72nd and 84th-90th months (Master Course Ch. 2, PDF 51, the 1931
  *   Time Rules); the 1935 lesson refines it to the 23rd, 24th, 27th or 30th
  *   month, with extremes in the 34th-35th or 41st-42nd (Ch. 7, PDF 220).
  *   Months are counted with the start month as the first, as Gann counts
  *   them (Ch. 6, PDF 197: March 1901 to October 1911 is "the 128th month").
  * - **Prior-range projection** (C-PRICE-01). A prior range added to a later
- *   low marks a top: "136⅞ = 80 + (94⅞ − 38) exactly" (ref: R-001 Ch. 6,
+ *   low marks a top: "136⅞ = 80 + (94⅞ − 38) exactly" (Master Course Ch. 6,
  *   PDF 197). Gann gives it by example only. A resistance candidate, never a
  *   target (he never fixes one, M-E8).
  * - **Over-balance by a point** (C-TREND-06). The space rule's decline
- *   exceeds the greatest previous reaction "by 1+ point" (ref: R-001
+ *   exceeds the greatest previous reaction "by 1+ point" (Master Course
  *   Ch. 8, PDF 249). `spaceOverbalanced` keeps its earlier no-margin reading
  *   because the exit rules and the trend read use it; the margin is a
  *   separate, context-only flag until a replay measures the switch.
- *   ref: R-007 p. 312 says a swing that exceeds the greatest "in price or
+ *   *Commodities* p. 312 says a swing that exceeds the greatest "in price or
  *   time" changes the trend (C-TREND-03): the two flags are read with "or"
  *   everywhere they are used.
  *
@@ -53,10 +53,10 @@
  *   tolerance below was fixed before any measurement. Context only.
  * - **Points, and a standing over-balance** (2026-10-21). Over-balance of
  *   space compares swings in points (price), as Gann states it ("a decline
- *   in points", ref: R-001 Ch. 8, PDF 249; ref: R-005 Rule 8; Ch. 11A's
+ *   in points", Master Course Ch. 8, PDF 249; *45 Years* Rule 8; Ch. 11A's
  *   reviews), and an over-balance stands until price goes back past the top
- *   the reaction fell from (the secondary rally after it is the sale, ref: R-001
- *   PDF 244-245, 249). See the comment at the reading.
+ *   the reaction fell from (the secondary rally after it is the sale, Master
+ *   Course PDF 244-245, 249). See the comment at the reading.
  *
  * Engineering choices, labelled as such:
  * - "Nearly equal" is the largest of the last three completed corrections at
@@ -125,14 +125,14 @@ export interface CounterMoveSize {
   extremeDays?: number;
 }
 
-/** The campaign's month, counted with its start month as the first (ref: R-001 Ch. 6, PDF 197). */
+/** The campaign's month, counted with its start month as the first (Master Course Ch. 6, PDF 197). */
 export function campaignMonthOrdinal(startIso: string, asOfIso: string): number {
   const y = Number(asOfIso.slice(0, 4)) - Number(startIso.slice(0, 4));
   const m = Number(asOfIso.slice(5, 7)) - Number(startIso.slice(5, 7));
   return y * 12 + m + 1;
 }
 
-/** ref: R-001 Ch. 2, PDF 51 (1931 Time Rules): culminations by month of the campaign. */
+/** Master Course Ch. 2, PDF 51 (1931 Time Rules): culminations by month of the campaign. */
 export const CULMINATION_MONTHS_1931: readonly (readonly [number, number])[] = [
   [23, 24],
   [34, 35],
@@ -141,9 +141,9 @@ export const CULMINATION_MONTHS_1931: readonly (readonly [number, number])[] = [
   [67, 72],
   [84, 90],
 ];
-/** ref: R-001 Ch. 7, PDF 220 (1935): culminations in the 23rd, 24th, 27th or 30th month; extremes in the 34th-35th or 41st-42nd. */
+/** Master Course Ch. 7, PDF 220 (1935): culminations in the 23rd, 24th, 27th or 30th month; extremes in the 34th-35th or 41st-42nd. */
 export const CULMINATION_MONTHS_1935: readonly number[] = [23, 24, 27, 30, 34, 35, 41, 42];
-/** "Campaigns last ≤3–3½ years" (ref: R-001 Ch. 2, PDF 51), in months. */
+/** "Campaigns last ≤3–3½ years" (Master Course Ch. 2, PDF 51), in months. */
 export const CAMPAIGN_CEILING_MONTHS: readonly [number, number] = [36, 42];
 
 export interface CampaignAge {
@@ -186,7 +186,7 @@ export interface CampaignLedger {
    * The section a trade with the campaign enters now: one more than the record
    * weekly tops (bottoms in a bear campaign) the campaign has completed. Gann's
    * sections are the major advances, each above the prior weeks' highs and
-   * ending in a reaction or halt of weeks (ref: R-001 pp. 244-245; GA-20/21,
+   * ending in a reaction or halt of weeks (Master Course pp. 244-245; GA-20/21,
    * Chrysler 1935's four), so they are counted on the weekly chart's record
    * turns, as `sectionTopDate` reads them, not on the 3-Day Chart's legs that
    * `sections` counts. Read by `applyCampaignSectionHold` (lib/scoring/score.ts).
@@ -200,7 +200,7 @@ export interface CampaignLedger {
   currentCounterMove: CounterMoveSize | null;
   spaceOverbalanced: boolean;
   timeOverbalanced: boolean;
-  /** The counter-move exceeds the greatest by 1 point or more (C-TREND-06, ref: R-001 Ch. 8 PDF 249). Context only. */
+  /** The counter-move exceeds the greatest by 1 point or more (C-TREND-06, Master Course Ch. 8 PDF 249). Context only. */
   spaceOverbalancedByPoint: boolean;
   /**
    * The over-balancing reaction, or null when nothing is over-balanced:
@@ -300,7 +300,7 @@ function monthRanges(bars: Bar[], from = 0): { month: string; low: number; high:
 }
 
 /**
- * The counter-move clock's months, in calendar days (ref: R-003 Ch. IV;
+ * The counter-move clock's months, in calendar days (Stock Selector Ch. IV;
  * `counterMovePhase` in disclosedRules.ts reads the same constant): a
  * counter-move's second month ends on day 60, and its third begins after it.
  */
@@ -313,14 +313,14 @@ export const EQUAL_CORRECTION_RATIO = 1.25;
  * The least time, in calendar days, a record weekly top must hold before the
  * market exceeds it for it to end a section (`tradeSection`). Gann's sections
  * halt or react "several weeks" (GA-20/21) and a normal bull reaction runs 2
- * to 3 weeks (ref: R-003); two weeks is the engineering reading of
+ * to 3 weeks (Stock Selector); two weeks is the engineering reading of
  * "several", labelled as such.
  */
 export const SECTION_HALT_DAYS = 14;
 
 /**
  * The section from which Gann watches for the end: "The third or fourth
- * movement up or down marks the culmination" (ref: R-001 pp. 244-245). The
+ * movement up or down marks the culmination" (Master Course pp. 244-245). The
  * exit rules' final stage (`FINAL_STAGE_SECTION`) and the entry's section hold
  * (`applyCampaignSectionHold`) read this one figure.
  */
@@ -416,9 +416,9 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   // Over-balance of space is read in points, not percent (2026-10-21, owner:
   // "Determine how WD Gann would answer"). Gann's space rule is "a decline in
   // points" that exceeds "the greatest decline of a previous reaction" by one
-  // or more points (ref: R-001 Ch. 8, PDF 249); every campaign in Ch. 11A
-  // closes with its greatest counter-move in points; the ref: R-003's
-  // yardstick is Vanadium's 17-point reaction; ref: R-005 Rule 8 compares a
+  // or more points (Master Course Ch. 8, PDF 249); every campaign in Ch. 11A
+  // closes with its greatest counter-move in points; the Stock Selector's
+  // yardstick is Vanadium's 17-point reaction; *45 Years* Rule 8 compares a
   // decline's points with the prior decline's. A point is one price unit
   // wherever the swing sits, so the comparison is of the swings' price sizes;
   // Gann's price scaling of the point (`pointScale.ts`) sets his allowances,
@@ -426,14 +426,14 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   // made equal-point rallies over-balance in a falling market (29 points
   // from 90 is 32%, 30 from 110 is 27%) and Gann reads that very shape, the
   // November 1931 rally failing at 119 under the 120 top, as the bear still
-  // on (ref: R-004, PDF p.24). On his own figures (PDF
+  // on (*New Stock Trend Detector*, PDF p.24). On his own figures (PDF
   // pp.13-14) that rally was 33½ points from 85½, 39%, against the June
   // rally's 37½ points from 120, 31%: in percent it over-balanced.
   //
   // And the over-balance stands until the trend resumes past the top the
   // reaction fell from (bottom in a bear campaign). Gann: the main trend "has
   // changed or will soon", a secondary rally "usually" follows and is the
-  // place to sell (ref: R-001 Ch. 8, PDF 249; Sell 3, PDF 244-245: the
+  // place to sell (Master Course Ch. 8, PDF 249; Sell 3, PDF 244-245: the
   // secondary rally after the first decline exceeds the greatest reaction);
   // the time rule likewise, with shorts on the secondary rally. Until this
   // date only the reaction in progress was read: once it ended and the 3-Day
@@ -492,7 +492,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   const openTime =
     currentCounterMove !== null && greatestCounterMove !== null && (currentCounterMove.extremeDays ?? currentCounterMove.days) > greatestCounterMove.days;
   const timeOverbalanced = openTime || standingTime;
-  // C-TREND-06: "by 1+ point" (ref: R-001 Ch. 8, PDF 249), one point at the counter-move's start price.
+  // C-TREND-06: "by 1+ point" (Master Course Ch. 8, PDF 249), one point at the counter-move's start price.
   const spaceOverbalancedByPoint =
     (currentCounterMove !== null && greatestCounterMove !== null && currentCounterMove.points >= greatestCounterMove.points + pricePoint(lastPoint.price)) ||
     standingByPoint;
@@ -510,7 +510,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
         };
 
   // C-PRICE-01: the last completed leg with the trend, added to the extreme
-  // that ended the counter-move after it (ref: R-001 Ch. 6, PDF 197).
+  // that ended the counter-move after it (Master Course Ch. 6, PDF 197).
   let rangeProjection: RangeProjection | null = null;
   for (let k = points.length - 1; k >= 2; k--) {
     const [a, b, c] = [points[k - 2], points[k - 1], points[k]];
@@ -579,7 +579,7 @@ export function buildCampaignLedger(bars: Bar[]): CampaignLedger | null {
   // Sections for the trade (`tradeSection`): a record weekly top ends a
   // section only when the market then spent at least `SECTION_HALT_DAYS`
   // failing to exceed it, Gann's reaction or halt "of several weeks" between
-  // sections (GA-20/21; ref: R-001 pp. 244-245). A record top crossed again
+  // sections (GA-20/21; Master Course pp. 244-245). A record top crossed again
   // within days was a pause inside one section. A top not exceeded yet has
   // ended its section (the weekly chart turned from it), however young the
   // reaction: a buy in it rides the next section.

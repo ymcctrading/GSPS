@@ -1,5 +1,5 @@
 /**
- * CYC-47 (ref: R-033 W043 pp. 1-2) and CYC-30 (ref: R-041 W041 pp. 29-30): a time
+ * CYC-47 (Tomes, W043 pp. 1-2) and CYC-30 (Halberg, W041 pp. 29-30): a time
  * line shown to a trader carries its method's measured record against a base
  * rate, or is not shown. AGENTS.md "Forward-looking claims": an undocumented
  * projection stays out.

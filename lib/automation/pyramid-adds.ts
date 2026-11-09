@@ -5,8 +5,8 @@
  * on each crossing of a swing top made since the last lot (a bottom, for a
  * short), 100, 50, 30, 20 and 10 shares, once the last lot shows 5 points of
  * profit and the first has held three days with the trend, with the whole
- * line's stop raised so it can't lose (lib/gann/pyramid.ts: ref: R-002
- * Ch. IX; W006 p.47 Rule 5; ref: R-006 p.198; rule 21;
+ * line's stop raised so it can't lose (lib/gann/pyramid.ts: *Truth of the
+ * Stock Tape* Ch. IX; W006 p.47 Rule 5; *Tunnel Thru the Air* p.198; rule 21;
  * A-TIME-12). The Portfolio has offered that add as a suggestion and the
  * replay has walked it (`pyramid: true`); this places it for the trades the
  * portfolio manager opened, as Gann would have placed it himself.

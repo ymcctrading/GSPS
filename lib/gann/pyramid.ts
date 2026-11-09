@@ -6,33 +6,33 @@
  * Gann says (Tier A; `docs/memory-bank/sources/`):
  * - **Only add to a winner; never average a loss** ("the greatest mistake any
  *   trader can make"). Add a lot only once the last one shows the full
- *   interval of profit (ref: R-004 Rule 5).
+ *   interval of profit (*New Stock Trend Detector* Rule 5).
  * - **Add where the trend proves itself:** on each crossing of an old top (a
- *   bottom, for shorts) (ref: R-007; ref: R-005:
- *   "pyramid only after resistance is crossed").
+ *   bottom, for shorts) (*How to Make Profits in Commodities*; *45 Years in
+ *   Wall Street*: "pyramid only after resistance is crossed").
  * - **Each lot smaller than the last, then on at the smallest:** "the first risk
- *   should be the greatest", 100, 50, 30, 20 and 10 shares (ref: R-002,
- *   1923, Ch. IX), the ref: R-001's "safest pyramiding rule"
+ *   should be the greatest", 100, 50, 30, 20 and 10 shares (*Truth of the
+ *   Stock Tape*, 1923, Ch. IX), the Master Course's "safest pyramiding rule"
  *   100/50/30/20 (How to Trade, Nov. 1935, PDF 234-238), and "buy the largest
- *   amount first and then gradually decrease" (ref: R-006, W022
+ *   amount first and then gradually decrease" (*Tunnel Thru the Air*, W022
  *   p.198). `PYRAMID_LOTS` holds the sequence as fractions of the first lot.
- *   None of them says to stop at the fifth, and ref: R-004
+ *   None of them says to stop at the fifth, and *New Stock Trend Detector*
  *   Rule 5 (W006 p.47) goes on adding "after the fourth or fifth lot" at a
  *   cut unit, so lots after the fifth stay at the fifth's size, a tenth of
  *   the first; the adds end as the trend and the steps stop giving them.
  *   Owner, 2026-10-22: "Just follow Gann's method." Until then each add was
  *   half the last (Q9, 2026-10-16), which no book states past the second.
- * - **Move the stop so the combined position can't lose** (ref: R-004
- *   Rule 5), with a full stop-out losing no more than 10% of capital
- *   (ref: R-001).
+ * - **Move the stop so the combined position can't lose** (*New Stock Trend
+ *   Detector* Rule 5), with a full stop-out losing no more than 10% of capital
+ *   (Master Course).
  * - **Add only once the trade has shown it is with the trend:** a profit at
  *   the first close that is still there after three days (A-TIME-12, W006
  *   p.23; `readHoldTime`). Before that, the first lot has not shown which
  *   side of the trend it is on.
  * - **Pyramid longs in stocks with small capital and shorts in stocks with
- *   large capital** (never-failing rule 21, ref: R-003,
- *   1930, Ch. II pp. 18-28; W005 reading notes). The reason is in ref: R-002
- *   (1923) Ch. III pp. 5-7: the same buying moves a stock with
+ *   large capital** (never-failing rule 21, *Wall Street Stock Selector*,
+ *   1930, Ch. II pp. 18-28; W005 reading notes). The reason is in *Truth of
+ *   the Stock Tape* (1923) Ch. III pp. 5-7: the same buying moves a stock with
  *   a small supply of shares 5-10 points (Baldwin, 200,000 shares) and hardly
  *   moves one with a large supply (General Motors, 50 million). So a long adds
  *   where demand can lift price fastest, and a short adds where the weight of
@@ -135,8 +135,8 @@ export interface PyramidReading {
 export const LARGE_CAPITAL_MIN_SHARES = 500_000_000;
 
 /**
- * Each lot as a fraction of the first: 100, 50, 30, 20, 10 shares (ref: R-002
- * Ch. IX; the ref: R-001's 100/50/30/20). Lots after the
+ * Each lot as a fraction of the first: 100, 50, 30, 20, 10 shares (*Truth of
+ * the Stock Tape* Ch. IX; the Master Course's 100/50/30/20). Lots after the
  * fifth stay at its size (W006 p.47 keeps adding at the cut unit).
  */
 export const PYRAMID_LOTS = [1, 0.5, 0.3, 0.2, 0.1] as const;
@@ -312,7 +312,7 @@ export function readPyramidAdd(input: PyramidInput): PyramidReading {
 }
 
 /**
- * Never-failing rule 13, "never average a loss" (ref: R-005 rule 13; W006
+ * Never-failing rule 13, "never average a loss" (*45 Years* rule 13; W006
  * Rule 5, add only "when the market moves in your favour"), at placement: a
  * new entry on the same side as an open position in the symbol is refused
  * unless that position shows a profit at the price the add would fill at. A

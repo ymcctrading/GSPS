@@ -486,7 +486,7 @@ export function coarseContinuation(
 
   // Gann's strongest points (gann-alignment-audit SUS-02, 2026-10-28). Both
   // read the major range, not a minor swing: "the most important point is the
-  // 50% of the extreme range" (ref: R-007 p.35; ref: R-001 Ch. 9, PDF
+  // 50% of the extreme range" (*Commodities* p.35; Master Course Ch. 9, PDF
   // 264, the life range first, then the highest price). Until 2026-10-28 these
   // were the 50% points of the last 20 and 50 bars and a travel of 1.2 ATR,
   // figures no book gives. The record is what the scan holds: the monthly bars
@@ -500,14 +500,14 @@ export function coarseContinuation(
   }
   if (high > low && low > 0) {
     // Holding a point or more beyond the half-way point of the extreme range
-    // is strength ("Strongest Points", ref: R-007 p.36; ref: R-001 PDF
+    // is strength ("Strongest Points", *Commodities* p.36; Master Course PDF
     // 266-267); the mirror, a point or more under it, is weakness.
     const half = (high + low) / 2;
     const point = pricePoint(half);
     if (long ? price > half + point : price < half - point) score += 1;
     // Half of the highest price is the next support once the half-way point is
-    // broken (ref: R-007 p.37; "Best buying point: 50% of the highest
-    // price", ref: R-001 PDF 11): a long above it, a short under it.
+    // broken (*Commodities* p.37; "Best buying point: 50% of the highest
+    // price", Master Course PDF 11): a long above it, a short under it.
     if (long ? price > high / 2 : price < high / 2) score += 1;
   }
 

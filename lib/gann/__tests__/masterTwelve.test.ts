@@ -70,7 +70,7 @@ describe("masterTwelveLevels", () => {
   });
 });
 
-describe("C-TIME-17: the halving chain as calendar days from a pivot (ref: R-001 Ch.13 PDF 375, 379)", () => {
+describe("C-TIME-17: the halving chain as calendar days from a pivot (Master Course Ch.13 PDF 375, 379)", () => {
   const addDays = (iso: string, d: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + d * 86_400_000).toISOString().slice(0, 10);
 
   it("is on the chain 324 days after the low and projects the next term", () => {
@@ -95,7 +95,7 @@ describe("C-TIME-17: the halving chain as calendar days from a pivot (ref: R-001
   });
 });
 
-describe("C-TIME-17: a halving-chain day is read within one day only (ref: R-001 Ch.13 PDF 375, 379)", () => {
+describe("C-TIME-17: a halving-chain day is read within one day only (Master Course Ch.13 PDF 375, 379)", () => {
   it("hits 324 days from the pivot, and not 2 days off it", async () => {
     const { halvingChainTime } = await import("../masterTwelve");
     const low = { date: "2025-01-01", price: 50 };

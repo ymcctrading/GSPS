@@ -339,7 +339,7 @@ describe("enterAlert's first target", () => {
 describe("plan_level_held, replayed", () => {
   // A session that dips to the daily plan's entry, holds, and turns back up
   // through it: the alert fires, and its stop is 3 Gann points under the day's
-  // low, never past the plan's own stop (ref: R-004 p.20, Rule 3(b) p.46).
+  // low, never past the plan's own stop (NSTD p.20, Rule 3(b) p.46).
   const date = "2025-12-03";
   const prior = weekdays(Date.UTC(2025, 6, 1), 120).filter((d) => d < date);
   const dailyBars: Bar[] = prior.map((d, i) => {

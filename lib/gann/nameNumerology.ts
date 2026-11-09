@@ -1,8 +1,8 @@
 /**
  * Gann's name charts (A-OTHER-08, built 2026-10-21; owner: "Build these: ...
- * name numerology [is] written out in the ref: R-001").
+ * name numerology [is] written out in the Master Course").
  *
- * Source, Tier A, Gann's own text (ref: R-001 Ch. 15A, PDF 401-402;
+ * Source, Tier A, Gann's own text (Master Course Ch. 15A, PDF 401-402;
  * `docs/memory-bank/sources/A2_1_master_stock_market_course.md`, "Name charts"):
  * - "The name, United States Steel, contains 17 letters", so its chart is "a
  *   Square of 289", and the multiples of 17 (34, 51, 68 ... 272) "strike

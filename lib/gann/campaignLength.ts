@@ -1,7 +1,7 @@
 /**
  * Bull-campaign length as a repeat (A-TIME-07), context and research only.
  *
- * Source (class A, ref: R-004, 1936, Ch. III "History
+ * Source (class A, *New Stock Trend Detector*, 1936, Ch. III "History
  * Repeats", p. 12; long-book notes W011, and W006 pp. 9-12): the 1921-29 bull
  * campaign ran 97 months to the September 3, 1929 top, which the book sets
  * against the 99 months (8 years 3 months) of the March 1861 to July 1869

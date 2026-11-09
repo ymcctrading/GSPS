@@ -6,16 +6,16 @@
  *
  * Sources: Dewey's cross-series clustering and wave-shape identity criteria,
  * and his use of a well-established cycle in one series as a prior for a
- * related one (ref: R-021, 1967; ref: R-032 1947), summarised in
+ * related one (*The Case for Cycles*, 1967; Dewey & Dakin 1947), summarised in
  * `docs/memory-bank/sources/C06_dewey_case_for_cycles.md`.
  *
  * Three-question basis:
  * 1. Gann: none directly; these test the cycles `spectralCycle.ts` finds
- *    (Gann's harmonic analysis, ref: R-006 Ch. VII-VIII).
+ *    (Gann's harmonic analysis, Tunnel Ch. VII-VIII).
  * 2. Cycles: Dewey's cross-series clustering (CYC-14), prior from a related
  *    series (CYC-16), wave-shape identity (CYC-17), synchrony within a lag
  *    window (CYC-15; W039 pp.21-22) and the chance baseline for a family of
- *    doubled and tripled periods (CYC-49; W039 p.31, ref: R-033 W042/W044).
+ *    doubled and tripled periods (CYC-49; W039 p.31, Tomes W042/W044).
  * 3. Hermetic: Correspondence ("as above, so below": the same rhythm in
  *    related series is what it predicts), held to a chance rate so it is
  *    tested, not assumed.

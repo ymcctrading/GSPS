@@ -1,6 +1,6 @@
 /**
- * Gann's shares-per-point efficiency at tops (parity roadmap G7, the ref: R-001
- * 's own metric; Tier A).
+ * Gann's shares-per-point efficiency at tops (parity roadmap G7, the Master
+ * Course's own metric; Tier A).
  *
  * Gann measured how many shares traded for each point the market gained, leg
  * by leg. Into the 1937 top the figure nearly doubled against the prior leg:
@@ -14,7 +14,7 @@
  * `TOP_WARNING_RATIO` near the campaign high is the warning.
  *
  * Engineering choices, labelled as such: "nearly double" is 1.70×, the lower
- * of Gann's two worked cases (ref: R-001 Ch.12: 151,197 shares a point
+ * of Gann's two worked cases (Master Course Ch.12: 151,197 shares a point
  * against 88,860 into 1937, 1.70×; W006 pp.43-45: 1933 against 1929, 1.93×).
  * It was 1.8×, which missed his own 1937 case (item 8 map FV11); "near the
  * high" is within 3% of the highest high since the campaign began.

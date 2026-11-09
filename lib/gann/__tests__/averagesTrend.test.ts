@@ -1,5 +1,5 @@
 /**
- * The averages' trend, P1's market leg (2026-10-29; ref: R-005,
+ * The averages' trend, P1's market leg (2026-10-29; 45 Years in Wall Street,
  * 1949, Rule 1). The hold read on it was taken out the same day (`mainTrend.ts`).
  */
 import { describe, expect, it } from "vitest";

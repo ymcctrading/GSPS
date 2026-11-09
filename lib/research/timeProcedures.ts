@@ -82,7 +82,7 @@
  *
  * Three-question basis:
  * 1. Source: the author's "correct base or starting point" and nested cycles
- *    (ref: R-006, ch. VII), anniversaries of tops and bottoms, the
+ *    (Tunnel Thru the Air, ch. VII), anniversaries of tops and bottoms, the
  *    balance of time and price, and a Mars count from a pivot (the 1954
  *    coffee letter); the rules' numbers are the reconstruction's choices.
  * 2. Cycles: Dewey's out-of-sample persistence on untouched data, and his

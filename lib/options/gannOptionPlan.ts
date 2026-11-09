@@ -1,6 +1,6 @@
 /**
- * Gann's rules for buying puts and calls (ref: R-001 Ch. 19A, ref: R-010,
- * May 26, 1937; Ch. 19B, "How to Sell
+ * Gann's rules for buying puts and calls (Master Course Ch. 19A, "How to Make
+ * Profits Trading in Puts and Calls", May 26, 1937; Ch. 19B, "How to Sell
  * Puts and Calls", February 1941). Tier A, his own course.
  *
  * - **The option is the stop.** Puts and calls are "insurance": the premium

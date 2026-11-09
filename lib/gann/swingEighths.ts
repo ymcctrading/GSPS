@@ -10,7 +10,7 @@
  * - the swing is the last completed swing of his 3-Day Chart
  *   (`swingChart.ts`), the chart his own buying points read;
  * - the eighths are that swing's range divided by 8, the division he uses
- *   for every range (ref: R-001 Ch. 9; `rangeDivisions.ts`).
+ *   for every range (Master Course Ch. 9; `rangeDivisions.ts`).
  * A long's entry in the bottom eighth (between the swing's bottom and 1/8 of
  * the range above it) or a short's in the top eighth is the reading.
  *

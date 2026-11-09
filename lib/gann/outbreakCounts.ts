@@ -1,7 +1,7 @@
 /**
  * Daniel's day counts from an outbreak (A-TIME-33), research and context only.
  *
- * Source (class A as fiction, ref: R-006, 1927): 1,290 days
+ * Source (class A as fiction, *The Tunnel Thru the Air*, 1927): 1,290 days
  * added to the 1928 outbreak, with 1,335 "45 days more" (Dan. 12:11-12;
  * printed p. 372, PDF 377); the 1,335 days read as the troubled stretch from
  * March 1931 to the end of June 1932 (printed p. 213, PDF 218); Daniel's 70

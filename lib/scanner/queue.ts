@@ -33,7 +33,7 @@
  * labelled; none is a market claim.
  *
  * Mandate: 1. Gann chose his active stocks from the charts the night before
- * and timed them in the session (ref: R-001 Ch. 13); the plans and focus
+ * and timed them in the session (Master Course Ch. 13); the plans and focus
  * tiers carry that, discovery adds the stock the session itself brings
  * forward. 2. Rhythm (the rotation is a returning wheel, not a drain), Dewey's
  * phase-resumption as an engineering property only. 3. Polarity: the

@@ -1,7 +1,7 @@
 /**
  * C-TIME-35: a cycle-analysis window between heliocentric Jupiter-Saturn
  * conjunctions. **Research only, and not from the method's own books**: the
- * source is ref: R-024 (2013,
+ * source is Awodele, *Divination by Mathematics: Harmonic Analysis* (2013,
  * class C, long-book notes W007 p. 44), whose first CSX window ran between the
  * conjunctions of 16 Apr 1981 and 22 Jun 2000 and whose second ran up to the
  * next (2 Nov 2020, per the author). Astrology stays research here

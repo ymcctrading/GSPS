@@ -2,8 +2,8 @@
  * Guards Gann's own swing-chart construction (rebuilt 2026-09-27, conflict X3):
  * highs and lows, a line reversed by a counter-move of the chart's length,
  * and a trend that turns only when the last swing extreme breaks.
- * Sources: ref: R-005 (1949) Ch. VII; ref: R-007
- * (1951) pp. 316-317.
+ * Sources: 45 Years in Wall Street (1949) Ch. VII; How to Make Profits in
+ * Commodities (1951) pp. 316-317.
  */
 import { describe, expect, it } from "vitest";
 import type { Bar } from "@/lib/types";
@@ -144,7 +144,7 @@ describe("computeCampaignLeg", () => {
 
 describe("the 7-day chart on weekly and monthly bars (A-TREND-01/02)", () => {
   // Gann counts monthly moves as months "without breaking the previous
-  // month's low or high" (ref: R-007 pp. 102-103): an inside month never
+  // month's low or high" (*Commodities* pp. 102-103): an inside month never
   // turns the line.
   function months(rows: [number, number][]): Bar[] {
     return rows.map(([h, l], i) => ({ t: new Date(Date.UTC(2020, i, 1)).toISOString(), o: (h + l) / 2, h, l, c: (h + l) / 2, v: 1000 }));

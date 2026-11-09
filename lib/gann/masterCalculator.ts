@@ -1,6 +1,6 @@
 /**
  * Gann's Square of 144, the "Master Mathematical Price, Time and Trend
- * Calculator" (Tier A: his lesson signed September 29, 1953, ref: R-001
+ * Calculator" (Tier A: his lesson signed September 29, 1953, Master Course
  * Ch. 13; the Master Formula and Calculators course and brochure, 1953-54).
  * Built 2026-09-30 from the full text, supplied by the project owner. Source
  * note: `docs/memory-bank/sources/A12_master_calculator_1953_and_1954_letter.md`.

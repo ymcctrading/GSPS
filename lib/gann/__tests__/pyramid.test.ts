@@ -47,7 +47,7 @@ describe("readPyramidAdd", () => {
     }
   });
 
-  // Gann's lots (ref: R-002 Ch. IX; ref: R-001, "safest
+  // Gann's lots (Truth of the Stock Tape Ch. IX; Master Course, "safest
   // pyramiding rule"): 100, 50, 30, 20, 10, and on at 10 (W006 p.47).
   const lotsOf = (sizes: number[]) => sizes.map((qty) => ({ qty, price: 101.8, date: "2026-06-03" }));
 
@@ -111,7 +111,7 @@ describe("time to hold (A-TIME-12, W006 p.23)", () => {
   });
 });
 
-// Rule 21 of the twenty-four (ref: R-003, 1930, Ch. II):
+// Rule 21 of the twenty-four (Wall Street Stock Selector, 1930, Ch. II):
 // pyramid longs in stocks with small capital, shorts in stocks with large.
 describe("pyramid side by capital stock (never-failing rule 21)", () => {
   const base = {

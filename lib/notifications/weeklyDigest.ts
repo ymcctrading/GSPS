@@ -4,12 +4,12 @@
  * they tracked and what became of each, and the industry groups' standing.
  *
  * Gann reviewed his charts weekly and judged the trend by the week's close
- * (the weekly green and red trend line and the weekly swing chart, ref: R-001
- * Ch. 8 and 18, Tier A, as `lib/gann/weeklyOneBar.ts`
+ * (the weekly green and red trend line and the weekly swing chart, *Master
+ * Stock Market Course* Ch. 8 and 18, Tier A, as `lib/gann/weeklyOneBar.ts`
  * carries them), so the review comes once, at the week's close,
  * rather than as a stream. The groups line reads the same monthly rank the
  * Scanner's Groups tab and the score read (`lib/scanner/groupView.ts`, Gann's
- * "position of groups", ref: R-002 Ch. XVI-XVII); it changes
+ * "position of groups", *Truth of the Stock Tape* Ch. XVI-XVII); it changes
  * only when the month does, so the moves since last month are named in the
  * first digest of a month only, and the other weeks name where the strongest
  * and weakest groups stand.

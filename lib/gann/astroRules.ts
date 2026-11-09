@@ -37,11 +37,11 @@
  *   the year's high or low, or 90, 120 or 180° from it. Needs no ephemeris.
  * - ASTRO-16, the natural angle (A, Master Egg Course): days to the date the
  *   Sun stands at the price's degree; Gann notes a low 7 days from it.
- * - ASTRO-17, seasonal dates by the Sun (A, ref: R-001 Ch. 5): the Sun on
+ * - ASTRO-17, seasonal dates by the Sun (A, Master Course Ch. 5): the Sun on
  *   a multiple of 15° (ingresses and their halves), the true date rather than
  *   `seasonalCounts.ts`'s calendar one. Kept as a separate factor so the
  *   replay compares the two.
- * - ASTRO-18, the Moon (A, ref: R-001 Ch. 5): a New Moon, and the Moon
+ * - ASTRO-18, the Moon (A, Master Course Ch. 5): a New Moon, and the Moon
  *   returning to its place at the last swing pivot.
  * - Jensen (J-2, Section II, Section IV): read here from `jensen.ts` so the
  *   trace and the factors see it; see that module for what is built.

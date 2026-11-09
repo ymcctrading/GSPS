@@ -7,7 +7,7 @@
  * - CYC-30 (Halberg et al. 2003, W041 pp. 29-30): a rhythm has to be shown by
  *   inferential statistics ("time-microscopy"), not by eye alone, and both are
  *   needed.
- * - CYC-47 (ref: R-033 W043 pp. 1-2; collection synthesis §3.8): a dated forward
+ * - CYC-47 (Tomes, W043 pp. 1-2; collection synthesis §3.8): a dated forward
  *   claim from a cycle needs its method and a measured record; Tomes' own oil
  *   peak landed about six months early. AGENTS.md "Forward-looking claims":
  *   allowed only when verified by documentation linked where it is shown.

@@ -94,7 +94,7 @@ export interface GannLevels {
   timeCycleBearishActive: boolean;
   timeCycleDates: string[];
   /**
-   * A fixed annual calendar window (`ref: R-003`, 1930,
+   * A fixed annual calendar window (`Wall Street Stock Selector`, 1930,
    * `docs/GANN_HISTORICAL_SOURCES.md` A4) is active — no per-symbol anchor,
    * no directional bias, unlike the pivot-anchored fields above. Optional so
    * existing fixtures/tests that predate this field keep working; every real

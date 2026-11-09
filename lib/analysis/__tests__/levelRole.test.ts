@@ -74,8 +74,8 @@ describe("A-LEVELS-05: a rally failing just under an old top in a decline", () =
     expect(readGannTrend(bars)).toMatchObject({ direction: "bearish", confirmed: true });
   });
 
-  // Gann measures the rallies in points (ref: R-001 Ch. 8, PDF 249: "a
-  // decline in points"; ref: R-005 Rule 8). The last rally, 90 to 119, is 29
+  // Gann measures the rallies in points (Master Course Ch. 8, PDF 249: "a
+  // decline in points"; *45 Years* Rule 8). The last rally, 90 to 119, is 29
   // points against the campaign's greatest of 30 (110 to 140): no
   // over-balance, so the bear is still on, as he reads the November 1931
   // rally failing at 119 (W006 p.24). In percent of their start it is 32%

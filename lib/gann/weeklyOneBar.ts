@@ -1,7 +1,7 @@
 /**
  * Gann's weekly trend line, the one-week swing chart (M-R8).
  *
- * Rules, both Tier A (ref: R-001, A2.1; source note
+ * Rules, both Tier A (Master Stock Market Course, A2.1; source note
  * `docs/memory-bank/sources/A2_1_master_stock_market_course.md`):
  * - Ch. 8 (1939, p. 239), the green and red trend line: the first week with a
  *   higher bottom **and** a higher top than the week before turns the line

@@ -16,7 +16,7 @@
  * - C-TIME-44 (W035 p.1): the circle's finer divisions, as days, that the ten
  *   class A wheel counts leave out (112½, 157½, 165, 202½, 247½, 292½,
  *   337½). 150 days moved to the class A Ch.5 wheel counts on 2026-10-16
- *   (`timeCounts.ts`, ref: R-001 Ch.5 PDF 162; C-TIME-06).
+ *   (`timeCounts.ts`, Master Course Ch.5 PDF 162; C-TIME-06).
  * - C-TIME-09 (W003 p.18): 6, 12 and 144 months from a pivot.
  * - C-TIME-12 (W003 p.18; W034 p.3): eighths and thirds of the long cycles
  *   (a 30-year cycle gives 3.75, 7.5 and 10 years).
@@ -29,7 +29,7 @@
  *   reversal, and the next counter-move runs 7-10 days.
  * - C-TIME-42 (W032 pp.1-5), time balance from top to top and bottom to
  *   bottom, **moved to class A on 2026-10-16** (M-T11): it is Gann's own rule
- *   in ref: R-007 p.311 ("always figure the
+ *   in *How to Make Profits Trading in Commodities* p.311 ("always figure the
  *   time from any top ... to the next top, and from any low ... to the next
  *   low. This is BALANCING OF TIME"). It is read in `timeCounts.ts` now and
  *   re-exported here; W032's false-break confirmation (C-STOP-03,

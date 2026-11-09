@@ -2,7 +2,7 @@
  * A-OTHER-06, Gann's Dollar Trend: the trend of the total market value of the
  * stocks listed, read on its monthly chart. "Buy when the value crosses old
  * highs; sell when it breaks old lows", and he held it "much more accurate …
- * than the Dow-Jones 30" (ref: R-011, 1954, the
+ * than the Dow-Jones 30" (*Speculation a Profitable Profession*, 1954, the
  * course's Ch. 1, PDF 20-24 and 29-31, per the W023 reading notes).
  *
  * Built: the market's monthly chart (`marketMonthly`, SPY's months with the

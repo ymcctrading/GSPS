@@ -59,8 +59,8 @@
  *
  * `ruleOfThree` added 2026-09-16 — the tenth, per AGENTS.md's "WD Gann
  * precedence" principle and `docs/GANN_PLATFORM_AUDIT.md` Part 4 item 1:
- * Gann's own highest-conviction disclosed rule (`ref: R-003
- * `, 1930), wired live ahead of this codebase's normal
+ * Gann's own highest-conviction disclosed rule (`Wall Street Stock
+ * Selector`, 1930), wired live ahead of this codebase's normal
  * unmeasured -> attribution -> in/out-of-sample gate. See
  * `lib/gann/ruleOfThree.ts` and `lib/validation/criteria-registry.ts`'s
  * `ruleOfThree` entry.

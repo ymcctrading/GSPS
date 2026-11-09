@@ -36,11 +36,11 @@
  *   preceding opposite pivots, contributes its nearest line above and below
  *   price (`patternAngles.ts#patternAngleLevels`, gap G27, 2026-10-16);
  * - the Square of Nine's cardinal and fixed crosses contribute their nearest
- *   number above and below price, read in Gann points (ref: R-001 Ch. 2,
+ *   number above and below price, read in Gann points (Master Course Ch. 2,
  *   "great resistance points"; `squareOfNinePrice.ts`, C-LEVELS-15,
  *   2026-10-21);
  * - the company name's square contributes its nearest key number above and
- *   below price, read in Gann points (ref: R-001 Ch. 15A, the United
+ *   below price, read in Gann points (Master Course Ch. 15A, the United
  *   States Steel Name Chart; `nameNumerology.ts`, A-OTHER-08, 2026-10-21).
  *
  * The Gann point is fixed from the daily bars' extremes, and the extremes

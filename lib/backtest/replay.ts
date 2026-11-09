@@ -297,7 +297,7 @@ export interface ReplayOptions {
    *   (`reactionEntry`) down to 1 point short of the stop; the stop is 3
    *   points the other side of the level (`reactionStop`), so the plan risks
    *   4 points, inside his 5-point cap. Since never-failing rule 9
-   *   (2026-10-16; "trade at the market", ref: R-007 rule 9 pp.43-45 and
+   *   (2026-10-16; "trade at the market", Commodities rule 9 pp.43-45 and
    *   p.19) no limit rests at `reactionEntry`: once a closed candle after the
    *   crossing has traded into the zone, the buy is a market order, filled at
    *   the next candle's open, as production places it (`confirmEntry`). A
@@ -379,7 +379,7 @@ export interface ReplayOptions {
    * (`lib/gann/stopBreach.ts#reclaimLevel`). Defaults to `RECLAIM_POINTS` (3),
    * the figure the live scan uses. This exists only so the stricter reading (5,
    * `RECLAIM_POINTS_STRICT`: "more than 5 above means it is going higher",
-   * ref: R-001 pp. 246-248) can be measured against it
+   * *Master Stock Market Course* pp. 246-248) can be measured against it
    * before the live number moves. Pre-registered in
    * `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 5; 3 versus 5 are the
    * only two values to run, and no other is searched.
@@ -1281,7 +1281,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // reversion. Before 2026-10-21 the replay traded every entry that armed
       // (`armSessionEntries`), so when both sides armed it also traded the
       // reversion against the trend, which the live scan sets aside: "never
-      // buck the trend" (never-failing rule 5, ref: R-007 pp. 43-45; review of
+      // buck the trend" (never-failing rule 5, Commodities pp. 43-45; review of
       // #395, finding 4).
       if (entryDaily.length > 0) {
         const chosen = chooseSessionEntry(context.macroTrends, entryOf, entryDaily[entryDaily.length - 1].c);
@@ -1950,9 +1950,9 @@ export function combine(results: ReplayResult[]): ReplayResult {
  * A work bound on how many reversals deep the replay follows a chain, never
  * reached in practice: the chain ends on a series of losses first
  * (`LOSS_SERIES_LENGTH`, audit I-03, 2026-10-28). Gann reverses each time he
- * is stopped, "you must keep with the trend all the time" (ref: R-004
- * Rule 6, p. 48), and stops after two or three losses in a row
- * (ref: R-007 p. 12; ref: R-004 Rule 1, p. 46); live, the reversal plan goes
+ * is stopped, "you must keep with the trend all the time" (*New Stock Trend
+ * Detector* Rule 6, p. 48), and stops after two or three losses in a row
+ * (*Commodities* p. 12; NSTD Rule 1, p. 46); live, the reversal plan goes
  * through placement, where `lossSeriesRefusal` pauses the third. A fixed depth
  * of 3 cut chains short that Gann and production would have traded.
  */

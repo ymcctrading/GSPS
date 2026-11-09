@@ -9,7 +9,7 @@
  * - Cotton, 1922 cotton forecast (W036 pp.19-20): "October and July in spring
  *   and summer; December and January after September; March in
  *   November-December".
- * - Soybeans (ref: R-007, 1951 ed., p.326): "As a general rule, it pays to
+ * - Soybeans (*Commodities*, 1951 ed., p.326): "As a general rule, it pays to
  *   buy for long account the May and July options because from the Spring to
  *   Summer, the supply of old Beans is getting less." A rule for longs only.
  *

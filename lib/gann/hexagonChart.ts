@@ -1,6 +1,6 @@
 /**
  * **Update 2026-10-16.** Gann's hand-drawn Hexagon plate is not lost: it is
- * printed p. 422 of the owner's ref: R-001 PDF (reading log
+ * printed p. 422 of the owner's Master Course PDF (reading log
  * `docs/memory-bank/reading-log/A2_1_master_course_pdf.md`). On it, 66 sits on
  * the **60°** line (2, 9, 22, 41, 66 …), not 180° as the text below says; the
  * conflict between Gann's text and his plate is recorded, not resolved.

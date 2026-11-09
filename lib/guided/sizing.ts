@@ -13,7 +13,7 @@
  *   1. Risk cap        — riskPct of equity ÷ the entry-to-stop distance.
  *   2. One tenth       — never more than a tenth of the trading capital at
  *                        risk on one trade (never-failing rule 1, W006 p.46;
- *                        ref: R-007 pp.29-30, `lib/risk/gannCapital.ts`).
+ *                        Commodities pp.29-30, `lib/risk/gannCapital.ts`).
  *                        Binds only when riskPct is over 10%; reported as
  *                        the risk cap, since it is one.
  *   3. Capital         — Gann's 30 points of capital behind every share held

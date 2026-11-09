@@ -7,7 +7,7 @@
  * from `lib/strat/levels.ts` on 2026-10-22, when the intraday target took it.
  *
  * Three-question basis:
- * 1. Gann: ref: R-007 (A8,
+ * 1. Gann: *How to Make Profits in Commodities* (A8,
  *    `docs/GANN_HISTORICAL_SOURCES.md`), "resistance points near same levels":
  *    when two nearby resistance levels cluster, average them into one combined
  *    support or resistance point, rather than treating a clustered S/R level, a

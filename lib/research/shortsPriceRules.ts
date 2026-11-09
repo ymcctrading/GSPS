@@ -66,10 +66,10 @@
  * Three-question basis:
  * 1. Gann: the highest bar's low is the level the 1-day swing chart
  *    (`swingChart.ts`) and his "crossing old tops and bottoms"
- *    (`entryTrigger.ts`, ref: R-005, Tier A) read at a single bar's scale; GSPS
+ *    (`entryTrigger.ts`, 45 Years, Tier A) read at a single bar's scale; GSPS
  *    reads it at the swing's scale, on his word that a bar's extreme is the
  *    noise the swing chart filters. The fan and its 1x1 from a top are his
- *    (ref: R-001 Ch.4, Tier A, `fans.ts`); breaking up through the 1x1
+ *    (Master Course Ch.4, Tier A, `fans.ts`); breaking up through the 1x1
  *    from a top as a sign the trend has turned is in the same chapter. The
  *    Shorts' versions are tested as stated.
  * 2. Cycles: Dewey's base-rate rule on rules fixed first, with a correction

@@ -6,9 +6,9 @@
  *
  * Gann's own examples run the same method on every size of account: $300 for
  * 10 shares (W006 Rule 1, p.46), "with $1,000, risk $100 (10 shares x 3
- * points)" (ref: R-002), the $1,000 soybean campaign
- * (ref: R-007 pp.134-137), an account opened with $973 and $3,000 grown to
- * $40,000 (W010; ref: R-007 p.316), up to 400-share lots, the unit
+ * points)" (*Truth of the Stock Tape*), the $1,000 soybean campaign
+ * (*Commodities* pp.134-137), an account opened with $973 and $3,000 grown to
+ * $40,000 (W010; *Commodities* p.316), up to 400-share lots, the unit
  * doubling as profits equal the capital (A-RISK-04). Shares follow the
  * capital; nothing else in the method changes with it.
  *

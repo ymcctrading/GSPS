@@ -15,7 +15,7 @@
  * the session) is priced at `priceOf`, the caller's live quote; null when
  * that can't be read, so the caller fails closed.
  *
- * Three-question basis: (1) Gann, rule 8 and ref: R-007 rule 1 on capital,
+ * Three-question basis: (1) Gann, rule 8 and *Commodities* rule 1 on capital,
  * as gannCapital.ts. (2) No periodicity claim. (3) Correspondence: the live
  * account reads its book as the paper one does.
  */

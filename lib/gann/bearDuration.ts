@@ -13,7 +13,7 @@
  * out" holds a long is fork F1, held for the owner.
  *
  * Conflicts recorded, not resolved: the same page lists a 53-month bear, past
- * its own 43-month ceiling, and the ref: R-001 gives 34 months 5 days as
+ * its own 43-month ceiling, and the Master Course gives 34 months 5 days as
  * the greatest (map fork F3). The windows are W006's explicit ones; no
  * ceiling gates anything.
  *

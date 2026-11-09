@@ -203,8 +203,8 @@ export async function scanTicker(
     // The replay's session date, at noon UTC (`buildMacroContext`'s asOf).
     const sessionNoon = new Date(`${sessionDay}T12:00:00Z`);
     // Gann judged his daily, weekly and monthly charts after the close and kept
-    // away from the ticker (ref: R-002 pp.5-7, 76-82; ref: R-003
-    // pp.41-42), and timed the entry in the session on
+    // away from the ticker (*Truth of the Stock Tape* pp.5-7, 76-82; *Wall
+    // Street Stock Selector* pp.41-42), and timed the entry in the session on
     // the plan's own levels (W006 Rule 3, pp.46-47). So every read the
     // replay's `buildMacroContext` takes at one price (the lattice levels and
     // targets, the S/R band, the angles, the square, the range divisions, the
@@ -309,8 +309,8 @@ export async function scanTicker(
     // (lib/scan/entrySelection.ts) so the two cannot drift — see that
     // module's header. With no direction asked for, the scan arms against
     // Gann's trend, weighted by his chart-timeframe power ratio (a single
-    // monthly trend outweighs weekly + daily disagreeing with it, per ref: R-003,
-    // 1930), and with no trend on any chart, the nearer
+    // monthly trend outweighs weekly + daily disagreeing with it, per Wall
+    // Street Stock Selector, 1930), and with no trend on any chart, the nearer
     // of the two sides' buying points (PLAN.md item 6 step 11, fork F4 a). A
     // caller hunting a continuation supplies its own direction instead.
     //
@@ -600,9 +600,9 @@ export async function scanTicker(
         // Q24: leave queer-acting stocks alone (A-SELECTION-01), on the chart the replay reads.
         readRuleFollowing(charts.daily),
       ), weakStock, scoreDirection),
-        // 2026-10-29: buy in the campaign's early sections, not its 3rd or later (ref: R-001 pp. 244-245).
+        // 2026-10-29: buy in the campaign's early sections, not its 3rd or later (Master Course pp. 244-245).
         campaignLedger, scoreDirection),
-        // 2026-10-29: ref: R-005 Rule 1, trade stocks that conform to the averages' trend.
+        // 2026-10-29: 45 Years Rule 1, trade stocks that conform to the averages' trend.
         pillarFacts.mainTrend, scoreDirection),
         // A-LEVELS-08: the first and second times through a round number hold.
         figureCrossingOf(charts.daily, gannTrigger)),

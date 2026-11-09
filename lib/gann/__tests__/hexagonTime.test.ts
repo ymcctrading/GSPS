@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { hexLinesAt, hexNumberOnLine, hexNumbersOnLine, readHexagonTime } from "../hexagonTime";
 
 // The lines are checked against Gann's hand-drawn Hexagon plate, printed
-// p. 422 of the ref: R-001 PDF (reading log A2.1, 2026-10-01).
+// p. 422 of the Master Course PDF (reading log A2.1, 2026-10-01).
 
 describe("the lines of the plate", () => {
   it("puts the ring completions on the 0°/360° line", () => {

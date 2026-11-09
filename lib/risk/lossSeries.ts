@@ -3,8 +3,8 @@
  *
  * Gann: after two or three losses in a row, stop trading and study before
  * going on; the market has changed or your judgment has, and pressing on is
- * how a series becomes a ruin (ref: R-007 pp. 12,
- * 17, 29; ref: R-002; ref: R-003 Ch. III.
+ * how a series becomes a ruin (*How to Make Profits in Commodities* pp. 12,
+ * 17, 29; *Truth of the Stock Tape*; *Wall Street Stock Selector* Ch. III.
  * All Tier A). He also cuts the trading unit to a tenth of what capital is
  * left. That half is met by Gann's capital rules: a trade risks at most a
  * tenth of the trading unit, and the unit is never above the equity left

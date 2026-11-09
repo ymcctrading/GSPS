@@ -4,8 +4,8 @@
  *
  * Gann laid the decades back over the year he forecast, then named the one he
  * expected to repeat: for 1936 he set 1866, 1876, 1886, 1896, 1906, 1916 and
- * 1926 together and wrote "I expect the 1896 cycle to repeat in 1936" (ref: R-001
- * Ch. 7, PDF 227-228); for 1929 he compared 1919, 1909, 1899 and 1869
+ * 1926 together and wrote "I expect the 1896 cycle to repeat in 1936" (Master
+ * Course Ch. 7, PDF 227-228); for 1929 he compared 1919, 1909, 1899 and 1869
  * (PDF 224-225). `massPressure.ts` averages the decades; this reads the step
  * after it, the one cycle the forecast follows. James Flanagan's reading of
  * the Master Time Factor (a secondary source, checked 2026-10-28) calls it the

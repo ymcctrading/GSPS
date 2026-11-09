@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { gannOptionExpiration, gannOptionStrike, gannOptionType, nearestListedStrike } from "@/lib/options/gannOptionPlan";
 
-describe("the option rules (ref: R-001 Ch. 19A)", () => {
+describe("the option rules (Master Course Ch. 19A)", () => {
   const from = new Date("2026-10-21T15:00:00Z");
   it("offers the nearest expiration at least 30 days out", () => {
     expect(gannOptionExpiration(["2026-10-23", "2026-10-30", "2026-11-20", "2026-12-18"], from)).toBe("2026-11-20");

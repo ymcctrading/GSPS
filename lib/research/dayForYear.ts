@@ -3,7 +3,7 @@
  * scores, gates or displays from it; a guard test checks no module outside
  * `lib/research` reads it.
  *
- * Source (class A, ref: R-006, W022 pp. 371 and 373, PDF 376 and
+ * Source (class A, *Tunnel Thru the Air*, W022 pp. 371 and 373, PDF 376 and
  * 378): "the Lord had appointed a day for a year" (Ezekiel), and Ezek. 4:5-6's
  * 390 and 40 days, "each day for a year", read as 40 years. Gann's reading
  * there is scriptural; he gives no market rule built on it, so the owner's

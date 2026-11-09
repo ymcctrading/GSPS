@@ -2,8 +2,8 @@
  * The 84-year cycle on the market's own record (C-ASTRO-05).
  *
  * Gann lists the 84-year cycle among his time periods, with its halves of 42,
- * 21 and 10½ years (ref: R-001 Ch. 7, PDF 219; "84 months or 84° is 7/8 of
- * 90", PDF 223-224). The researcher's reading in the collection (ref: R-040 W027)
+ * 21 and 10½ years (Master Course Ch. 7, PDF 219; "84 months or 84° is 7/8 of
+ * 90", PDF 223-224). The researcher's reading in the collection (Meadors, W027)
  * ties it to Uranus' return and gives one example, the low of 19 October 1987
  * against 9 November 1903; that tie is his, not Gann's, and is not built.
  *
@@ -25,9 +25,9 @@
  * (`MARKET_COUNT_YEARS`, `marketCountHits`) are yearly counts in P1's cycle
  * check, read here because no stock's record (about 61 years) reaches them.
  * 84 is the 1935 lesson's (above); 90 is "the Great Cycle" of the January
- * 1955 lesson (Ch. 14, PDF 387); 100 is Gann's in ref: R-007 p. 224 ("the
+ * 1955 lesson (Ch. 14, PDF 387); 100 is Gann's in *Commodities* p. 224 ("the
  * period from 1841 to 1850 is likely to be repeated in 1941 to 1950") and the
- * 1940 ref: R-009 tract. Flanagan's 120 and 150 years have no page of Gann's
+ * 1940 *Face Facts* tract. Flanagan's 120 and 150 years have no page of Gann's
  * and are not read. The single 84-year hit stays a measured factor too.
  * Engineering reading, labelled: Gann states the 100-year repeat for a decade
  * of conditions (1841-50 against 1941-50); reading it as a major market turn
@@ -48,7 +48,7 @@ import { etDateKey } from "@/lib/market/session";
 import type { Bar } from "@/lib/types";
 
 export const EIGHTY_FOUR_YEARS = 84;
-/** The long yearly counts read on the market's record for P1: 84 (1935), 90 (1955), 100 (ref: R-007 p. 224). */
+/** The long yearly counts read on the market's record for P1: 84 (1935), 90 (1955), 100 (*Commodities* p. 224). */
 export const MARKET_COUNT_YEARS: readonly number[] = [84, 90, 100];
 
 export interface MarketCountHit {

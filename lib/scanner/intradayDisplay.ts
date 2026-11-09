@@ -111,7 +111,7 @@ export const MEASURED_LOSING: Partial<Record<SignalType, string>> = {
  * Signals read on the daily chart, so their stop and targets are sized for a
  * swing of days, not one session (2026-10-29, Chuck on META: entry 623.56,
  * stop 604.21, TP1 676.63, two days' range away, offered as a trade closed at
- * 3:45 PM). `overnight_turn` is Gann's Overnight Chart (ref: R-001 Ch. 3):
+ * 3:45 PM). `overnight_turn` is Gann's Overnight Chart (Master Course Ch. 3):
  * a daily swing chart traded with stops 1 point beyond the last daily bottom
  * or top and held overnight, stop and reverse. Its stop is daily-scale (median
  * 3.1% of price over Oct 21-29, against 0.3-0.6% for the session signals),
@@ -119,8 +119,8 @@ export const MEASURED_LOSING: Partial<Record<SignalType, string>> = {
  * an old daily level (median 3.9%, the top tenth past 10.6%). Closing it at
  * the session's end (the Intraday style) trades a swing stop with a day
  * trade's reach, which Gann never did; as a swing it is the Overnight method,
- * which is measured (`replayOvernight.ts`) and never placed (AGENTS.md, "ref: R-001
- * methods with no plan"). So it is shown for study, never offered as an
+ * which is measured (`replayOvernight.ts`) and never placed (AGENTS.md, "Master
+ * Course methods with no plan"). So it is shown for study, never offered as an
  * intraday trade; the swing trade on the stock comes from its daily plan.
  */
 export const DAILY_SCALE_SIGNALS: ReadonlySet<SignalType> = new Set<SignalType>(["overnight_turn"]);

@@ -2,7 +2,7 @@
  * How much of the premium paid the underlying's Gann stop would consume:
  * information for the trader, never a rule.
  *
- * Gann's rule for a bought put or call (ref: R-001 Ch. 19A, PDF 444,
+ * Gann's rule for a bought put or call (Master Course Ch. 19A, PDF 444,
  * 449-450): the option is the stop. The premium paid is the most it can lose,
  * so the premium is the risk, and the position is sized on it by his capital
  * rules (a tenth of the unit at risk, F-04 in `lib/trade/place-order.ts`).
@@ -70,7 +70,7 @@ export interface PremiumStopReading {
   exact: boolean;
   /**
    * True when the stop and the decay together would take more than the
-   * premium. A bought option can lose no more than its premium (ref: R-001
+   * premium. A bought option can lose no more than its premium (Master Course
    * Ch. 19A, PDF 444: the option is the stop), so the reading stops at 100%.
    */
   capped: boolean;
@@ -105,7 +105,7 @@ export function readPremiumStop(input: PremiumStopInput): PremiumStopReading | n
 
   // Premium, delta and theta are all per-share, so the 100x contract
   // multiplier cancels and never enters the ratio.
-  // A bought put or call can lose its premium and no more (ref: R-001
+  // A bought put or call can lose its premium and no more (Master Course
   // Ch. 19A, PDF 444, 449-450), so the share at risk is held at 100%. With
   // ten days of decay charged, a near-dated contract can otherwise read past
   // it (review of #515).

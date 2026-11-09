@@ -1,7 +1,7 @@
 /**
  * Gann's seasonal time periods counted from March 21 (parity roadmap G8).
  *
- * Source (Tier A, ref: R-001; `docs/memory-bank/sources/A2_1_master_stock_market_course.md`):
+ * Source (Tier A, Master Course; `docs/memory-bank/sources/A2_1_master_stock_market_course.md`):
  * the seasonal year starts at the spring equinox, March 21, not January 1. Its
  * eighths and thirds fall on May 5 (⅛), June 21 (¼), July 23 (⅓), August 5
  * (⅜), September 22 (½), November 8 (⅝), November 22 (⅔), December 21 (¾),
@@ -20,7 +20,7 @@
  * Research Institute workbook, source note B12): April 12, May 27, July 14,
  * August 31, October 15, November 30, January 13 and February 28, between the
  * eighths. His 1951 lesson gives 1/16 of a year (about 23 days) as why moves so
- * often run three weeks to a month (ref: R-001 Ch. 17). They rank below the
+ * often run three weeks to a month (Master Course Ch. 17). They rank below the
  * eighths (rank 5), the next division down in his order. The plate's dates are
  * used as printed: they are the Sun's 22.5° points, so they are not equal day
  * counts (the summer half of the year is longer), and Gann's dates win over an
@@ -110,7 +110,7 @@ export function readSeasonalCount(asOf: Date): SeasonalCountReading | null {
   return best;
 }
 
-/** C-TIME-05: the Winter-quarter seasonal dates (ref: R-001 Ch. 5 PDF 161), days inclusive. */
+/** C-TIME-05: the Winter-quarter seasonal dates (Master Course Ch. 5 PDF 161), days inclusive. */
 export const WINTER_QUARTER_POINTS: readonly { label: string; month: number; startDay: number; endDay: number }[] = [
   { label: "15 days", month: 1, startDay: 5, endDay: 6 },
   { label: "45 days", month: 2, startDay: 5, endDay: 5 },

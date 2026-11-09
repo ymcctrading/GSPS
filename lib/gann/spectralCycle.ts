@@ -1,7 +1,7 @@
 /**
  * Fourier/spectral dominant-cycle detection — the operative technique
  * behind Gann's own headline "Law of Vibration"/harmonic-analysis claim.
- * ref: R-006 (1927), Ch. VII-VIII, states the method directly in
+ * *Tunnel Thru the Air* (1927), Ch. VII-VIII, states the method directly in
  * first person: "In making my predictions I use geometry and mathematics,"
  * and separately names "the cycle theory, or harmonic analysis"
  * (`docs/GANN_HISTORICAL_SOURCES.md` A3). B1 (Awodele) and a signed 1926
@@ -43,7 +43,7 @@
  * (the cycle must clearly stand out from background noise, not just be the
  * best of an otherwise flat spectrum).
  *
- * **Chance first (X4, 2026-10-16).** Dewey's method (ref: R-021,
+ * **Chance first (X4, 2026-10-16).** Dewey's method (*The Case for Cycles*,
  * 1967) assumes a cycle is chance until shown otherwise, and his résumé says
  * dominance alone can never show it. So `active` now also needs Schuster's p
  * at or under 0.05 (stricter for short periods, W040: short periodicities
@@ -155,7 +155,7 @@ const SCHUSTER_ALPHA = 0.05;
  */
 export const MIN_REPETITIONS = 5;
 /**
- * CYC-27: short periods arise easily by chance and long ones rarely (ref: R-032
+ * CYC-27: short periods arise easily by chance and long ones rarely (Dewey,
  * W040 p.5), so a short peak must clear a stricter significance level:
  * Schuster's p at or under 0.05 x min(1, period / 20). A 20-bar period or
  * longer keeps the 0.05 level, a 10-bar one needs 0.025 and a 5-bar one
@@ -549,8 +549,8 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
 // scan path (so it adds no time to a scan) and nothing it returns can reach a
 // criterion, a gate, a plan or an order (`criteria-gate.test.ts`).
 //
-// Sources: ref: R-021 (1967), and ref: R-022
-// (1947), as summarised in
+// Sources: Dewey, *The Case for Cycles* (1967), and Dewey & Dakin, *Cycles:
+// The Science of Prediction* (1947), as summarised in
 // `docs/memory-bank/sources/C06_dewey_case_for_cycles.md`: check homogeneity
 // first; every estimate carries its uncertainty; persistence after discovery;
 // phase resumption after a distortion (crests back within about ±9% of the
@@ -559,7 +559,7 @@ export function detectSpectralCycle(dailyBars: Bar[]): SpectralCycleReading {
 // near-equal periods.
 //
 // Three-question basis:
-// 1. Gann: the module's own source (ref: R-006 Ch. VII-VIII, harmonic analysis);
+// 1. Gann: the module's own source (Tunnel Ch. VII-VIII, harmonic analysis);
 //    these tools test whether a cycle that method finds is real.
 // 2. Cycles: this is Dewey's checklist itself, items noted inline.
 // 3. Hermetic: Rhythm, tested rather than assumed, and Cause and Effect

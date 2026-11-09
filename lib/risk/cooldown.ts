@@ -11,7 +11,7 @@
  *     caller to pass that would let one through. *
  * Where this sits against Gann (parity E1, G16). Gann's own loss rule counts
  * trades, not percentages: after two or three losses in a row, stop and study
- * (ref: R-007 pp. 12, 17, 29; ref: R-003 Ch. III). That rule now
+ * (*Commodities* pp. 12, 17, 29; *Stock Selector* Ch. III). That rule now
  * runs on every account in `lib/risk/lossSeries.ts`. The percentage
  * thresholds this state machine reads (`lib/risk/config.ts`: 2/3/5% over 48
  * hours, 8/12/18% over 30 days) are GSPS's own account-protection layer on
@@ -150,8 +150,8 @@ export function requiresResetChecklist(state: CircuitState): boolean {
  * out, until a reset checklist has been completed since that state began
  * (docs/SYNTHESIZED_ROADMAP.md Part 5 item 16). Until 2026-10-21 nothing
  * read a checklist: the hold simply expired. Gann's rule after a series of
- * losses is to stop and study before trading again (ref: R-007 pp. 12,
- * 17, 29; ref: R-003 Ch. III); the checklist is that study written
+ * losses is to stop and study before trading again (*Commodities* pp. 12,
+ * 17, 29; *Stock Selector* Ch. III); the checklist is that study written
  * down. A decision already at least as severe as the prior state, or a
  * prior state that needs no checklist, passes through unchanged.
  */

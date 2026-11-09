@@ -21,7 +21,7 @@
  *   open is not the plan during it.
  * - **Price trades through the stop** (`planEvent` "stop"): the plan is
  *   broken, and its replacement is a new trade from the new structure, never
- *   the old levels resumed (ref: R-004 Rule 6; Overnight Chart rule 4;
+ *   the old levels resumed (NSTD Rule 6; Overnight Chart rule 4;
  *   `lib/gann/stopBreach.ts`). The scan reads that break, so it is asked again.
  * - **Price back past a broken plan's reclaim line** ("reclaim"): Gann's
  *   failed break, a closed bar back through the line by his allowance,

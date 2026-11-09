@@ -1,6 +1,6 @@
 /**
  * Gann's early and late leaders, and the first-year-high filter (parity
- * roadmap G25; ref: R-003 Ch. VII, Tier A).
+ * roadmap G25; *Wall Street Stock Selector* Ch. VII, Tier A).
  *
  * - "Stocks that bottom first top first." Leadership rotates by section: the
  *   early leaders bottom before the market and top before it; late movers
@@ -9,7 +9,7 @@
  *   the 3-point allowance) before it can lead a later section.
  * - The last campaign's leader rarely leads the next one.
  * - "Late tops make late bottoms, early tops make early bottoms" (A-TIME-08,
- *   ref: R-004 pp. 31, 35-37, Tier A): Coca-Cola topped late
+ *   *New Stock Trend Detector* pp. 31, 35-37, Tier A): Coca-Cola topped late
  *   and bottomed late. Read as a stock that topped after (or before) the
  *   market while its own campaign has turned down, so its bottom is expected
  *   after (or before) the market's. Context only; it gates nothing.
@@ -220,7 +220,7 @@ export function readLeadership(
 
 /**
  * Whether a long may count the stock's leadership and its strength rank
- * (G25, ref: R-003 Ch. VII, Tier A; 2026-10-29): "a stock
+ * (G25, *Wall Street Stock Selector* Ch. VII, Tier A; 2026-10-29): "a stock
  * must cross the high of the first year of the bull campaign before it can
  * lead a later section". Once the campaign has run a year
  * (`firstYearHighCrossed` not null), a stock that has not crossed it by the
@@ -253,7 +253,7 @@ export function longMayLead(l: { firstYearHighCrossed: boolean | null } | null |
  *   stock in a bull market (`readWeakStock`) ranks last on the buy side and
  *   first on the sell side; `applyWeakStockHold` keeps it off Execute as a buy.
  *
- * - S6 (ref: R-007 p. 20): "How to Select the
+ * - S6 (*How to Make Profits in Commodities* p. 20): "How to Select the
  *   Commodity that will Lead": compare the monthly highs and lows and take the
  *   strongest for a long, the weakest for a short. A stock in the strongest
  *   quarter of the universe or of its industry group (`readUniverseRank`)

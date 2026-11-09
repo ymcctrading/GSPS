@@ -2,14 +2,14 @@
  * Gann's resistance levels from the major ranges (score pillar P5's percentage
  * check, 2026-10-21).
  *
- * What Gann divides, in his order of importance (ref: R-001 Ch. 9,
- * "Resistance Levels", PDF 263-264, July 1939; ref: R-007
- * pp. 34-35, the same text): first the extreme ("life") range,
+ * What Gann divides, in his order of importance (Master Course Ch. 9,
+ * "Resistance Levels", PDF 263-264, July 1939; *How to Make Profits in
+ * Commodities* pp. 34-35, the same text): first the extreme ("life") range,
  * from the highest high to the lowest low; second the highest price itself;
  * third each campaign that ran a year or more. Each is divided by 8 and by 3
  * ("Range of Fluctuations": divide by 8 and by 3; "Highest Selling Price" the
  * same). "The most important point is the 50% of the extreme range"
- * (ref: R-007 p. 35), and the ref: R-001's buying rule reads "Best
+ * (Commodities p. 35), and the Master Course's buying rule reads "Best
  * buying point: 50% of the highest price. Next: 50% of the range" (PDF 11).
  * Among the divisions, Ch. 6's "on a basis of 100" tiers (PDF 185): ½ first,
  * then ¼ and ¾, then ⅓ and ⅔, then the eighths (`retracement.ts`'s ranks).
@@ -31,8 +31,8 @@
  * "great ranges" (Ch. 9, PDF 268), are left out.
  *
  * Three questions, as AGENTS.md asks:
- * 1. Gann: ref: R-001 Ch. 6 and Ch. 9 (Tier A), ref: R-007 pp. 32-37
- *    (Tier A), ref: R-005 Ch. IV (50% first).
+ * 1. Gann: Master Course Ch. 6 and Ch. 9 (Tier A), Commodities pp. 32-37
+ *    (Tier A), *45 Years in Wall Street* Ch. IV (50% first).
  * 2. Cycles: no periodicity claim; Dewey's checklist does not apply. The
  *    campaign's "year or more" is Gann's own span, not a fitted period.
  * 3. Hermetic: Correspondence (the same divisions of the greater range and of
@@ -47,7 +47,7 @@ import { levelBandPct } from "@/lib/scoring/proximity";
 import { FIRST_TIER_RANK, HALF_RANK, SECOND_TIER_RANK, THIRD_TIER_RANK } from "@/lib/gann/retracement";
 import { readHeldLevel } from "@/lib/gann/heldLevel";
 
-/** Gann's "each campaign of one year or more" (ref: R-001 Ch. 9, PDF 264). */
+/** Gann's "each campaign of one year or more" (Master Course Ch. 9, PDF 264). */
 export const MIN_CAMPAIGN_MONTHS = 12;
 /** Engineering choice: a monthly swing extreme is higher (lower) than this many months each side. */
 export const CAMPAIGN_PIVOT_MONTHS = 3;
@@ -184,8 +184,8 @@ export function rangeDivisionMatch(
  * each range and the allowance wide at low prices, it passed 56-92% of
  * random-walk readings (`replay-diagnosis/2026-10-21-pillar-saturation-census.md`).
  * Gann's own reviews judge a division by price acting there: November 1929
- * "held 2½ above 193", and the 1937 top "not 3 points above 193" (ref: R-001
- * Ch. 9, PDF 266-277), the same test as the old levels. Of divisions at
+ * "held 2½ above 193", and the 1937 top "not 3 points above 193" (Master
+ * Course Ch. 9, PDF 266-277), the same test as the old levels. Of divisions at
  * one price, the more important basis and division wins (`levels` is in that
  * order).
  */

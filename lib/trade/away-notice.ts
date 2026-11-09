@@ -1,5 +1,5 @@
 /**
- * A-EXIT-05 at the point of entry (ref: R-006, W022 p.113, Tier A:
+ * A-EXIT-05 at the point of entry (*Tunnel Thru the Air*, W022 p.113, Tier A:
  * go flat before you travel). Inside the away window (`awayReminderDue`), a new
  * entry carries the close-out reminder back with the order, so the trader sees
  * it where the exposure is opened, not only on the Dashboard. A notice only:
@@ -7,7 +7,7 @@
  * portfolio manager opens nothing new in the window (portfolio-manager.ts).
  * The replay models no trader absence, so the rule does not apply there.
  *
- * The twice-yearly rest window (M-K4, ref: R-002 Ch. VII
+ * The twice-yearly rest window (M-K4, *Truth of the Stock Tape* Ch. VII
  * pp. 22-25: close out twice a year and rest) is read the same way: the
  * portfolio manager and the automated pyramid adds already open nothing in
  * it, so a person's own new entry there carries the rest reminder, unless

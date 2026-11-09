@@ -1,5 +1,5 @@
 /**
- * A-TIME-07 (ref: R-004, 1936, Ch. III p. 12): bull campaigns
+ * A-TIME-07 (New Stock Trend Detector, 1936, Ch. III p. 12): bull campaigns
  * repeat in length (97 months against 99). The prior completed campaign's
  * length is projected from the current campaign's start. Context only.
  */

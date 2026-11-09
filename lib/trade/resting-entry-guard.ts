@@ -20,8 +20,8 @@
  * A resting order that only reduces a position held now is protective and is
  * never refused, as at placement.
  *
- * Gann: W006 p.46, ref: R-007 pp.29-30 and rule 1 (pp.43-45), ref: R-006
- * pp.198-199 (Tier A). Cycle theory: no periodicity claim. Hermetic:
+ * Gann: W006 p.46, *Commodities* pp.29-30 and rule 1 (pp.43-45), *Tunnel Thru
+ * the Air* pp.198-199 (Tier A). Cycle theory: no periodicity claim. Hermetic:
  * Cause and Effect, the capital is read where the exposure is caused (the
  * fill), not only where it was asked for. Law of Creation: placement ⊗ fill,
  * one rule read at both ends, so the fill can't open what placement refuses.
