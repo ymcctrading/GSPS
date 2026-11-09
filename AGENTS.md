@@ -172,11 +172,25 @@ opening them:
   (`DEFAULT_CRITERION_WEIGHTS`), and a cutoff is a display decision.
 - **`STRATEGY_VERSION`** lives in `lib/backtest/strategyVersion.ts`. Bump it
   when verdicts or replay trades move, and record the change in the private
-  topic file. Current standing values: read the code before quoting them.
+  topic file. Current standing values (read the code before quoting them):
+  `LIVE_EXIT_RULE` is `"structure"` (no fixed target), and the
+  production-faithful replay cell is
+  `{"usePlanLevels":true,"entryRule":"reaction","exitRule":"structure"}`.
+- **Porting a figure:** a figure the method gives at a price is divided by
+  `pricePoint` at that price. Only its "3 points" and figures it states
+  across price bands read as points directly.
 - **Design lenses are design inputs, never evidence:** only a cited source or
   a measured result moves a threshold, weight or gate. Each new feature
   answers the mandate's questions in writing while it is conceived (private
-  topic file 14 and the creation note in `docs/memory-bank/`).
+  topic file 14 and the creation note in `docs/memory-bank/`): (1) how the
+  method best grounds or improves it, with source key and tier; (2) how the
+  cycle work informs it, with the periodicity checklist for any cycle claim,
+  saying what cleared and what didn't; (3) which of the seven design
+  principles fits, chosen by fit, and whether it changes the design; (4) the
+  creation question: name the complementary pair, say whether the join
+  creates a third or is only a mixture, and where a third exists, what it is
+  and where it re-enters. Applies platform-wide (UI, copy, onboarding, tiers,
+  billing); only work with no product-facing shape is exempt, said plainly.
 - **Forward-looking claims** (a dated window) are allowed only with their
   source, method and measured record written down where shown; never a
   performance claim or guarantee.
@@ -206,7 +220,26 @@ opening them:
   only), the user-driven chart indicators (which **never feed a scored
   criterion, gate, trade plan, entry, stop, target or verdict**) and Strategy
   Modes (below). A component is "not live" only once traced to zero
-  consumers. The every-session platform sweep is in private topic file 06.
+  consumers. Re-verify any "no consumer" claim against current `main`.
+
+**Every session, sweep the platform for techniques outside the method; don't
+trust a list** (full text in private topic file 06):
+
+```
+# Word boundaries matter: unanchored "RSI" matches "reve<RSI>on".
+grep -rnE '\b(RSI|MACD|Bollinger|Wilder|adx|Supertrend|PSAR|Ichimoku|Elliott|Wyckoff|Keltner|Donchian|Fibonacci)\b' \
+  --include=*.ts --include=*.tsx lib/ app/ components/ | grep -v __tests__
+
+# Moving averages and VWAP. Hits under lib/strategies/, lib/indicators.ts,
+# lib/analysis/indicators.ts and components/chart/ are the documented
+# exceptions. Anything else needs a reason.
+grep -rnE '\b(sma|smaSeries|ema|vwap|anchoredVwap|SMA|EMA|VWAP)\b' \
+  --include=*.ts --include=*.tsx lib/ app/ components/ | grep -v __tests__ \
+  | grep -vE '^(lib/strategies/|lib/indicators\.ts|lib/analysis/indicators\.ts|components/chart/)'
+```
+
+Confirm each hit is dead, documented, or gone. An exported symbol, an API
+route, a chart overlay and a database row are all live surfaces.
 
 ## Strategy Modes — scoped exception
 
