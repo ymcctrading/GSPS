@@ -13,21 +13,31 @@
  *
  * What it writes, in the live manager's own order (`advance`, then `finish`):
  * 1. one conditional claim on the `protocol_exits` row: the walk's fills as
- *    tranche order ids and fill prices, the stop the walk ended on, its best
- *    price, and `last_managed_at` at the walk's end (so a row the hold's
- *    policy hides, "managed before Oct 31", becomes visible again on its own).
- *    It matches only a row still `working`, at the quantity and
+ *    tranche order ids and fill prices, the stop the walk ended on and its
+ *    best price. It matches only a row still `working`, at the quantity and
  *    `last_managed_at` the walk read, with the walked tranches still unfilled;
- *    anything else means the row moved since, and nothing is written for it;
+ *    anything else means the row moved since, and nothing is written for it.
+ *    The claim leaves `last_managed_at` alone, so the after-the-pause hold's
+ *    policy ("working and managed before Oct 31") keeps the row hidden from
+ *    the member pages until the row is complete;
  * 2. each fill through `executeFill`, the one paper fill path (cash and
  *    position in one transaction);
  * 3. for a closed walk, the trade log through `insertTradeLog`, with
- *    `exit_timestamp` at the last fill's bar, then the row closed with
- *    `closed_at` at the same time;
- * 4. for an automated trade closed on a stop or an exit signal, the plan
+ *    `exit_timestamp` at the last fill's bar;
+ * 4. the release, last: a closed walk's row is closed with `closed_at` at the
+ *    last fill's bar; every row gets `last_managed_at` at the walk's end. Only
+ *    then does the hold's policy stop hiding it;
+ * 5. for an automated trade closed on a stop or an exit signal, the plan
  *    ended through `handleAutomatedStopOut` at the bar's time, with
  *    `seedFollowOns: false`: no reversal or re-buy is seeded weeks after the
  *    break (the walk models neither; the script prints this for each row).
+ *
+ * A failure after the claim leaves the row claimed (its tranche ids read
+ * `sim_walk_…`) but not released. A later run's claim then matches nothing;
+ * the row is re-read, and if it carries this walk's ids it is reported as
+ * PARTIAL with what is and isn't in place, never as an ordinary skip. Nothing
+ * resumes it automatically: whether a fill was booked is a person's check
+ * (the paper position), so a fill is never booked twice.
  *
  * The planning is pure (`planSettlement`) and the writes take their
  * dependencies as arguments, so both are tested without a database.
@@ -80,6 +90,8 @@ export interface SettlementPlan {
   rowId: string;
   /** Columns the claim writes (besides `updated_at`, stamped at write time). */
   patch: Record<string, unknown>;
+  /** `last_managed_at` for the release, written last. */
+  managedAt: string;
   /** The walk's fills, each kept at its bar's time. */
   fills: WalkFill[];
   /** Present once every tranche has a fill. */
@@ -96,6 +108,9 @@ export interface SettlementPlan {
 }
 
 const KEYS = ["scale_out", "master", "runner"] as const;
+
+/** The tranche order id the walk's claim writes; how a re-run recognises its own claim. */
+export const walkOrderId = (rowId: string, key: WalkFill["key"]) => `sim_walk_${rowId.slice(0, 8)}_${key}`;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** The walk's stop reason as the column stores it. */
@@ -118,7 +133,7 @@ export function planSettlement(row: PausedExitRow, walk: PausedWalk, end: Date):
   for (const f of walk.fills) {
     if (row[`${f.key}_order_id`] != null) throw new Error(`${row.id}: the walk fills ${f.key}, which the row already filled`);
     if (!Number.isFinite(f.price) || !Number.isFinite(Date.parse(f.at))) throw new Error(`${row.id}: a fill has no price or time`);
-    patch[`${f.key}_order_id`] = `sim_walk_${row.id.slice(0, 8)}_${f.key}`;
+    patch[`${f.key}_order_id`] = walkOrderId(row.id, f.key);
     patch[`${f.key}_fill_price`] = f.price;
   }
   const startStop = row.applied_stop ?? row.stop_loss;
@@ -127,9 +142,9 @@ export function planSettlement(row: PausedExitRow, walk: PausedWalk, end: Date):
     patch.applied_stop_reason = storedWalkStopReason(walk, row);
   }
   if (walk.best != null && walk.best !== row.high_water) patch.high_water = walk.best;
-  patch.last_managed_at = end.toISOString();
+  const managedAt = end.toISOString();
 
-  if (walk.state !== "closed") return { rowId: row.id, patch, fills: walk.fills, close: null };
+  if (walk.state !== "closed") return { rowId: row.id, patch, managedAt, fills: walk.fills, close: null };
 
   // Every tranche now carries a fill: the ones before the pause and the walk's.
   const priced = KEYS.map((key) => {
@@ -152,6 +167,7 @@ export function planSettlement(row: PausedExitRow, walk: PausedWalk, end: Date):
   return {
     rowId: row.id,
     patch,
+    managedAt,
     fills: walk.fills,
     close: {
       at: last.at,
@@ -181,7 +197,8 @@ export interface SettleDeps {
 
 export interface SettleResult {
   rowId: string;
-  outcome: "settled" | "updated" | "skipped";
+  /** "partial": an earlier run claimed this row and stopped before releasing it. */
+  outcome: "settled" | "updated" | "skipped" | "partial";
   detail: string;
 }
 
@@ -200,59 +217,102 @@ export async function applySettlement(row: PausedExitRow, plan: SettlementPlan, 
   claim = row.last_managed_at == null ? claim.is("last_managed_at", null) : claim.eq("last_managed_at", row.last_managed_at);
   for (const f of plan.fills) claim = claim.is(`${f.key}_order_id`, null);
   const { data: claimed, error: claimError } = await claim.select("id").maybeSingle();
-  if (claimError) throw new Error(`${row.id}: claim failed: ${claimError.message}`);
-  if (!claimed) return { rowId: row.id, outcome: "skipped", detail: "the row changed since it was read; nothing written" };
+  if (claimError) throw new Error(`${row.id}: claim failed, nothing written: ${claimError.message}`);
+  if (!claimed) return explainUnclaimed(row, plan, deps);
 
-  const closingSide: "buy" | "sell" = row.side === "long" ? "sell" : "buy";
-  for (const f of plan.fills) {
-    await deps.executeFill(row.user_id, { symbol: row.symbol, side: closingSide, qty: f.qty, price: f.price });
-  }
-  if (!plan.close) return { rowId: row.id, outcome: "updated", detail: `${plan.fills.length} fill(s); still open` };
-
-  const c = plan.close;
-  const log = await deps.insertTradeLog({
-    user_id: row.user_id,
-    symbol: row.symbol.toUpperCase(),
-    asset_class: "us_equity",
-    direction: row.side === "long" ? "buy" : "sell",
-    quantity: c.exitQty,
-    entry_timestamp: row.created_at,
-    entry_price: row.entry_price,
-    exit_timestamp: c.at,
-    exit_price: c.exitPrice,
-    outcome: c.profitLossDollars >= 0 ? "profit" : "loss",
-    profit_loss_dollars: c.profitLossDollars,
-    profit_loss_percent: c.profitLossPercent,
-    exit_condition: c.exitCondition,
-    signal_called: deps.signalCalled(row),
-    signal_adherence: "yes",
-    exit_plan_id: row.id,
-    order_id: row.entry_order_id,
-  });
-  if (log.error) throw new Error(`${row.id}: fills written but the trade log was not: ${log.error.message}`);
-
-  const { error: closeError } = await deps.db
-    .from("protocol_exits")
-    .update({ status: "closed", closed_at: c.at, updated_at: nowIso })
-    .eq("id", row.id)
-    .eq("user_id", row.user_id)
-    .eq("status", "working");
-  if (closeError) throw new Error(`${row.id}: trade logged but the row was not closed: ${closeError.message}`);
-
-  let ended = "";
-  if (c.stoppedOut && row.entry_order_id) {
-    const { data: order } = await deps.db.from("orders").select("source_plan_id, intraday_sourced").eq("id", row.entry_order_id).maybeSingle();
-    const planId = (order?.source_plan_id as string | null) ?? null;
-    if (planId && order?.intraday_sourced !== true) {
-      await deps.stopOut(row.user_id, {
-        planId,
-        entryFillPrice: row.entry_price,
-        stoppedAt: c.at,
-        exitPrice: c.exitPrice,
-        extreme: (plan.patch.high_water as number | undefined) ?? row.high_water,
-      });
-      ended = "; automated plan ended, no reversal or re-buy seeded";
+  let stage = "claimed";
+  try {
+    const closingSide: "buy" | "sell" = row.side === "long" ? "sell" : "buy";
+    let booked = 0;
+    for (const f of plan.fills) {
+      stage = `claimed; ${booked} of ${plan.fills.length} fill(s) booked`;
+      await deps.executeFill(row.user_id, { symbol: row.symbol, side: closingSide, qty: f.qty, price: f.price });
+      booked++;
     }
+    stage = `claimed; ${booked} of ${plan.fills.length} fill(s) booked`;
+
+    const c = plan.close;
+    let duplicate = false;
+    if (c) {
+      const log = await deps.insertTradeLog({
+        user_id: row.user_id,
+        symbol: row.symbol.toUpperCase(),
+        asset_class: "us_equity",
+        direction: row.side === "long" ? "buy" : "sell",
+        quantity: c.exitQty,
+        entry_timestamp: row.created_at,
+        entry_price: row.entry_price,
+        exit_timestamp: c.at,
+        exit_price: c.exitPrice,
+        outcome: c.profitLossDollars >= 0 ? "profit" : "loss",
+        profit_loss_dollars: c.profitLossDollars,
+        profit_loss_percent: c.profitLossPercent,
+        exit_condition: c.exitCondition,
+        signal_called: deps.signalCalled(row),
+        signal_adherence: "yes",
+        exit_plan_id: row.id,
+        order_id: row.entry_order_id,
+      });
+      if (log.error) throw new Error(`trade log not written: ${log.error.message}`);
+      duplicate = log.duplicate;
+      stage += "; trade log written";
+    }
+
+    // The release, last: only now does the hold's policy stop hiding the row.
+    const release: Record<string, unknown> = { last_managed_at: plan.managedAt, updated_at: deps.now().toISOString() };
+    if (c) {
+      release.status = "closed";
+      release.closed_at = c.at;
+    }
+    const { error: releaseError } = await deps.db
+      .from("protocol_exits")
+      .update(release)
+      .eq("id", row.id)
+      .eq("user_id", row.user_id)
+      .eq("status", "working");
+    if (releaseError) throw new Error(`row not released: ${releaseError.message}`);
+    stage += c ? "; row closed" : "; row released";
+    if (!c) return { rowId: row.id, outcome: "updated", detail: `${plan.fills.length} fill(s); still open` };
+
+    let ended = "";
+    if (c.stoppedOut && row.entry_order_id) {
+      const { data: order } = await deps.db.from("orders").select("source_plan_id, intraday_sourced").eq("id", row.entry_order_id).maybeSingle();
+      const planId = (order?.source_plan_id as string | null) ?? null;
+      if (planId && order?.intraday_sourced !== true) {
+        await deps.stopOut(row.user_id, {
+          planId,
+          entryFillPrice: row.entry_price,
+          stoppedAt: c.at,
+          exitPrice: c.exitPrice,
+          extreme: (plan.patch.high_water as number | undefined) ?? row.high_water,
+        });
+        ended = "; automated plan ended, no reversal or re-buy seeded";
+      }
+    }
+    return { rowId: row.id, outcome: "settled", detail: `closed ${c.exitCondition} at ${c.exitPrice.toFixed(2)} on ${c.at}${duplicate ? " (trade log already present)" : ""}${ended}` };
+  } catch (err) {
+    throw new Error(`${row.id}: stopped after: ${stage}. ${err instanceof Error ? err.message : String(err)}`);
   }
-  return { rowId: row.id, outcome: "settled", detail: `closed ${c.exitCondition} at ${c.exitPrice.toFixed(2)} on ${c.at}${log.duplicate ? " (trade log already present)" : ""}${ended}` };
+}
+
+/** The claim matched nothing: an ordinary change since the dry run, or this walk's own earlier, unfinished claim. */
+async function explainUnclaimed(row: PausedExitRow, plan: SettlementPlan, deps: SettleDeps): Promise<SettleResult> {
+  const cols = KEYS.map((k) => `${k}_order_id`).join(", ");
+  const { data: now } = await deps.db.from("protocol_exits").select(`status, last_managed_at, ${cols}`).eq("id", row.id).eq("user_id", row.user_id).maybeSingle();
+  const ours = now != null && plan.fills.length > 0 && plan.fills.every((f) => now[`${f.key}_order_id`] === walkOrderId(row.id, f.key));
+  if (!ours) return { rowId: row.id, outcome: "skipped", detail: "the row changed since it was read; nothing written" };
+  const released = now.last_managed_at === plan.managedAt;
+  if (released && (plan.close == null || now.status === "closed")) {
+    return { rowId: row.id, outcome: "skipped", detail: "already settled by an earlier run; nothing written" };
+  }
+  let logged = false;
+  if (plan.close) {
+    const { data: log } = await deps.db.from("trade_logs").select("id").eq("exit_plan_id", row.id).eq("user_id", row.user_id).maybeSingle();
+    logged = log != null;
+  }
+  return {
+    rowId: row.id,
+    outcome: "partial",
+    detail: `an earlier run claimed this row and stopped: status ${now.status}, ${released ? "released" : "not released (still hidden by the hold)"}${plan.close ? `, trade log ${logged ? "written" : "not written"}` : ""}. Check the paper position for the fills before finishing it by hand.`,
+  };
 }

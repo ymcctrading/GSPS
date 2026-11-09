@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applySettlement, planSettlement, storedWalkStopReason, type PausedExitRow, type SettleDeps } from "@/lib/recovery/settlePausedExit";
+import { applySettlement, planSettlement, storedWalkStopReason, walkOrderId, type PausedExitRow, type SettleDeps } from "@/lib/recovery/settlePausedExit";
 import type { PausedWalk } from "@/lib/recovery/pausedPaperExits";
 
 const row = (over: Partial<PausedExitRow> = {}): PausedExitRow => ({
@@ -57,14 +57,16 @@ describe("planSettlement", () => {
     expect(p.patch.applied_stop).toBe(1692);
     expect(p.patch.applied_stop_reason).toBe("trailing");
     expect(p.patch.high_water).toBe(1735);
-    // last_managed_at moves past the hold's cutoff, so the row is no longer hidden.
-    expect(p.patch.last_managed_at).toBe(END.toISOString());
+    // The claim leaves last_managed_at alone (the hold keeps hiding the row); the release sets it.
+    expect(p.patch.last_managed_at).toBeUndefined();
+    expect(p.managedAt).toBe(END.toISOString());
   });
 
   it("leaves an open walk open, moving only its stop, best and managed time", () => {
     const p = planSettlement(row(), walk({ state: "open", fills: [], stop: 1660, stopReason: "break_even", best: 1710 }), END);
     expect(p.close).toBeNull();
-    expect(p.patch).toEqual({ applied_stop: 1660, applied_stop_reason: "break_even", high_water: 1710, last_managed_at: END.toISOString() });
+    expect(p.patch).toEqual({ applied_stop: 1660, applied_stop_reason: "break_even", high_water: 1710 });
+    expect(p.managedAt).toBe(END.toISOString());
   });
 
   it("blends a tranche filled before the pause into the logged exit and reads the master as the target", () => {
@@ -96,7 +98,7 @@ describe("planSettlement", () => {
 });
 
 /** A query builder fake that records each chained call and answers from `answers`. */
-function fakeDb(answers: { claim?: unknown; order?: unknown }) {
+function fakeDb(answers: { claim?: unknown; order?: unknown; reread?: unknown; log?: unknown; releaseError?: string }) {
   const calls: { table: string; op: string; args: unknown[]; filters: [string, string, unknown][] }[] = [];
   const db = {
     from(table: string) {
@@ -105,8 +107,12 @@ function fakeDb(answers: { claim?: unknown; order?: unknown }) {
       const q: Record<string, unknown> = {};
       for (const op of ["update", "select", "insert"]) q[op] = (...args: unknown[]) => ((call.op ||= op), call.op === op && (call.args = args), q);
       for (const f of ["eq", "is"]) q[f] = (col: string, v: unknown) => (call.filters.push([f, col, v]), q);
-      q.maybeSingle = async () => ({ data: table === "orders" ? answers.order ?? null : answers.claim ?? null, error: null });
-      q.then = (res: (v: unknown) => unknown) => Promise.resolve({ data: null, error: null }).then(res);
+      q.maybeSingle = async () => ({
+        data: table === "orders" ? answers.order ?? null : table === "trade_logs" ? answers.log ?? null : call.op === "select" ? answers.reread ?? null : answers.claim ?? null,
+        error: null,
+      });
+      q.then = (res: (v: unknown) => unknown) =>
+        Promise.resolve({ data: null, error: call.op === "update" && answers.releaseError ? { message: answers.releaseError } : null }).then(res);
       return q;
     },
   };
@@ -149,9 +155,33 @@ describe("applySettlement", () => {
     expect(fills).toEqual([{ userId: "user-1", symbol: "MTD", side: "sell", qty: 10, price: 1692 }]);
     expect(log[0].exit_timestamp).toBe("2026-11-05T15:30:00.000Z");
     expect(log[0].exit_condition).toBe("stop_loss");
-    const close = calls.find((c) => c.table === "protocol_exits" && c.op === "update" && (c.args[0] as Record<string, unknown>).status === "closed");
-    expect((close?.args[0] as Record<string, unknown>).closed_at).toBe("2026-11-05T15:30:00.000Z");
+    expect((claim.args[0] as Record<string, unknown>).last_managed_at).toBeUndefined();
+    const release = calls.find((c) => c.table === "protocol_exits" && c.op === "update" && (c.args[0] as Record<string, unknown>).status === "closed");
+    expect((release?.args[0] as Record<string, unknown>).closed_at).toBe("2026-11-05T15:30:00.000Z");
+    // Released last: after the claim, and carrying the walk's end as last_managed_at.
+    expect(calls.indexOf(release!)).toBeGreaterThan(0);
+    expect((release?.args[0] as Record<string, unknown>).last_managed_at).toBe(END.toISOString());
     expect(stopOuts).toEqual([expect.objectContaining({ planId: "plan-9", stoppedAt: "2026-11-05T15:30:00.000Z" })]);
+  });
+
+  it("reports an earlier run's unfinished claim as partial, not as a skip", async () => {
+    const r = row();
+    const { db } = fakeDb({ claim: null, reread: { status: "working", last_managed_at: r.last_managed_at, runner_order_id: walkOrderId(r.id, "runner") }, log: null });
+    const { d, fills } = deps(db);
+    const res = await applySettlement(r, planSettlement(r, walk(), END), d);
+    expect(res.outcome).toBe("partial");
+    expect(res.detail).toMatch(/not released/);
+    expect(res.detail).toMatch(/trade log not written/);
+    expect(fills).toHaveLength(0);
+  });
+
+  it("says how far it got when a write fails after the claim, and leaves the row unreleased", async () => {
+    const { db, calls } = fakeDb({ claim: { id: "x" } });
+    const { d } = deps(db);
+    d.insertTradeLog = async () => ({ error: { message: "boom" }, duplicate: false });
+    const r = row();
+    await expect(applySettlement(r, planSettlement(r, walk(), END), d)).rejects.toThrow(/stopped after: claimed; 1 of 1 fill\(s\) booked\. trade log not written: boom/);
+    expect(calls.filter((c) => c.table === "protocol_exits" && c.op === "update")).toHaveLength(1);
   });
 
   it("writes nothing more when the claim finds the row changed", async () => {
@@ -162,7 +192,8 @@ describe("applySettlement", () => {
     expect(res.outcome).toBe("skipped");
     expect(fills).toHaveLength(0);
     expect(log).toHaveLength(0);
-    expect(calls).toHaveLength(1);
+    // The claim, then one read to tell a change apart from an unfinished claim; no writes.
+    expect(calls.map((c) => c.op)).toEqual(["update", "select"]);
   });
 
   it("does not log or close a walk that stays open", async () => {

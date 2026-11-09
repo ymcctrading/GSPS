@@ -22,11 +22,13 @@
  * rows again to the reviewed file's `end`, refuses everything if any row or
  * any result differs from the file, and then, row by row: claims the row (only
  * if unchanged since the dry run), books each fill through `executeFill`,
- * writes the trade log with `exit_timestamp` at the last fill's bar and closes
- * the row at that time; an automated plan stopped out is ended at that time
- * with no reversal or re-buy seeded. `last_managed_at` becomes the walk's end,
- * which lifts the after-the-pause hold's policy from that row
- * (owner/after-the-pause-runbook.md, step 0). Nothing is emailed by it.
+ * writes the trade log with `exit_timestamp` at the last fill's bar, and only
+ * then releases the row: closed at that time, `last_managed_at` at the walk's
+ * end, which lifts the after-the-pause hold's policy from that row
+ * (owner/after-the-pause-runbook.md, step 0). An automated plan stopped out
+ * is ended at the bar's time with no reversal or re-buy seeded. It stops at
+ * the first error, saying how far that row got, and at any row an earlier run
+ * left part-written (PARTIAL). Nothing is emailed by it.
  *
  * Usage (research environment; the proxy adds the Alpaca key):
  *   NODE_USE_ENV_PROXY=1 MARKET_DATA_PROVIDER=alpaca ALPACA_API_KEY=via-proxy ALPACA_API_SECRET=via-proxy \
@@ -245,7 +247,9 @@ try {
     const { insertTradeLog } = await server.ssrLoadModule("/lib/portfolio/trade-log-insert.ts");
     const { handleAutomatedStopOut } = await server.ssrLoadModule("/lib/automation/stop-out.ts");
     const { describeSimSignal } = await server.ssrLoadModule("/lib/trade/exit-manager-sim.ts");
-    const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey(), { auth: { persistSession: false } });
+    const { ledgerWriter } = await server.ssrLoadModule("/lib/supabase/ledger.ts");
+    // Every write to a ledger table goes through ledgerWriter (the service client, unchanged).
+    const db = ledgerWriter(createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, serviceRoleKey(), { auth: { persistSession: false } }));
     const toRow = (r) => ({ ...r, qty: n(r.qty), entry_price: n(r.entry_price), stop_loss: n(r.stop_loss), take_profit_1: n(r.take_profit_1), master_profit: n(r.master_profit), scale_out_qty: n(r.scale_out_qty) ?? 0, master_qty: n(r.master_qty) ?? 0, runner_qty: n(r.runner_qty) ?? 0, scale_out_fill_price: n(r.scale_out_fill_price), master_fill_price: n(r.master_fill_price), runner_fill_price: n(r.runner_fill_price), applied_stop: n(r.applied_stop), high_water: n(r.high_water) });
     const deps = {
       db,
@@ -266,9 +270,16 @@ try {
         const plan = planSettlement(row, x.walk, end);
         const res = await applySettlement(row, plan, deps);
         console.log(`  ${x.id} ${x.symbol}: ${res.outcome.toUpperCase()} ${res.detail}`);
+        if (res.outcome === "partial") {
+          exitCode = 1;
+          console.log("  stopped: a row an earlier run left part-written needs a person before anything else is written");
+          break;
+        }
       } catch (err) {
         exitCode = 1;
         console.log(`  ${x.id} ${x.symbol}: ERROR ${err instanceof Error ? err.message : String(err)}`);
+        console.log("  stopped at the first error; the rows after it are untouched");
+        break;
       }
     }
   }
