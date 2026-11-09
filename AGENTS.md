@@ -23,7 +23,9 @@ history and rationale.
 - A topic file that used to sit at `docs/agents/NN-….md` and is not in the
   repository any more is at the same file name in that private folder. Code
   comments that cite an AGENTS.md section by name resolve to that heading in
-  the private full text or its topic files.
+  the private full text or its topic files. Any other doc that has left the
+  repository is at the same path under
+  `/mnt/project-files/private-research/repo-docs/` (its README lists them).
 - Read the matching `docs/agents/` file (in the repository) or private topic
   file before working in its area. A rule's summary here never overrides its
   full text. Where they seem to differ, the full text decides, and you fix the
@@ -182,7 +184,7 @@ opening them:
 - **Design lenses are design inputs, never evidence:** only a cited source or
   a measured result moves a threshold, weight or gate. Each new feature
   answers the mandate's questions in writing while it is conceived (private
-  topic file 14 and the creation note in `docs/memory-bank/`): (1) how the
+  topic file 14, and the creation note in `docs/memory-bank/` or its moved copy; see "How this file works"): (1) how the
   method best grounds or improves it, with source key and tier; (2) how the
   cycle work informs it, with the periodicity checklist for any cycle claim,
   saying what cleared and what didn't; (3) which of the seven design
