@@ -40,7 +40,9 @@ export function TradeCards({ data }: { data: TradeCardsData }) {
             The record below is open to every member.
           </p>
         ) : data.cards.length === 0 ? (
-          <p className="text-sm text-muted">{NO_CARD_NOTE}</p>
+          <p className="text-sm text-muted">
+            {data.kinds.length > 0 ? "No card for the next session: none of the setups below fired on the last close." : NO_CARD_NOTE}
+          </p>
         ) : (
           <>
             {data.signalDate && <p className="text-xs text-muted">Read on the close of {data.signalDate}.</p>}

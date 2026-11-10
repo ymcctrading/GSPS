@@ -144,13 +144,17 @@ function withCall(input: ShadowWalkInput, result: ShadowOutcome & { fromIndex?: 
   if (long ? !(fill < tp1 && fill > input.stopLoss) : !(fill > tp1 && fill < input.stopLoss)) return { ...out, call: "no_fill" };
   const sessionDate = input.sessionBars[0].t.slice(0, 10);
   const allLater = input.dailyBars.filter((d) => d.t.slice(0, 10) > sessionDate);
-  const later = allLater.slice(0, GOOD_CALL_MAX_SESSIONS);
+  // A fill at the next session's open puts the fill session among the later
+  // bars: read one more, so every path walks the fill session and the
+  // GOOD_CALL_MAX_SESSIONS sessions after it.
+  const horizon = GOOD_CALL_MAX_SESSIONS + (fromIndex >= input.sessionBars.length ? 1 : 0);
+  const later = allLater.slice(0, horizon);
   const bars = [...input.sessionBars, ...later].slice(fromIndex);
   const call = walkGoodCall({ long: input.direction === "bullish", fill: out.fillPrice, stop: input.stopLoss, tp1, bars });
   // Neither level within the horizon (the fill's session and the
   // GOOD_CALL_MAX_SESSIONS sessions after it, the same reach as the cards'
   // walk): settled as unresolved, counted apart, never re-read.
-  return { ...out, call: call === "open" && allLater.length >= GOOD_CALL_MAX_SESSIONS ? "unresolved" : call };
+  return { ...out, call: call === "open" && allLater.length >= horizon ? "unresolved" : call };
 }
 
 function walkShadowEntryAndExit(input: ShadowWalkInput): ShadowOutcome & { fromIndex?: number } {
