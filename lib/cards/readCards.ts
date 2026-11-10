@@ -15,6 +15,8 @@ import { STRATEGY_MODE_LABELS } from "@/lib/strategies/types";
 import { CARD_RECORDS, cardKindShown, type CardKind, type CardRecord } from "@/lib/setups/cardRecords";
 import { tallyGoodCalls, type GoodCallTally } from "@/lib/shadow/goodCall";
 import { CARD_MODES } from "@/lib/cards/cardCalls";
+import { isStrategyModeAllowedForPolicy } from "@/lib/strategies/access";
+import type { EntitlementPolicy } from "@/lib/entitlements/policy";
 
 export interface TradeCard {
   kind: CardKind;
@@ -38,6 +40,12 @@ export interface TradeCards {
   /** The completed session the cards were read on; they trade the next session. */
   signalDate: string | null;
   cards: TradeCard[];
+  /**
+   * Tonight's cards of kinds the member's tier does not include (Strategy
+   * Modes tier gating, `lib/entitlements/policy.ts#allowedStrategyModes`),
+   * counted but not shown.
+   */
+  heldBack: number;
   kinds: TradeCardKindRecord[];
 }
 
@@ -49,9 +57,18 @@ export function publishedKinds(): CardKind[] {
 /** Most forward rows read for a kind's tally; an engineering bound for one request. */
 const FORWARD_ROWS = 5000;
 
-export async function getTradeCards(service: SupabaseClient): Promise<TradeCards> {
+export const NO_TRADE_CARDS: TradeCards = { signalDate: null, cards: [], heldBack: 0, kinds: [] };
+
+/**
+ * The member's view: cards of the published kinds their tier includes, and the
+ * record of every published kind. `policy` null (no session) shows no card.
+ */
+export async function getTradeCards(
+  service: SupabaseClient,
+  policy: Pick<EntitlementPolicy, "allowedStrategyModes"> | null,
+): Promise<TradeCards> {
   const kinds = publishedKinds();
-  if (kinds.length === 0) return { signalDate: null, cards: [], kinds: [] };
+  if (kinds.length === 0) return NO_TRADE_CARDS;
 
   const { data: latest } = await service
     .from("card_calls")
@@ -64,6 +81,7 @@ export async function getTradeCards(service: SupabaseClient): Promise<TradeCards
   const signalDate = (latest as { signal_date?: string } | null)?.signal_date ?? null;
 
   let cards: TradeCard[] = [];
+  let heldBack = 0;
   if (signalDate) {
     const { data } = await service
       .from("card_calls")
@@ -75,6 +93,9 @@ export async function getTradeCards(service: SupabaseClient): Promise<TradeCards
     cards = ((data ?? []) as { kind: CardKind; symbol: string; entry: number | string; stop: number | string; tp1: number | string }[]).map(
       (r) => ({ kind: r.kind, label: STRATEGY_MODE_LABELS[r.kind], symbol: r.symbol, entry: Number(r.entry), stop: Number(r.stop), tp1: Number(r.tp1) }),
     );
+    const all = cards.length;
+    cards = policy ? cards.filter((c) => isStrategyModeAllowedForPolicy(policy, c.kind)) : [];
+    heldBack = all - cards.length;
   }
 
   const records: TradeCardKindRecord[] = [];
@@ -92,7 +113,7 @@ export async function getTradeCards(service: SupabaseClient): Promise<TradeCards
     const rows = (data ?? []) as { signal_date: string; stop: number | string; tp1: number | string; fill_price: number | string | null; call_outcome: string }[];
     const forward = tallyGoodCalls(
       rows.map((r) => ({
-        call: r.call_outcome as "good" | "bad" | "open" | "no_fill",
+        call: r.call_outcome as "good" | "bad" | "open" | "unresolved" | "no_fill",
         fill: r.fill_price == null ? null : Number(r.fill_price),
         stop: Number(r.stop),
         tp1: Number(r.tp1),
@@ -100,5 +121,5 @@ export async function getTradeCards(service: SupabaseClient): Promise<TradeCards
     );
     records.push({ kind, label: STRATEGY_MODE_LABELS[kind], heldOut, forward, since: rows.length ? rows[rows.length - 1].signal_date : null });
   }
-  return { signalDate, cards, kinds: records };
+  return { signalDate, cards, heldBack, kinds: records };
 }

@@ -34,12 +34,13 @@ import type { Bar } from "@/lib/types";
 export type CallOutcome = "good" | "bad" | "open";
 
 /**
- * Sessions a filled call may take to reach TP1 or its stop before it is
- * marked out as neither (`open` past this many is left `open` for good, and
- * counted apart). An engineering choice, wide enough that a swing plan
- * resolves: the replay's median trade lasts about 5 to 7 sessions.
+ * Sessions after the fill's session a call may take to reach TP1 or its
+ * stop. Past this with neither touched it is settled `unresolved`, counted
+ * apart and never read again. An engineering choice: about a trading year,
+ * so nearly every call resolves (the held-out read walked to the end of its
+ * half and left 0.6% of RSI reversal fills unresolved).
  */
-export const GOOD_CALL_MAX_SESSIONS = 60;
+export const GOOD_CALL_MAX_SESSIONS = 250;
 
 export interface GoodCallInput {
   long: boolean;
@@ -91,16 +92,18 @@ export interface GoodCallTally {
   bad: number;
   /** Filled and still neither. */
   open: number;
+  /** Filled, and neither level reached within `GOOD_CALL_MAX_SESSIONS`. */
+  unresolved: number;
   /** Good over good plus bad, `null` before any is decided. */
   goodRate: number | null;
-  /** Mean break-even rate over the decided calls, `null` before any is decided. */
+  /** Mean break-even rate over the filled calls (as the held-out read averages it), `null` with none. */
   breakEven: number | null;
   /** Mean result per decided call in R: TP1 / risk for a good call, -1 for a bad one. */
   expectancyR: number | null;
 }
 
 export interface ScoredCall {
-  call: CallOutcome | "no_fill";
+  call: CallOutcome | "no_fill" | "unresolved";
   fill: number | null;
   stop: number;
   tp1: number | null;
@@ -112,21 +115,26 @@ export function tallyGoodCalls(calls: readonly ScoredCall[]): GoodCallTally {
   let good = 0;
   let bad = 0;
   let open = 0;
+  let unresolved = 0;
   let beSum = 0;
   let beN = 0;
   let rSum = 0;
   let rN = 0;
   for (const c of calls) {
-    if (c.call === "no_fill") noFill++;
-    else if (c.call === "open") open++;
+    if (c.call === "no_fill") {
+      noFill++;
+      continue;
+    }
+    const be = c.fill != null && c.tp1 != null ? breakEvenRate(c.fill, c.stop, c.tp1) : null;
+    if (be != null) {
+      beSum += be;
+      beN++;
+    }
+    if (c.call === "open") open++;
+    else if (c.call === "unresolved") unresolved++;
     else {
       if (c.call === "good") good++;
       else bad++;
-      const be = c.fill != null && c.tp1 != null ? breakEvenRate(c.fill, c.stop, c.tp1) : null;
-      if (be != null) {
-        beSum += be;
-        beN++;
-      }
       // A good call earns reward / risk = (1 - be) / be; a bad one loses 1R.
       // A good call with no measurable distances (never true of a well-formed
       // card, `walkGoodCall`) adds no R.
@@ -146,6 +154,7 @@ export function tallyGoodCalls(calls: readonly ScoredCall[]): GoodCallTally {
     good,
     bad,
     open,
+    unresolved,
     goodRate: decided > 0 ? good / decided : null,
     breakEven: beN > 0 ? beSum / beN : null,
     expectancyR: rN > 0 ? rSum / rN : null,

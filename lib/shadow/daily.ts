@@ -56,7 +56,7 @@ export interface ShadowCall {
   /** The card's first target; null on rows recorded before it was kept. */
   tp1: number | null;
   /** Owner's scoring (2026-11-10): TP1 before the stop after the fill is good, the stop first bad. */
-  call: CallOutcome | "no_fill" | null;
+  call: CallOutcome | "no_fill" | "unresolved" | null;
 }
 
 export interface ShadowDay {
@@ -105,7 +105,7 @@ export interface ShadowTotals {
   goodCalls: GoodCallTally;
 }
 
-const CALLS: ReadonlySet<string> = new Set(["good", "bad", "open", "no_fill"]);
+const CALLS: ReadonlySet<string> = new Set(["good", "bad", "open", "unresolved", "no_fill"]);
 
 const num = (v: number | string | null | undefined): number | null => {
   if (v == null || v === "") return null;
@@ -155,7 +155,7 @@ export function buildShadowDays(rows: readonly ShadowRecordRow[]): ShadowDay[] {
       r,
       sessionsHeld: row.bars_held,
       tp1: num(row.tp1),
-      call: row.call_outcome && CALLS.has(row.call_outcome) ? (row.call_outcome as CallOutcome | "no_fill") : null,
+      call: row.call_outcome && CALLS.has(row.call_outcome) ? (row.call_outcome as CallOutcome | "no_fill" | "unresolved") : null,
     });
     day.calls++;
     if (state === "win") day.wins++;

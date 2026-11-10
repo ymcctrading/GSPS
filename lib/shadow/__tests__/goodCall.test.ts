@@ -69,9 +69,19 @@ describe("tallyGoodCalls", () => {
       { call: "no_fill", fill: null, stop: 89, tp1: 95 },
       { call: "open", fill: 92, stop: 89, tp1: 95 },
     ]);
-    expect(t).toMatchObject({ calls: 4, noFill: 1, good: 1, bad: 1, open: 1, goodRate: 0.5 });
-    expect(t.breakEven).toBeCloseTo(0.375);
+    expect(t).toMatchObject({ calls: 4, noFill: 1, good: 1, bad: 1, open: 1, unresolved: 0, goodRate: 0.5 });
+    // Break-even is averaged over every fill, the open one too, as the held-out read averages it.
+    expect(t.breakEven).toBeCloseTo((0.25 + 0.5 + 0.5) / 3);
     expect(t.expectancyR).toBeCloseTo(1);
+  });
+  it("keeps unresolved calls out of the rate but in the break-even, as open ones", () => {
+    const t = tallyGoodCalls([
+      { call: "good", fill: 92, stop: 91, tp1: 95 },
+      { call: "unresolved", fill: 92, stop: 89, tp1: 95 },
+    ]);
+    expect(t).toMatchObject({ calls: 2, good: 1, bad: 0, unresolved: 1, goodRate: 1 });
+    expect(t.breakEven).toBeCloseTo((0.25 + 0.5) / 2);
+    expect(t.expectancyR).toBeCloseTo(3);
   });
   it("is empty-safe", () => {
     expect(tallyGoodCalls([])).toMatchObject({ calls: 0, goodRate: null, breakEven: null, expectancyR: null });

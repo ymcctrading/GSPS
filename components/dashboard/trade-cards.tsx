@@ -34,7 +34,12 @@ export function TradeCards({ data }: { data: TradeCardsData }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {data.cards.length === 0 ? (
+        {data.cards.length === 0 && data.heldBack > 0 ? (
+          <p className="text-sm text-muted">
+            {data.heldBack} card{data.heldBack === 1 ? "" : "s"} for the next session come with the Pro plan and above.
+            The record below is open to every member.
+          </p>
+        ) : data.cards.length === 0 ? (
           <p className="text-sm text-muted">{NO_CARD_NOTE}</p>
         ) : (
           <>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildCards, walkCardCall, CARD_MODES, CARD_WINDOW_BARS } from "@/lib/cards/cardCalls";
 import { evaluateRsiReversal } from "@/lib/strategies/rsiReversal";
+import { GOOD_CALL_MAX_SESSIONS } from "@/lib/shadow/goodCall";
 import type { Bar } from "@/lib/types";
 
 /** A daily bar on the n-th weekday-ish date after 2025-01-01 (05:00Z, New York midnight). */
@@ -71,5 +72,24 @@ describe("walkCardCall (buy stop for the next session only)", () => {
   });
   it("stays open while neither level is touched", () => {
     expect(walkCardCall(card, [day(sig + 1, 99, 101, 98, 100.5), day(sig + 2, 100, 103, 99, 102)])).toMatchObject({ call: "open", fill: 100 });
+  });
+  it("scales the levels by a split after the card, and reports the fill in the card's own prices", () => {
+    // 2-for-1 after the card: the signal bar now reads 49.5 where it closed at 99.
+    const split = { ...card, signalClose: 99 };
+    const bars = [day(sig, 49.5, 50, 48.5, 49.5), day(sig + 1, 49.5, 50.5, 49, 50.2), day(sig + 2, 50.2, 53.1, 50, 53)];
+    expect(walkCardCall(split, bars)).toMatchObject({ call: "good", fill: 100 });
+    // Unscaled, the same bars would never reach the 100 entry.
+    expect(walkCardCall(card, bars).call).toBe("no_fill");
+  });
+  it("ignores a sub-cent drift in the signal close", () => {
+    const drift = { ...card, signalClose: 99.05 };
+    const r = walkCardCall(drift, [day(sig, 99, 100, 97, 99), day(sig + 1, 99, 101, 98, 100.5), day(sig + 2, 101, 106.5, 100, 105)]);
+    expect(r).toMatchObject({ call: "good", fill: 100 });
+  });
+  it("is unresolved once the cap has passed with neither level touched", () => {
+    const bars = [day(sig + 1, 99, 101, 98, 100.5)];
+    for (let i = 2; i <= GOOD_CALL_MAX_SESSIONS + 2; i++) bars.push(day(sig + i, 100, 103, 99, 101));
+    expect(walkCardCall(card, bars)).toMatchObject({ call: "unresolved", fill: 100 });
+    expect(walkCardCall(card, bars.slice(0, GOOD_CALL_MAX_SESSIONS)).call).toBe("open");
   });
 });

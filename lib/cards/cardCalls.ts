@@ -56,6 +56,8 @@ export interface CardCall {
   entry: number;
   stop: number;
   tp1: number;
+  /** The signal bar's close as read that night, so a later stock split can be scaled out (`walkCardCall`). */
+  signalClose: number;
 }
 
 /** A daily bar's New York session date. */
@@ -70,6 +72,7 @@ export function buildCards(symbol: string, completedDaily: readonly Bar[], modes
   if (completedDaily.length === 0) return [];
   const window = completedDaily.slice(-CARD_WINDOW_BARS) as Bar[];
   const signalDate = dateOf(window[window.length - 1]);
+  const signalClose = window[window.length - 1].c;
   const cards: CardCall[] = [];
   for (const kind of modes) {
     let levels;
@@ -81,13 +84,13 @@ export function buildCards(symbol: string, completedDaily: readonly Bar[], modes
     if (!levels || levels.direction !== "bullish") continue;
     const { entry, stopLoss: stop, takeProfit1: tp1 } = levels;
     if (![entry, stop, tp1].every(Number.isFinite) || !(entry > stop) || !(tp1 > entry)) continue;
-    cards.push({ kind, symbol, signalDate, entry, stop, tp1 });
+    cards.push({ kind, symbol, signalDate, entry, stop, tp1, signalClose });
   }
   return cards;
 }
 
 export interface CardCallResult {
-  call: CallOutcome | "no_fill" | "pending";
+  call: CallOutcome | "no_fill" | "pending" | "unresolved";
   fill: number | null;
   /** The session the card traded (the first after its signal), once it is in. */
   session: string | null;
@@ -96,16 +99,36 @@ export interface CardCallResult {
 /**
  * Pure. What became of a card over the daily bars after its signal. `pending`
  * while its session is not in yet; `open` while filled and neither level is
- * touched (and still `open` after `GOOD_CALL_MAX_SESSIONS`, counted apart).
+ * touched; `unresolved` once `GOOD_CALL_MAX_SESSIONS` sessions have passed
+ * with neither (counted apart, never re-read). The card trades the first bar
+ * after its signal bar in the data (the next session the stock traded), as
+ * the held-out read did.
+ *
+ * The bars are re-read each night split-adjusted, while the card's levels
+ * were priced on the bars of its night. When the signal bar is in the bars
+ * read and its close differs from `signalClose`, the levels are scaled by
+ * that ratio first, so a split after the signal doesn't read as a no fill or
+ * a stop. The fill is returned on the card's own basis, beside its stored levels.
  */
-export function walkCardCall(card: Pick<CardCall, "signalDate" | "entry" | "stop" | "tp1">, daily: readonly Bar[]): CardCallResult {
+export function walkCardCall(
+  card: Pick<CardCall, "signalDate" | "entry" | "stop" | "tp1"> & { signalClose?: number | null },
+  daily: readonly Bar[],
+): CardCallResult {
+  const signalBar = daily.find((b) => dateOf(b) === card.signalDate);
+  const ratio =
+    signalBar && card.signalClose != null && card.signalClose > 0 && signalBar.c > 0 ? signalBar.c / card.signalClose : 1;
+  // A sub-cent drift between two reads of the same bar is not a split.
+  const k = Math.abs(ratio - 1) < 0.001 ? 1 : ratio;
+  const entry = card.entry * k;
+  const stop = card.stop * k;
+  const tp1 = card.tp1 * k;
   const after = daily.filter((b) => dateOf(b) > card.signalDate);
   if (after.length === 0) return { call: "pending", fill: null, session: null };
   const first = after[0];
   const session = dateOf(first);
-  if (first.h < card.entry) return { call: "no_fill", fill: null, session };
-  const fill = Math.max(first.o, card.entry);
-  if (fill <= card.stop || fill >= card.tp1) return { call: "no_fill", fill: null, session };
-  const call = walkGoodCall({ long: true, fill, stop: card.stop, tp1: card.tp1, bars: after.slice(0, GOOD_CALL_MAX_SESSIONS) });
-  return { call, fill, session };
+  if (first.h < entry) return { call: "no_fill", fill: null, session };
+  const fill = Math.max(first.o, entry);
+  if (fill <= stop || fill >= tp1) return { call: "no_fill", fill: null, session };
+  const call = walkGoodCall({ long: true, fill, stop, tp1, bars: after.slice(0, GOOD_CALL_MAX_SESSIONS + 1) });
+  return { call: call === "open" && after.length > GOOD_CALL_MAX_SESSIONS ? "unresolved" : call, fill: fill / k, session };
 }

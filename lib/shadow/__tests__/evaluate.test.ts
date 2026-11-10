@@ -261,11 +261,13 @@ describe("evaluatePendingShadowSignals", () => {
       "15Min": session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3], [100.4, 100.8, 100.1, 100.6]]),
       "1Day": history("2026-08-25"),
     });
-    const open = { ...row, id: "s2", tp1: 103, call_outcome: "open", fill_price: 100.4 };
+    const open = { ...row, id: "s2", tp1: 103, call_outcome: "open", fill_price: 100.4, outcome: "open" };
     const { client, updates, read } = makeSupabase([], [open]);
     await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
     expect(read.openLimit).toBe(SHADOW_EVALUATIONS_PER_PASS);
     expect(updates[0]).toMatchObject({ call_outcome: "open" });
+    // A decided trade's recorded result stands: only the call and the check time are written.
+    expect(Object.keys(updates[0]).sort()).toEqual(["call_outcome", "checked_at"]);
   });
 
   it("records a plan that never filled in its session as expired", async () => {

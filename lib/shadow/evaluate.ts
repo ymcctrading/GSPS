@@ -94,7 +94,7 @@ export interface ShadowOutcome {
    * horizon (`GOOD_CALL_MAX_SESSIONS`), so it can stay open after Gann's exit
    * has closed the trade. Absent when the row has no TP1 to read.
    */
-  call?: CallOutcome | "no_fill";
+  call?: CallOutcome | "no_fill" | "unresolved";
 }
 
 const PENDING: ShadowOutcome = { outcome: "pending", rMultiple: null, barsHeld: null, fillPrice: null };
@@ -137,10 +137,12 @@ function withCall(input: ShadowWalkInput, result: ShadowOutcome & { fromIndex?: 
   if (out.outcome === "expired" || out.outcome === "retired") return { ...out, call: "no_fill" };
   if (fromIndex == null || out.fillPrice == null) return out.filled || out.outcome !== "pending" ? { ...out, call: "open" } : out;
   const sessionDate = input.sessionBars[0].t.slice(0, 10);
-  const later = input.dailyBars.filter((d) => d.t.slice(0, 10) > sessionDate).slice(0, GOOD_CALL_MAX_SESSIONS);
+  const allLater = input.dailyBars.filter((d) => d.t.slice(0, 10) > sessionDate);
+  const later = allLater.slice(0, GOOD_CALL_MAX_SESSIONS);
   const bars = [...input.sessionBars, ...later].slice(fromIndex);
   const call = walkGoodCall({ long: input.direction === "bullish", fill: out.fillPrice, stop: input.stopLoss, tp1, bars });
-  return { ...out, call };
+  // Neither level within the horizon: settled as unresolved, counted apart, never re-read.
+  return { ...out, call: call === "open" && allLater.length >= GOOD_CALL_MAX_SESSIONS ? "unresolved" : call };
 }
 
 function walkShadowEntryAndExit(input: ShadowWalkInput): ShadowOutcome & { fromIndex?: number } {
@@ -229,6 +231,8 @@ export interface PendingShadowRow {
   tp1?: number | string | null;
   /** The card's call so far (migration 0147). */
   call_outcome?: string | null;
+  /** The trade's recorded outcome; set on a row re-read only for its call. */
+  outcome?: string | null;
 }
 
 /**
@@ -278,9 +282,14 @@ export async function evaluatePendingShadowSignals(
     else openCalls = (open ?? []) as PendingShadowRow[];
   }
 
-  const walked = await walkShadowRows(supabase, [...((data ?? []) as PendingShadowRow[]), ...openCalls], now);
+  const pendingRows = (data ?? []) as PendingShadowRow[];
+  const walked = await walkShadowRows(supabase, [...pendingRows, ...openCalls], now);
+  // The tally is of the trades read; a decided trade re-read for its call is not counted again.
   const tally = { evaluated: 0, stillPending: 0, failed: 0 };
-  for (const result of walked.values()) {
+  for (const row of pendingRows) {
+    if (!walked.has(row.id)) continue;
+    const result = walked.get(row.id);
+    if (result === undefined) continue;
     if (result === null) tally.failed++;
     else if (result.outcome === "pending") tally.stillPending++;
     else tally.evaluated++;
@@ -289,7 +298,7 @@ export async function evaluatePendingShadowSignals(
 }
 
 /** The columns a pass reads (`PendingShadowRow`). */
-export const SHADOW_ROW_COLUMNS = "id, symbol, direction, entry, stop_loss, scanned_at, session_date, fill_price, tp1, call_outcome";
+export const SHADOW_ROW_COLUMNS = "id, symbol, direction, entry, stop_loss, scanned_at, session_date, fill_price, tp1, call_outcome, outcome";
 
 /** Calendar days a missing session is waited on before it is read as never filled. Engineering-chosen. */
 export const FEED_GAP_RETRY_DAYS = 7;
@@ -392,6 +401,20 @@ export async function walkShadowRows(
         tp1: row.tp1 == null ? null : Number(row.tp1),
       });
       const callWrite = result.call ? { call_outcome: result.call } : {};
+      // A trade already decided is re-read only for its call: its recorded
+      // outcome stands (the daily window the exit reads slides over time, so
+      // walking it again weeks later could rewrite a recorded result).
+      if (row.outcome != null) {
+        const { error: callError } = await supabase
+          .from("shadow_signals")
+          .update({ checked_at: now.toISOString(), ...callWrite })
+          .eq("id", row.id);
+        if (callError) {
+          console.error(`shadow: call write failed for ${row.symbol} — ${callError.message}`);
+          return null;
+        }
+        return result;
+      }
       if (result.outcome === "pending") {
         // Checked now, so the next pass turns to rows not yet read; a fill is
         // kept so the recorder knows the trade is on (lib/shadow/record.ts).

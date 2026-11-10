@@ -135,7 +135,7 @@ export function ForwardRecord() {
   );
 }
 
-const CALL_LABEL = { good: "good call", bad: "bad call", open: "call open", no_fill: "no fill" } as const;
+const CALL_LABEL = { good: "good call", bad: "bad call", open: "call open", unresolved: "neither level reached", no_fill: "no fill" } as const;
 
 /**
  * The owner's scoring (2026-11-10): from the fill, TP1 before the stop is a
@@ -149,7 +149,7 @@ function GoodCallLine({ g }: { g: ShadowTotals["goodCalls"] }) {
   const ahead = g.goodRate != null && g.breakEven != null ? g.goodRate - g.breakEven : null;
   return (
     <p className="text-sm">
-      Calls: {g.good} good, {g.bad} bad, {g.open} still open, {g.noFill} never filled. Good-call rate {pct(g.goodRate)} against{" "}
+      Calls: {g.good} good, {g.bad} bad, {g.open} still open, {g.unresolved} with neither level reached, {g.noFill} never filled. Good-call rate {pct(g.goodRate)} against{" "}
       {pct(g.breakEven)} needed to break even
       {ahead != null && (
         <span className={tone(ahead)}>

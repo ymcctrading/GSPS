@@ -42,7 +42,8 @@ import { RestReminder } from "@/components/dashboard/rest-reminder";
 import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import type { ScanRow } from "@/components/scan/results-table";
 import { TradeCards } from "@/components/dashboard/trade-cards";
-import { getTradeCards, type TradeCards as TradeCardsData } from "@/lib/cards/readCards";
+import { getTradeCards, NO_TRADE_CARDS } from "@/lib/cards/readCards";
+import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 
 export const metadata = { title: "Dashboard — GSPS" };
 export const dynamic = "force-dynamic";
@@ -56,15 +57,10 @@ export default async function DashboardPage() {
   // is per-user (tracked and saved setups, the watchlist, the Novice summary)
   // needs only the user id, so it runs as a second side-by-side round rather
   // than five sequential awaits, each of which used to look the user up again.
-  const [scans, exactScoreDisplayEnabled, userResult, tradeCards] = await Promise.all([
+  const [scans, exactScoreDisplayEnabled, userResult] = await Promise.all([
     getDailyScans(),
     resolveExactScoreDisplayEnabled(),
     supabase.auth.getUser(),
-    // Tonight's published cards and their records (lib/cards/readCards.ts). A
-    // failed read shows the no-card note rather than breaking the page.
-    getTradeCards(createServiceClient()).catch(
-      (): TradeCardsData => ({ signalDate: null, cards: [], kinds: [] }),
-    ),
   ]);
   const { scanDate, freshness, pricedBeforeSession, scannedAt, reconstructed, bullish, bearish } = scans;
   const user = userResult.data.user;
@@ -91,6 +87,12 @@ export default async function DashboardPage() {
           ),
       ])
     : [null, [], [], { symbols: [...DEFAULTS], isDefault: true }, DEFAULT_DASHBOARD_LAYOUT];
+  // Tonight's published cards of the kinds this member's tier includes, and
+  // every published kind's record (lib/cards/readCards.ts). A failed read
+  // shows the no-card note rather than breaking the page.
+  const tradeCards = await (user ? getUserEntitlementPolicy(supabase, user.id) : Promise.resolve(null))
+    .then((policy) => getTradeCards(createServiceClient(), policy))
+    .catch(() => NO_TRADE_CARDS);
   const noviceSummary = tierSummary?.novice ?? null;
   const schoolNudge = tierSummary?.school ?? null;
 

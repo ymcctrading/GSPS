@@ -30,8 +30,10 @@ export const maxDuration = 60;
 
 /** Calendar days of daily bars read: the modes' 250-bar window plus holidays. */
 const HISTORY_DAYS = 380;
-/** Unresolved cards walked a run, least recently checked first. Engineering choice. */
-const WALKS_PER_RUN = 3000;
+/** Unresolved cards walked a run, least recently checked first. Engineering choice, sized to the 60-second budget. */
+const WALKS_PER_RUN = 2000;
+/** Rows written back per request. */
+const WRITE_BATCH = 500;
 /** Cards older than this are past the walk's reach (the bars read) and left as they stand. */
 const WALK_LOOKBACK_DAYS = HISTORY_DAYS - 30;
 
@@ -87,6 +89,7 @@ export async function GET(req: NextRequest) {
         entry: c.entry,
         stop: c.stop,
         tp1: c.tp1,
+        signal_close: c.signalClose,
         published: cardKindShown(c.kind),
       });
     }
@@ -101,7 +104,7 @@ export async function GET(req: NextRequest) {
   const since = etDateKey(new Date(now.getTime() - WALK_LOOKBACK_DAYS * 86_400_000));
   const { data: open, error: readError } = await service
     .from("card_calls")
-    .select("id, symbol, signal_date, entry, stop, tp1, call_outcome, fill_price, session_date")
+    .select("id, kind, symbol, signal_date, entry, stop, tp1, signal_close, published, created_at, call_outcome, fill_price, session_date")
     .in("call_outcome", ["pending", "open"])
     .lt("signal_date", basisDate)
     .gte("signal_date", since)
@@ -109,40 +112,48 @@ export async function GET(req: NextRequest) {
     .limit(WALKS_PER_RUN);
   if (readError) return NextResponse.json({ error: `Open cards not read: ${readError.message}` }, { status: 500 });
 
-  const tally = { good: 0, bad: 0, open: 0, no_fill: 0, pending: 0, unread: 0 };
-  const writes: PromiseLike<unknown>[] = [];
+  const tally = { good: 0, bad: 0, open: 0, unresolved: 0, no_fill: 0, pending: 0, unread: 0 };
   const checkedAt = now.toISOString();
+  // Whole rows, written back in bulk (an upsert on the id), so a night's
+  // walk is a few requests rather than one per card.
+  const updates = [];
   for (const row of open ?? []) {
     const daily = bars.get(String(row.symbol).toUpperCase());
     if (!daily) {
+      // Not in tonight's bars (it left the universe, or the feed missed it):
+      // checked, so it goes to the back of the queue, and read again later.
       tally.unread++;
+      updates.push({ ...row, checked_at: checkedAt });
       continue;
     }
     const r = walkCardCall(
-      { signalDate: String(row.signal_date), entry: Number(row.entry), stop: Number(row.stop), tp1: Number(row.tp1) },
+      {
+        signalDate: String(row.signal_date),
+        entry: Number(row.entry),
+        stop: Number(row.stop),
+        tp1: Number(row.tp1),
+        signalClose: row.signal_close == null ? null : Number(row.signal_close),
+      },
       daily,
     );
     tally[r.call]++;
-    const resolved = r.call === "good" || r.call === "bad" || r.call === "no_fill";
-    writes.push(
-      service
-        .from("card_calls")
-        .update({
-          call_outcome: r.call,
-          fill_price: r.fill,
-          session_date: r.session,
-          checked_at: checkedAt,
-          ...(resolved ? { resolved_at: checkedAt } : {}),
-        })
-        .eq("id", row.id),
-    );
+    const resolved = r.call === "good" || r.call === "bad" || r.call === "no_fill" || r.call === "unresolved";
+    updates.push({
+      ...row,
+      call_outcome: r.call,
+      fill_price: r.fill,
+      session_date: r.session,
+      checked_at: checkedAt,
+      ...(resolved ? { resolved_at: checkedAt } : {}),
+    });
   }
-  const WRITE_BATCH = 25;
   let writeFailures = 0;
-  for (let i = 0; i < writes.length; i += WRITE_BATCH) {
-    const settled = await Promise.allSettled(writes.slice(i, i + WRITE_BATCH));
-    for (const s of settled) {
-      if (s.status === "rejected" || (s.value as { error?: unknown } | undefined)?.error) writeFailures++;
+  for (let i = 0; i < updates.length; i += WRITE_BATCH) {
+    const chunk = updates.slice(i, i + WRITE_BATCH);
+    const { error } = await service.from("card_calls").upsert(chunk, { onConflict: "id" });
+    if (error) {
+      writeFailures += chunk.length;
+      console.error(`[cards/nightly] walk write failed: ${error.message}`);
     }
   }
 
