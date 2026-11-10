@@ -41,6 +41,8 @@ import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
 import { RestReminder } from "@/components/dashboard/rest-reminder";
 import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import type { ScanRow } from "@/components/scan/results-table";
+import { TradeCards } from "@/components/dashboard/trade-cards";
+import { getTradeCards, type TradeCards as TradeCardsData } from "@/lib/cards/readCards";
 
 export const metadata = { title: "Dashboard — GSPS" };
 export const dynamic = "force-dynamic";
@@ -54,10 +56,15 @@ export default async function DashboardPage() {
   // is per-user (tracked and saved setups, the watchlist, the Novice summary)
   // needs only the user id, so it runs as a second side-by-side round rather
   // than five sequential awaits, each of which used to look the user up again.
-  const [scans, exactScoreDisplayEnabled, userResult] = await Promise.all([
+  const [scans, exactScoreDisplayEnabled, userResult, tradeCards] = await Promise.all([
     getDailyScans(),
     resolveExactScoreDisplayEnabled(),
     supabase.auth.getUser(),
+    // Tonight's published cards and their records (lib/cards/readCards.ts). A
+    // failed read shows the no-card note rather than breaking the page.
+    getTradeCards(createServiceClient()).catch(
+      (): TradeCardsData => ({ signalDate: null, cards: [], kinds: [] }),
+    ),
   ]);
   const { scanDate, freshness, pricedBeforeSession, scannedAt, reconstructed, bullish, bearish } = scans;
   const user = userResult.data.user;
@@ -90,6 +97,8 @@ export default async function DashboardPage() {
   // Each section the member can show, hide or move (lib/dashboard/sections.ts),
   // keyed by id. Null where it has nothing to show this member.
   const sections: Record<DashboardSectionId, ReactNode> = {
+    cards: <TradeCards data={tradeCards} />,
+
     summary: noviceSummary && (
       <NoviceHomeSummary regime={noviceSummary.regime} bestPlan={noviceSummary.bestPlan} home={noviceSummary.home} />
     ),

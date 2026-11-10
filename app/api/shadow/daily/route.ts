@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await service
       .from("shadow_signals")
-      .select("symbol, direction, strategy_version, entry, stop_loss, score, source, scanned_at, session_date, outcome, r_multiple, bars_held, fill_price")
+      .select("symbol, direction, strategy_version, entry, stop_loss, score, source, scanned_at, session_date, outcome, r_multiple, bars_held, fill_price, tp1, call_outcome")
       // A row stored before sessions were recorded has none: read it by its scan time.
       .or(`session_date.gte.${since},and(session_date.is.null,scanned_at.gte.${since})`)
       .order("scanned_at", { ascending: true })
