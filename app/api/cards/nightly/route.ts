@@ -28,10 +28,17 @@ import type { Bar } from "@/lib/types";
 
 export const maxDuration = 60;
 
-/** Calendar days of daily bars read: the modes' 250-bar window plus holidays. */
-const HISTORY_DAYS = 380;
+/**
+ * Calendar days of daily bars read. Enough that a card still inside the walk's
+ * reach (WALK_LOOKBACK_DAYS) can have the GOOD_CALL_MAX_SESSIONS + 1 sessions
+ * after it that settle it as unresolved: 390 calendar days hold about 268
+ * sessions. Also covers the modes' 250-bar window.
+ */
+const HISTORY_DAYS = 420;
 /** Unresolved cards walked a run, least recently checked first. Engineering choice, sized to the 60-second budget. */
 const WALKS_PER_RUN = 2000;
+/** Rows a read asks for at once: PostgREST's default max rows. */
+const READ_PAGE = 1000;
 /** Rows written back per request. */
 const WRITE_BATCH = 500;
 /** Cards older than this are past the walk's reach (the bars read) and left as they stand. */
@@ -102,14 +109,26 @@ export async function GET(req: NextRequest) {
 
   // 2. Score the cards still pending or open.
   const since = etDateKey(new Date(now.getTime() - WALK_LOOKBACK_DAYS * 86_400_000));
-  const { data: open, error: readError } = await service
-    .from("card_calls")
-    .select("id, kind, symbol, signal_date, entry, stop, tp1, signal_close, published, created_at, call_outcome, fill_price, session_date")
-    .in("call_outcome", ["pending", "open"])
-    .lt("signal_date", basisDate)
-    .gte("signal_date", since)
-    .order("checked_at", { ascending: true, nullsFirst: true })
-    .limit(WALKS_PER_RUN);
+  // Read in pages: PostgREST caps one response at its max rows (1,000 by default).
+  const open: Record<string, unknown>[] = [];
+  let readError: { message: string } | null = null;
+  for (let from = 0; from < WALKS_PER_RUN; from += READ_PAGE) {
+    const { data, error } = await service
+      .from("card_calls")
+      .select("id, kind, symbol, signal_date, entry, stop, tp1, signal_close, published, created_at, call_outcome, fill_price, session_date")
+      .in("call_outcome", ["pending", "open"])
+      .lt("signal_date", basisDate)
+      .gte("signal_date", since)
+      .order("checked_at", { ascending: true, nullsFirst: true })
+      .order("id", { ascending: true })
+      .range(from, Math.min(from + READ_PAGE, WALKS_PER_RUN) - 1);
+    if (error) {
+      readError = error;
+      break;
+    }
+    open.push(...((data ?? []) as Record<string, unknown>[]));
+    if (!data || data.length < READ_PAGE) break;
+  }
   if (readError) return NextResponse.json({ error: `Open cards not read: ${readError.message}` }, { status: 500 });
 
   const tally = { good: 0, bad: 0, open: 0, unresolved: 0, no_fill: 0, pending: 0, unread: 0 };
@@ -117,7 +136,7 @@ export async function GET(req: NextRequest) {
   // Whole rows, written back in bulk (an upsert on the id), so a night's
   // walk is a few requests rather than one per card.
   const updates = [];
-  for (const row of open ?? []) {
+  for (const row of open) {
     const daily = bars.get(String(row.symbol).toUpperCase());
     if (!daily) {
       // Not in tonight's bars (it left the universe, or the feed missed it):

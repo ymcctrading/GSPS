@@ -237,6 +237,16 @@ describe("evaluatePendingShadowSignals", () => {
     expect(good.updates[0]).toMatchObject({ call_outcome: "good" });
   });
 
+  it("counts a fill already at or past TP1 with the no-fills, as the nightly cards do", async () => {
+    bars({
+      "15Min": session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3], [100.4, 100.6, 95, 95.5]]),
+      "1Day": history("2026-08-25"),
+    });
+    const { client, updates } = makeSupabase([{ ...row, tp1: 100.3 }]);
+    await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
+    expect(updates[0]).toMatchObject({ outcome: "loss", call_outcome: "no_fill" });
+  });
+
   it("writes no call for a row recorded before TP1 was kept", async () => {
     bars({
       "15Min": session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3], [100.4, 100.6, 95, 95.5]]),

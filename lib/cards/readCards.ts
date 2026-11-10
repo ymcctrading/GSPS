@@ -17,6 +17,7 @@ import { tallyGoodCalls, type GoodCallTally } from "@/lib/shadow/goodCall";
 import { CARD_MODES } from "@/lib/cards/cardCalls";
 import { isStrategyModeAllowedForPolicy } from "@/lib/strategies/access";
 import type { EntitlementPolicy } from "@/lib/entitlements/policy";
+import { etDateKey, mostRecentClose } from "@/lib/market/session";
 
 export interface TradeCard {
   kind: CardKind;
@@ -37,7 +38,7 @@ export interface TradeCardKindRecord {
 }
 
 export interface TradeCards {
-  /** The completed session the cards were read on; they trade the next session. */
+  /** The completed session the cards were read on; they trade the next session. Null when no card still trades. */
   signalDate: string | null;
   cards: TradeCard[];
   /**
@@ -60,25 +61,42 @@ const FORWARD_ROWS = 5000;
 export const NO_TRADE_CARDS: TradeCards = { signalDate: null, cards: [], heldBack: 0, kinds: [] };
 
 /**
+ * Whether cards read on the close of `signalDate` still trade: they are good
+ * for the session after it only, so once a later session has closed they are
+ * past, whatever the nightly job has (or has not yet) written since.
+ */
+export function cardsStillTrade(signalDate: string, now: Date): boolean {
+  return etDateKey(mostRecentClose(now)) <= signalDate;
+}
+
+/** Rows a read asks for at once: PostgREST's default max rows. */
+const READ_PAGE = 1000;
+
+/**
  * The member's view: cards of the published kinds their tier includes, and the
  * record of every published kind. `policy` null (no session) shows no card.
+ * Cards are shown only from the latest night's run (every kind is recorded
+ * each night, published or not), and only while their session is still ahead.
  */
 export async function getTradeCards(
   service: SupabaseClient,
   policy: Pick<EntitlementPolicy, "allowedStrategyModes"> | null,
+  now: Date = new Date(),
 ): Promise<TradeCards> {
   const kinds = publishedKinds();
   if (kinds.length === 0) return NO_TRADE_CARDS;
 
+  // The latest night the job recorded any card. A quiet night for the
+  // published kinds leaves the earlier cards behind, never on show.
   const { data: latest } = await service
     .from("card_calls")
     .select("signal_date")
-    .eq("published", true)
-    .in("kind", kinds)
+    .in("kind", [...CARD_MODES])
     .order("signal_date", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const signalDate = (latest as { signal_date?: string } | null)?.signal_date ?? null;
+  const lastRun = (latest as { signal_date?: string } | null)?.signal_date ?? null;
+  const signalDate = lastRun && cardsStillTrade(lastRun, now) ? lastRun : null;
 
   let cards: TradeCard[] = [];
   let heldBack = 0;
@@ -98,19 +116,26 @@ export async function getTradeCards(
     heldBack = all - cards.length;
   }
 
+  type ForwardRow = { signal_date: string; stop: number | string; tp1: number | string; fill_price: number | string | null; call_outcome: string };
   const records: TradeCardKindRecord[] = [];
   for (const kind of kinds) {
     const heldOut = CARD_RECORDS[kind];
     if (!heldOut) continue;
-    const { data } = await service
-      .from("card_calls")
-      .select("signal_date, stop, tp1, fill_price, call_outcome")
-      .eq("published", true)
-      .eq("kind", kind)
-      .neq("call_outcome", "pending")
-      .order("signal_date", { ascending: false })
-      .limit(FORWARD_ROWS);
-    const rows = (data ?? []) as { signal_date: string; stop: number | string; tp1: number | string; fill_price: number | string | null; call_outcome: string }[];
+    const rows: ForwardRow[] = [];
+    for (let from = 0; from < FORWARD_ROWS; from += READ_PAGE) {
+      const { data } = await service
+        .from("card_calls")
+        .select("signal_date, stop, tp1, fill_price, call_outcome")
+        .eq("published", true)
+        .eq("kind", kind)
+        .neq("call_outcome", "pending")
+        .order("signal_date", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, Math.min(from + READ_PAGE, FORWARD_ROWS) - 1);
+      const page = (data ?? []) as ForwardRow[];
+      rows.push(...page);
+      if (page.length < READ_PAGE) break;
+    }
     const forward = tallyGoodCalls(
       rows.map((r) => ({
         call: r.call_outcome as "good" | "bad" | "open" | "unresolved" | "no_fill",

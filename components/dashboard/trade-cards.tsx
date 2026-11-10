@@ -72,7 +72,9 @@ export function TradeCards({ data }: { data: TradeCardsData }) {
               ) : (
                 <>
                   Live record{k.since ? ` since ${k.since}` : ""}: {k.forward.good} good calls, {k.forward.bad} bad calls,{" "}
-                  {k.forward.open} still open, {k.forward.noFill} never filled. Good-call rate {pct(k.forward.goodRate)} against{" "}
+                  {k.forward.open} still open,{" "}
+                  {k.forward.unresolved > 0 ? `${k.forward.unresolved} settled with neither level reached, ` : ""}
+                  {k.forward.noFill} never filled. Good-call rate {pct(k.forward.goodRate)} against{" "}
                   {pct(k.forward.breakEven)} needed to break even, {r(k.forward.expectancyR)} a decided call.
                 </>
               )}

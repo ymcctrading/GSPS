@@ -136,12 +136,20 @@ function withCall(input: ShadowWalkInput, result: ShadowOutcome & { fromIndex?: 
   if (tp1 == null || !Number.isFinite(tp1)) return out;
   if (out.outcome === "expired" || out.outcome === "retired") return { ...out, call: "no_fill" };
   if (fromIndex == null || out.fillPrice == null) return out.filled || out.outcome !== "pending" ? { ...out, call: "open" } : out;
+  // A fill already at or past TP1, or at or past the stop, never offered the
+  // card's trade: counted with the no-fills, as the nightly cards count a
+  // buy stop that gaps beyond either level (lib/cards/cardCalls.ts).
+  const long = input.direction === "bullish";
+  const fill = out.fillPrice;
+  if (long ? !(fill < tp1 && fill > input.stopLoss) : !(fill > tp1 && fill < input.stopLoss)) return { ...out, call: "no_fill" };
   const sessionDate = input.sessionBars[0].t.slice(0, 10);
   const allLater = input.dailyBars.filter((d) => d.t.slice(0, 10) > sessionDate);
   const later = allLater.slice(0, GOOD_CALL_MAX_SESSIONS);
   const bars = [...input.sessionBars, ...later].slice(fromIndex);
   const call = walkGoodCall({ long: input.direction === "bullish", fill: out.fillPrice, stop: input.stopLoss, tp1, bars });
-  // Neither level within the horizon: settled as unresolved, counted apart, never re-read.
+  // Neither level within the horizon (the fill's session and the
+  // GOOD_CALL_MAX_SESSIONS sessions after it, the same reach as the cards'
+  // walk): settled as unresolved, counted apart, never re-read.
   return { ...out, call: call === "open" && allLater.length >= GOOD_CALL_MAX_SESSIONS ? "unresolved" : call };
 }
 
