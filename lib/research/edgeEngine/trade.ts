@@ -19,7 +19,7 @@
  */
 import { pricePoint } from "@/lib/gann/pointScale";
 import type { EngineConfig, TriggerId } from "./config";
-import { ptsAt, type Prepared, type PtsEvent } from "./pts";
+import { ptsAt, restingBuyAt, type Prepared, type PtsEvent } from "./pts";
 
 export interface Entry {
   symbol: string;
@@ -87,16 +87,9 @@ export function confirmLong(P: Prepared, ev: PtsEvent, cfg: EngineConfig, trigge
         }
         break;
       }
-      case "E6": {
-        // a resting buy at the 50% level or a double/triple bottom, inside a time window: fills on the event bar
-        if (i === e && (ev.priceFamilies.includes("P2.half") || ev.priceFamilies.includes("S.double"))) {
-          const px = Math.min(bars[e].o, bars[e].l + P.band[e]);
-          const stop = bars[e].l - pricePoint(bars[e].l);
-          if (px <= stop) return null;
-          return { symbol: P.symbol, trigger, event: ev, index: e, price: px, stop, target: null };
-        }
+      case "E6":
+        // E6 is a resting order, found by `restingBuyAt`, not a confirmation of a touched event
         return null;
-      }
     }
   }
   return null;
@@ -172,6 +165,20 @@ export function longTrades(P: Prepared, cfg: EngineConfig): Trade[] {
   let busyUntil = -1;
   for (let t = 1; t < P.bars.length; t++) {
     if (t <= busyUntil) continue;
+    if (cfg.trigger === "E6") {
+      // a buy resting at the level: fill at the level, or at the open if it gapped below; stop 1 point under the level
+      const r = restingBuyAt(P, t, cfg);
+      if (!r) continue;
+      const px = Math.min(P.bars[t].o, r.level);
+      const stop = r.level - pricePoint(r.level);
+      if (px <= stop) continue;
+      const en: Entry = { symbol: P.symbol, trigger: "E6", event: r.event, index: t, price: px, stop, target: null };
+      en.target = nearestLevelAbove(P, t, px);
+      const tr = manageLong(P, en, cfg);
+      out.push(tr);
+      busyUntil = tr.exitIndex;
+      continue;
+    }
     const ev = ptsAt(P, t, "bottom", cfg);
     if (!ev) continue;
     const en = confirmLong(P, ev, cfg);

@@ -37,8 +37,16 @@ export interface Prepared {
   major: SwingWalk;
   minor: SwingWalk;
   candidates: TimeCandidate[];
-  /** Per bar: families with a window covering the bar. */
+  /** Per bar: families with a window covering the bar (knowable by the bar's close). */
   timeMask: Uint32Array;
+  /** Per bar: the same, counting only windows knowable before the bar opened (for resting orders). */
+  timeMaskOpen: Uint32Array;
+  /**
+   * Per bar: the 50% and double/triple-bottom levels standing before the bar
+   * opened, each with the families of every level within the band around it
+   * (its cluster). E6 rests a buy at these; built from bars <= t - 1 only.
+   */
+  restLevels: { price: number; mask: number }[][];
   /** Per bar: families with a level within the band of the bar's low / high. */
   lowMask: Uint32Array;
   highMask: Uint32Array;
@@ -82,9 +90,13 @@ export function prepare(symbol: string, bars: Bar[], cfg: EngineConfig, natal?: 
   const n = bars.length;
   const candidates = timeCandidates({ bars, dates, clock, pivots: major.pivots, cfg, natal });
   const timeMask = new Uint32Array(n);
+  const timeMaskOpen = new Uint32Array(n);
   for (const c of candidates) {
     const bit = TBIT[c.family];
-    for (let i = Math.max(c.index - c.tol, c.avail); i <= Math.min(n - 1, c.index + c.tol, c.expire - 1); i++) timeMask[i] |= bit;
+    for (let i = Math.max(c.index - c.tol, c.avail); i <= Math.min(n - 1, c.index + c.tol, c.expire - 1); i++) {
+      timeMask[i] |= bit;
+      if (i > c.avail || c.avail === 0) timeMaskOpen[i] |= bit;
+    }
   }
 
   // Level sets, rebuilt whenever a major pivot becomes known.
@@ -98,6 +110,7 @@ export function prepare(symbol: string, bars: Bar[], cfg: EngineConfig, natal?: 
   const lowMask = new Uint32Array(n);
   const highMask = new Uint32Array(n);
   const band = new Float64Array(n);
+  const restLevels: { price: number; mask: number }[][] = Array.from({ length: n }, () => []);
   let si = -1;
   for (let t = 1; t < n; t++) {
     while (si + 1 < levelSets.length && levelSets[si + 1].at <= t - 1) si++;
@@ -120,6 +133,16 @@ export function prepare(symbol: string, bars: Bar[], cfg: EngineConfig, natal?: 
     }
     lowMask[t] = lm;
     highMask[t] = hm;
+    // resting-order levels for E6: priced from levels and sky lines known before the bar opened
+    const all: { p: number; f: PriceFamily }[] = [];
+    for (const L of lv) all.push({ p: levelAt(L, t), f: L.family });
+    for (const L of sl) all.push({ p: L.price, f: L.family });
+    for (const x of all) {
+      if ((x.f !== "P2.half" && x.f !== "S.double") || x.p > prevClose * 1.3 || x.p < prevClose * 0.7) continue;
+      let mask = 0;
+      for (const y of all) if (Math.abs(y.p - x.p) <= bd) mask |= PBIT[y.f];
+      restLevels[t].push({ price: x.p, mask });
+    }
   }
 
   const skyEvent = new Uint8Array(n);
@@ -130,7 +153,7 @@ export function prepare(symbol: string, bars: Bar[], cfg: EngineConfig, natal?: 
       for (let k = -cfg.windowBars.major; k <= cfg.windowBars.major; k++) if (ev.has(d + k)) skyEvent[t] = 1;
     }
   }
-  return { symbol, bars, dates, clock, major, minor, candidates, timeMask, lowMask, highMask, band, skyEvent, levelSets };
+  return { symbol, bars, dates, clock, major, minor, candidates, timeMask, timeMaskOpen, restLevels, lowMask, highMask, band, skyEvent, levelSets };
 }
 
 export type Side = "bottom" | "top";
@@ -181,6 +204,37 @@ export function ptsAt(P: Prepared, t: number, side: Side, cfg: EngineConfig, wit
     timeFamilies: maskFamilies(P.timeMask[t], TIME_FAMILIES),
     priceFamilies: maskFamilies(side === "bottom" ? P.lowMask[t] : P.highMask[t], PRICE_FAMILIES),
     hints: withHints ? directionHints(P, t) : { incoming: -P.minor.line[t - 1], sky: 0, angle: 0, cycle: 0 },
+  };
+}
+
+/**
+ * E6's own event: a resting buy at a 50% or double-bottom level whose cluster
+ * scores >= kp, inside a time window knowable before the bar opened, with the
+ * swing line down into it. Fills if the bar trades down to the level, at the
+ * level or the open if lower. Returns the highest qualifying level filled.
+ * (Amendment 1 to PREREG-EE1: the first version filled at low + band on the
+ * bar the low touched, which used the bar's own low: a look-ahead.)
+ */
+export function restingBuyAt(P: Prepared, t: number, cfg: EngineConfig): { level: number; event: PtsEvent } | null {
+  if (t < 1 || P.minor.line[t - 1] !== -1) return null;
+  const ts = scoreMask(P.timeMaskOpen[t], TIME_FAMILIES, cfg.timeWeights);
+  if (ts < cfg.kt) return null;
+  let best: { price: number; mask: number; score: number } | null = null;
+  for (const r of P.restLevels[t]) {
+    if (P.bars[t].l > r.price) continue;
+    const sc = scoreMask(r.mask, PRICE_FAMILIES, cfg.priceWeights);
+    if (sc < cfg.kp) continue;
+    if (!best || r.price > best.price) best = { ...r, score: sc };
+  }
+  if (!best) return null;
+  const grade = ts >= cfg.kt + 2 && best.score >= cfg.kp + 2 && P.skyEvent[t] ? "A" : ts >= cfg.kt + 1 && best.score >= cfg.kp + 1 ? "B" : "C";
+  return {
+    level: best.price,
+    event: {
+      symbol: P.symbol, index: t, date: P.dates[t], side: "bottom", grade, timeScore: ts, priceScore: best.score,
+      timeFamilies: maskFamilies(P.timeMaskOpen[t], TIME_FAMILIES), priceFamilies: maskFamilies(best.mask, PRICE_FAMILIES),
+      hints: { incoming: 1, sky: 0, angle: 0, cycle: 0 },
+    },
   };
 }
 

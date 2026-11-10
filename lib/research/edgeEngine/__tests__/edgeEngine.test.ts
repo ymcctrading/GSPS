@@ -110,6 +110,14 @@ describe("detector, triggers and management", () => {
     }
     expect(longTrades(P, loose).length).toBeGreaterThan(0);
   });
+  it("E6 fills a resting order at its level or a lower open, on a bar that traded there (no use of the bar's own low)", { timeout: 60_000 }, () => {
+    const ts = longTrades(P, { ...cfg, kt: 2, kp: 1, trigger: "E6" });
+    for (const t of ts) {
+      const b = P.bars[t.index];
+      expect(t.price).toBeGreaterThanOrEqual(b.l - 1e-9);
+      expect(t.price).toBeLessThanOrEqual(b.o + 1e-9);
+    }
+  });
   it("a stop is never widened and a gap through it fills at the open", () => {
     const b2: Bar[] = [
       { t: "2020-01-02", o: 10, h: 10.5, l: 9.8, c: 10.2, v: 1 },
