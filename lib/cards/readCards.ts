@@ -47,7 +47,20 @@ export interface TradeCards {
    * counted but not shown.
    */
   heldBack: number;
+  /**
+   * Of those, the cards of kinds the member's tier includes but whose strategy
+   * mode they have not chosen, counted by kind label. A mode is opt-in and one
+   * at a time (docs/agents/12-strategy-modes.md, "Opt-in and one-at-a-time"):
+   * the Dashboard shows only the chosen mode's cards and says where to choose.
+   */
+  unchosen: { label: string; count: number }[];
   kinds: TradeCardKindRecord[];
+}
+
+/** Who is reading: their tier's policy and the strategy mode they chose ("gsps" or none: no mode). */
+export interface TradeCardViewer {
+  policy: Pick<EntitlementPolicy, "allowedStrategyModes">;
+  mode: string | null;
 }
 
 /** The kinds a member is shown, in the modes' order. */
@@ -58,7 +71,7 @@ export function publishedKinds(): CardKind[] {
 /** Most forward rows read for a kind's tally; an engineering bound for one request. */
 const FORWARD_ROWS = 5000;
 
-export const NO_TRADE_CARDS: TradeCards = { signalDate: null, cards: [], heldBack: 0, kinds: [] };
+export const NO_TRADE_CARDS: TradeCards = { signalDate: null, cards: [], heldBack: 0, unchosen: [], kinds: [] };
 
 /**
  * Whether cards read on the close of `signalDate` still trade: they are good
@@ -73,14 +86,15 @@ export function cardsStillTrade(signalDate: string, now: Date): boolean {
 const READ_PAGE = 1000;
 
 /**
- * The member's view: cards of the published kinds their tier includes, and the
- * record of every published kind. `policy` null (no session) shows no card.
+ * The member's view: cards of the published kind whose strategy mode they
+ * chose (and their tier includes), and the record of every published kind.
+ * `viewer` null (no session) shows no card.
  * Cards are shown only from the latest night's run (every kind is recorded
  * each night, published or not), and only while their session is still ahead.
  */
 export async function getTradeCards(
   service: SupabaseClient,
-  policy: Pick<EntitlementPolicy, "allowedStrategyModes"> | null,
+  viewer: TradeCardViewer | null,
   now: Date = new Date(),
 ): Promise<TradeCards> {
   const kinds = publishedKinds();
@@ -100,6 +114,7 @@ export async function getTradeCards(
 
   let cards: TradeCard[] = [];
   let heldBack = 0;
+  const unchosen: { label: string; count: number }[] = [];
   if (signalDate) {
     const { data } = await service
       .from("card_calls")
@@ -112,8 +127,15 @@ export async function getTradeCards(
       (r) => ({ kind: r.kind, label: STRATEGY_MODE_LABELS[r.kind], symbol: r.symbol, entry: Number(r.entry), stop: Number(r.stop), tp1: Number(r.tp1) }),
     );
     const all = cards.length;
-    cards = policy ? cards.filter((c) => isStrategyModeAllowedForPolicy(policy, c.kind)) : [];
+    const allowed = viewer ? cards.filter((c) => isStrategyModeAllowedForPolicy(viewer.policy, c.kind)) : [];
+    cards = allowed.filter((c) => c.kind === viewer?.mode);
     heldBack = all - cards.length;
+    for (const c of allowed) {
+      if (c.kind === viewer?.mode) continue;
+      const row = unchosen.find((u) => u.label === c.label);
+      if (row) row.count++;
+      else unchosen.push({ label: c.label, count: 1 });
+    }
   }
 
   type ForwardRow = { signal_date: string; stop: number | string; tp1: number | string; fill_price: number | string | null; call_outcome: string };
@@ -146,5 +168,5 @@ export async function getTradeCards(
     );
     records.push({ kind, label: STRATEGY_MODE_LABELS[kind], heldOut, forward, since: rows.length ? rows[rows.length - 1].signal_date : null });
   }
-  return { signalDate, cards, heldBack, kinds: records };
+  return { signalDate, cards, heldBack, unchosen, kinds: records };
 }

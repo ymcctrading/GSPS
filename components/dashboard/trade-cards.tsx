@@ -3,7 +3,8 @@
  * entry, stop and first target for the next session, and beside each kind its
  * held-out record and its forward record so far, losses and no-fills
  * included. Only kinds whose held-out record passed are shown
- * (lib/setups/cardRecords.ts); with none, it says there is no card today.
+ * (lib/setups/cardRecords.ts), and a card only to a member who chose its
+ * strategy mode (opt-in, one at a time); with none, it says so.
  *
  * Three-question basis: 1. Method: none here; it shows what the nightly job
  * recorded. 2. Cycles: no periodicity claim. 3. Hermetic: Cause and Effect
@@ -34,7 +35,16 @@ export function TradeCards({ data }: { data: TradeCardsData }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {data.cards.length === 0 && data.heldBack > 0 ? (
+        {data.cards.length === 0 && data.unchosen.length > 0 ? (
+          <p className="text-sm text-muted">
+            {data.unchosen.map((u) => `${u.count} ${u.label} card${u.count === 1 ? "" : "s"}`).join(", ")} for the next
+            session. Cards show for the strategy mode you choose, one at a time:{" "}
+            <Link href="/settings" className="text-accent hover:underline">
+              choose it in Settings
+            </Link>
+            .
+          </p>
+        ) : data.cards.length === 0 && data.heldBack > 0 ? (
           <p className="text-sm text-muted">
             {data.heldBack} card{data.heldBack === 1 ? "" : "s"} for the next session come with the Pro plan and above.
             The record below is open to every member.

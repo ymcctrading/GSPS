@@ -64,6 +64,25 @@ export default async function DashboardPage() {
   ]);
   const { scanDate, freshness, pricedBeforeSession, scannedAt, reconstructed, bullish, bearish } = scans;
   const user = userResult.data.user;
+  // Tonight's cards of the strategy mode this member chose (opt-in, one at a
+  // time), and every published kind's record (lib/cards/readCards.ts). Started
+  // here so it runs beside the per-user reads below. A failed read shows the
+  // no-card note rather than breaking the page.
+  const tradeCardsLoad = (
+    user
+      ? Promise.all([
+          getUserEntitlementPolicy(supabase, user.id),
+          supabase
+            .from("strategy_mode_preferences")
+            .select("mode")
+            .eq("user_id", user.id)
+            .maybeSingle()
+            .then(({ data }) => (data as { mode?: string } | null)?.mode ?? null),
+        ]).then(([policy, mode]) => ({ policy, mode }))
+      : Promise.resolve(null)
+  )
+    .then((viewer) => getTradeCards(createServiceClient(), viewer))
+    .catch(() => NO_TRADE_CARDS);
 
   const [tierSummary, trackedExecute, savedSetups, watchlist, layout] = user
     ? await Promise.all([
@@ -87,12 +106,7 @@ export default async function DashboardPage() {
           ),
       ])
     : [null, [], [], { symbols: [...DEFAULTS], isDefault: true }, DEFAULT_DASHBOARD_LAYOUT];
-  // Tonight's published cards of the kinds this member's tier includes, and
-  // every published kind's record (lib/cards/readCards.ts). A failed read
-  // shows the no-card note rather than breaking the page.
-  const tradeCards = await (user ? getUserEntitlementPolicy(supabase, user.id) : Promise.resolve(null))
-    .then((policy) => getTradeCards(createServiceClient(), policy))
-    .catch(() => NO_TRADE_CARDS);
+  const tradeCards = await tradeCardsLoad;
   const noviceSummary = tierSummary?.novice ?? null;
   const schoolNudge = tierSummary?.school ?? null;
 

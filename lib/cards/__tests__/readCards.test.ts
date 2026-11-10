@@ -39,7 +39,8 @@ const card = (kind: string, symbol: string, signal_date: string, published: bool
   call_outcome,
 });
 
-const pro = { allowedStrategyModes: ["macdMomentum", "rsiReversal", "maCrossover", "vwap"] } as never;
+const proPolicy = { allowedStrategyModes: ["macdMomentum", "rsiReversal", "maCrossover", "vwap"] } as never;
+const pro = { policy: proPolicy, mode: "rsiReversal" };
 // Tuesday 2026-11-10, 8 PM ET: Tuesday's cards trade Wednesday.
 const tuesdayEvening = new Date("2026-11-11T01:00:00Z");
 
@@ -78,10 +79,20 @@ describe("getTradeCards", () => {
     expect(t.cards).toEqual([]);
   });
 
+  it("shows a mode's cards only to a member who chose that mode, and says where to choose it", async () => {
+    const svc = fakeService([card("rsiReversal", "AAA", "2026-11-10", true), card("rsiReversal", "BBB", "2026-11-10", true)]);
+    for (const mode of [null, "gsps", "macdMomentum"]) {
+      const t = await getTradeCards(svc, { policy: proPolicy, mode }, tuesdayEvening);
+      expect(t.cards).toEqual([]);
+      expect(t.heldBack).toBe(2);
+      expect(t.unchosen).toEqual([{ label: expect.any(String), count: 2 }]);
+    }
+  });
+
   it("counts but holds back cards a tier does not include, and shows none without a session", async () => {
     const svc = fakeService([card("rsiReversal", "AAA", "2026-11-10", true)]);
-    const novice = await getTradeCards(svc, { allowedStrategyModes: [] } as never, tuesdayEvening);
-    expect(novice).toMatchObject({ cards: [], heldBack: 1 });
+    const novice = await getTradeCards(svc, { policy: { allowedStrategyModes: [] } as never, mode: "rsiReversal" }, tuesdayEvening);
+    expect(novice).toMatchObject({ cards: [], heldBack: 1, unchosen: [] });
     expect(await getTradeCards(svc, null, tuesdayEvening)).toMatchObject({ cards: [], heldBack: 1 });
   });
 
