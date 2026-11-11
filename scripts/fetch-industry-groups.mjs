@@ -3,7 +3,7 @@
  * Fetches each scan-universe stock's SEC industry code (SIC), once, for the
  * group map Gann's relative strength rank reads within groups (S4: "buy the
  * strongest stocks in the group and sell short the ones in the weakest
- * position", *Wall Street Stock Selector* Ch. VII; `lib/gann/industryGroups.ts`).
+ * position", ref: SRC-003 Ch. VII; `lib/gann/industryGroups.ts`).
  * The output is checked in (`lib/gann/industryGroups.json`), so nothing in the
  * app calls SEC and every surface reads the same map. Re-run to refresh, e.g.
  * when LARGE_CAP_UNIVERSE changes.
