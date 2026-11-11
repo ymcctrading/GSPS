@@ -363,8 +363,8 @@ function campaignPoints(campaign: BriefInput["campaign"], bars: Bar[]): Point[] 
       favors: bear ? "sell" : "buy",
       rule: bear ? "lowerTops" : "higherBottoms",
       text: {
-        plain: `${prices.length} ${word} in a row since ${dayText(dates[0])}.`,
-        full: `${prices.length} ${word} in a row (${list}) since ${dayText(dates[0])}: each ${bear ? "rally" : "pullback"} has stopped ${bear ? "short of" : "above"} the last.`,
+        plain: `${prices.length - 1} ${word} in a row since the ${dayText(dates[0])} ${bear ? "high" : "low"}.`,
+        full: `${prices.length} ${bear ? "tops" : "bottoms"}, each ${bear ? "lower" : "higher"} than the last (${list}), since ${dayText(dates[0])}; the plan reads that run as the ${bear ? "weakest" : "strongest"} structure.`,
       },
     });
   }
@@ -397,7 +397,7 @@ function testPoints(tests: MultipleTopsReading | null, price: number | null): Po
         rule: "levelCrossed",
         text: {
           plain: `Price broke ${top ? "above" : "below"} the ${where} ${word} it had ${top ? "stopped at" : "held at"} ${t.tests} times.`,
-          full: `Price closed clearly ${top ? "above" : "below"} the ${where} ${word}, tested ${t.tests} times before: a level tested that often and then crossed is a strong break.`,
+          full: `Price closed clearly ${top ? "above" : "below"} the ${where} ${word}, tested ${t.tests} times before: the plan reads a level tested that often and then crossed as a strong break.`,
         },
       });
       return;
@@ -500,8 +500,8 @@ function excursionPoint(side: "buy" | "sell", ex: NonNullable<ReturnType<typeof 
     favors: other,
     rule: "fivePointReversal",
     text: {
-      plain: `Price went only ${buy ? "a little above" : "a little under"} the old ${priceUsd(ex.level)} ${word} before coming back, and the plan treats a first return to an old ${word} as ${buy ? "resistance" : "support"}. It doesn't count the old trend as over until price is past ${priceUsd(ex.reversedAt)}.`,
-      full: `Since price came back past the old ${priceUsd(ex.level)} ${word}, the furthest it has gone is ${priceUsd(ex.extreme)}. The plan reads a shallow move past an old level as the old trend still strong, and counts the trend reversed only past ${priceUsd(ex.reversedAt)}. ${ex.points > 3 ? "This move is past the shallow zone but short of that line, so it could still go either way." : "This move is still shallow, the strong case for the other side."}`,
+      plain: `So far price has gone only ${buy ? "a little above" : "a little under"} the old ${priceUsd(ex.level)} ${word}, and the plan treats a first return to an old ${word} as ${buy ? "resistance" : "support"}. It doesn't count the old trend as over until price is past ${priceUsd(ex.reversedAt)}.`,
+      full: `Since price came back past the old ${priceUsd(ex.level)} ${word}, the furthest it has gone is ${priceUsd(ex.extreme)}. The plan reads a shallow move past an old level as the old trend still strong, and counts the trend reversed only past ${priceUsd(ex.reversedAt)}. ${ex.points > 3 ? "This move is past the shallow zone but short of that line, so it could still go either way." : "This move is still shallow, which the plan reads as the stronger case for the other side."}`,
     },
   };
 }
@@ -683,21 +683,31 @@ export function buildSetupBrief(input: BriefInput, asOfIso: string): { brief: Se
   const cur = input.campaign?.currentCounterMove;
   const last = input.daily[input.daily.length - 1];
   if (input.campaign?.trend === "bearish" && cur && last) {
-    // A rally in a falling market: the plan gives it up to 4 weeks; one still
-    // holding into its 5th week points to a real change (rule bearRallyWeeks).
+    // A rally in a falling market: the plan gives it up to 4 weeks and reads
+    // one still holding into its 5th week as a change in trend (rule
+    // bearRallyWeeks). Once that date has passed, it is a point for the
+    // buyer, not a date ahead (review finding 2).
     const start = addDays(last.t, -cur.days);
     const fifth = addDays(start, 28);
     rules.push("bearRallyWeeks");
-    timing.push({
-      plain: `This bounce began ${dayText(start)}. The plan gives a bounce in a falling market up to 4 weeks; still holding on ${dayText(fifth)} would point to a real turn.`,
-      full: `Rally in a falling market, ${cur.days} days old (from ${dayText(start)}). The plan gives such a rally 2 to 4 weeks; and reads one still holding into its 5th week (from ${dayText(fifth)}) as a change in trend.`,
-    });
-    timeStop = {
-      date: fifth,
-      text: buy
-        ? { plain: "", full: "" }
-        : { plain: ` or if this bounce is still holding on ${dayText(fifth)}`, full: ` or if the rally holds into its 5th week (${dayText(fifth)})` },
-    };
+    if (dateKey(fifth) > dateKey(last.t)) {
+      timing.push({
+        plain: `This bounce began ${dayText(start)}. The plan gives a bounce in a falling market up to 4 weeks, and reads one still holding on ${dayText(fifth)} as a sign of a change.`,
+        full: `Rally in a falling market, ${cur.days} days old (from ${dayText(start)}). The plan gives such a rally 2 to 4 weeks and reads one still holding into its 5th week (from ${dayText(fifth)}) as a sign of an important change.`,
+      });
+      if (!buy) {
+        timeStop = {
+          date: fifth,
+          text: { plain: ` or if this bounce is still holding on ${dayText(fifth)}`, full: ` or if the rally holds into its 5th week (${dayText(fifth)})` },
+        };
+      }
+    } else {
+      const point = {
+        plain: `This bounce has held since ${dayText(start)}, past the 4 weeks the plan gives a bounce in a falling market, which the plan reads as a sign of a change.`,
+        full: `The rally from ${dayText(start)} is ${cur.days} days old, into its 5th week or later; the plan reads a rally that outlasts 4 weeks in a falling market as a sign of an important change.`,
+      };
+      (buy ? forCall : forOther).push({ favors: "buy", rule: "bearRallyWeeks", text: point });
+    }
   }
   if (levels?.entryAwaitsCrossing) {
     rules.push("awaitsCrossing");

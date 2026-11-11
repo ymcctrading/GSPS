@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BriefSections } from "@/components/setups/setup-card";
-import { briefVoiceOf, voiced } from "@/lib/setups/card";
+import { briefMatchesLevels, briefVoiceOf, voiced } from "@/lib/setups/card";
 import type { PublicScanResult } from "@/lib/types";
 import { formatUsd } from "@/lib/utils";
 
@@ -11,15 +11,15 @@ const ROLE_LABEL = { entry: "Entry", stop: "Exit (S/L)", tp1: "TP1", tp2: "TP2",
 /**
  * The setup brief on the ticker page (owner, 2026-11-11): the same reading
  * the setup card opens to, so a setup reads the same on the list and on its
- * own page (Correspondence). Shown only while the brief's entry is the plan
- * the page shows, so a kept plan from an earlier visit never pairs with
+ * own page (Correspondence). Shown only while the brief prices the plan the
+ * page shows, so a kept plan from an earlier visit never pairs with
  * another scan's brief.
  */
 export function SetupBriefCard({ result, exactScoreDisplayEnabled }: { result: PublicScanResult; exactScoreDisplayEnabled: boolean }) {
   const brief = result.brief;
   if (!brief || !result.levels) return null;
-  const entry = brief.plan.find((l) => l.role === "entry");
-  if (!entry || entry.price !== result.levels.entry) return null;
+  const { entry, stopLoss, takeProfit1, masterProfit } = result.levels;
+  if (!briefMatchesLevels(brief, { entry, stop: stopLoss, tp1: takeProfit1, mtp: masterProfit })) return null;
   const voice = briefVoiceOf(exactScoreDisplayEnabled);
   return (
     <Card>

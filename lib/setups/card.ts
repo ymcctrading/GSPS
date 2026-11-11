@@ -327,7 +327,7 @@ export function buildDailyCardModel(
     setAsideNote: setAsideNoteOf(row.setAsideEntry),
     // A brief read for the other side (a row stored before a re-scan flipped
     // it) would contradict the card, so only one for the row's side is kept.
-    brief: row.brief && row.brief.side === side ? row.brief : null,
+    brief: row.brief && row.brief.side === side && briefMatchesLevels(row.brief, levels) ? row.brief : null,
     synopsis: buildSetupSynopsis({
       side,
       verdict: tier,
@@ -359,4 +359,18 @@ export function briefVoiceOf(exactScoreDisplayEnabled: boolean): BriefVoice {
 /** One line of the brief in the viewer's voice. Kept here, not in brief.ts, so a client never bundles the builder. */
 export function voiced(t: BriefText, voice: BriefVoice): string {
   return voice === "full" ? t.full : t.plain;
+}
+
+/**
+ * True when the brief prices exactly the levels a surface shows (entry, stop,
+ * TP1 and MTP, to the cent), so its "wrong if" and reasons can't disagree
+ * with the numbers beside them (review finding 1, 2026-11-11).
+ */
+export function briefMatchesLevels(
+  brief: Pick<SetupBrief, "plan">,
+  levels: { entry: number | null; stop: number | null; tp1: number | null; mtp: number | null },
+): boolean {
+  const at = (role: "entry" | "stop" | "tp1" | "mtp") => brief.plan.find((l) => l.role === role)?.price ?? null;
+  const same = (a: number | null, b: number | null) => a != null && b != null && Math.round(a * 100) === Math.round(Number(b) * 100);
+  return same(at("entry"), levels.entry) && same(at("stop"), levels.stop) && same(at("tp1"), levels.tp1) && same(at("mtp"), levels.mtp);
 }

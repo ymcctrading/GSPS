@@ -42,6 +42,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SetupBrief } from "@/lib/setups/brief";
+import { briefMatchesLevels } from "@/lib/setups/card";
 
 export interface TrackedExecuteRow {
   symbol: string;
@@ -73,8 +74,8 @@ export interface TrackedExecuteRow {
   resting?: boolean | null;
   /**
    * The same daily-scan row's setup brief (lib/setups/brief.ts), joined only
-   * when its plan's entry is this row's entry, so the brief's levels are the
-   * ones the tracked row shows.
+   * when it prices this row's entry, stop, TP1 and MTP to the cent, so the
+   * brief's levels are the ones the tracked row shows.
    */
   brief?: SetupBrief | null;
 }
@@ -95,7 +96,7 @@ export function withDailyScanRange<
       currentPrice: scan.currentPrice ?? null,
       dayRange: scan.dayRange ?? null,
       ...(scan.resting === true ? { resting: true } : {}),
-      ...(scan.brief && scan.brief.plan.find((l) => l.role === "entry")?.price === row.entry ? { brief: scan.brief } : {}),
+      ...(scan.brief && briefMatchesLevels(scan.brief, { entry: row.entry, stop: row.stopLoss, tp1: row.takeProfit1, mtp: row.masterProfit }) ? { brief: scan.brief } : {}),
     };
   });
 }

@@ -231,3 +231,32 @@ describe("setup brief at the API boundary", () => {
     expect(anon.briefTrace).toBeUndefined();
   });
 });
+
+describe("setup brief review fixes (2026-11-11)", () => {
+  it("joins a brief to a card only when it prices the same four levels", async () => {
+    const { briefMatchesLevels } = await import("@/lib/setups/card");
+    const { withDailyScanRange } = await import("@/lib/dashboard/trackedExecute");
+    const { brief } = buildSetupBrief(bkrLike().input, "2026-11-11T18:00:00Z");
+    expect(briefMatchesLevels(brief, { entry: 49.81, stop: 54.26, tp1: 44.26, mtp: 40.36 })).toBe(true);
+    expect(briefMatchesLevels(brief, { entry: 49.81, stop: 54.1, tp1: 44.26, mtp: 40.36 })).toBe(false);
+    const tracked = { symbol: "BKR", direction: "bearish", patternName: null, score: 7, outputState: "Execute", executeScore: 7, executeOutputState: "Execute", entry: 49.81, stopLoss: 54.1, takeProfit1: 44.26, masterProfit: 40.36 };
+    const scan = { symbol: "BKR", direction: "bearish", currentPrice: 49.67, dayRange: 2, brief };
+    expect(withDailyScanRange([tracked], [scan])[0].brief).toBeUndefined();
+    expect(withDailyScanRange([{ ...tracked, stopLoss: 54.26 }], [scan])[0].brief).toBe(brief);
+  });
+
+  function bearCampaign(days: number): BriefInput["campaign"] {
+    return { trend: "bearish", legs: [], greatestCounterMove: null, currentCounterMove: { points: 3, pct: 6, days }, spaceOverbalanced: false };
+  }
+
+  it("dates the 4-week mark ahead while a rally is young, and turns it into a point once it has passed", () => {
+    const { input } = bkrLike();
+    const young = buildSetupBrief({ ...input, campaign: bearCampaign(10) }, "2026-11-11T18:00:00Z").brief;
+    expect(young.timing.some((t) => /up to 4 weeks/.test(t.plain))).toBe(true);
+    expect(young.wrongIf.plain).toMatch(/or if this bounce is still holding on/);
+    const old = buildSetupBrief({ ...input, campaign: bearCampaign(40) }, "2026-11-11T18:00:00Z").brief;
+    expect(old.timing.some((t) => /up to 4 weeks/.test(t.plain))).toBe(false);
+    expect(old.wrongIf.plain).toBe("Wrong if price closes above $54.26.");
+    expect(old.forOther.some((t) => /past the 4 weeks/.test(t.plain))).toBe(true);
+  });
+});
