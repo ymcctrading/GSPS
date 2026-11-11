@@ -24,17 +24,28 @@ describe("CARD_RECORDS", () => {
     }
   });
 
-  it("shows only the kinds that passed: RSI reversal, as of the 2026-11-10 read", () => {
+  it("shows every kind positive on the held-out read (owner, 2026-11-11), not the one below break-even", () => {
     const shown = (Object.keys(CARD_RECORDS) as CardKind[]).filter((k) => cardKindShown(k));
-    expect(shown).toEqual(["rsiReversal"]);
+    expect(shown.sort()).toEqual(
+      ["bollinger", "donchian", "elliottWave", "maCrossover", "macdMomentum", "psarSupertrend", "rsiReversal", "stochastic"].sort(),
+    );
+    expect(cardKindShown("saraStrat")).toBe(false);
   });
 
-  it("never shows a kind with no record, or one short of break-even or of a random day", () => {
+  it("never shows a kind with no record, short of break-even or at or under zero R; the random day is not a gate", () => {
     const base = { fills: 500, goodRate: 0.5, breakEven: 0.45, expectancyR: 0.1, randomExpectancyR: 0, period: "x", passed: true, summary: "x" };
-    const records = { ...CARD_RECORDS, donchian: base, macdMomentum: { ...base, goodRate: 0.4 }, maCrossover: { ...base, randomExpectancyR: 0.2 }, gsps: null };
+    const records = {
+      ...CARD_RECORDS,
+      donchian: base,
+      macdMomentum: { ...base, goodRate: 0.4 },
+      maCrossover: { ...base, randomExpectancyR: 0.2, passed: false },
+      stochastic: { ...base, expectancyR: 0 },
+      gsps: null,
+    };
     expect(cardKindShown("donchian", records)).toBe(true);
     expect(cardKindShown("macdMomentum", records)).toBe(false);
-    expect(cardKindShown("maCrossover", records)).toBe(false);
+    expect(cardKindShown("maCrossover", records)).toBe(true);
+    expect(cardKindShown("stochastic", records)).toBe(false);
     expect(cardKindShown("gsps", records)).toBe(false);
   });
 

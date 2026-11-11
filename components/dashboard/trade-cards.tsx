@@ -2,7 +2,7 @@
  * Tonight's trade cards on the Dashboard (lib/cards/readCards.ts): each card's
  * entry, stop and first target for the next session, and beside each kind its
  * held-out record and its forward record so far, losses and no-fills
- * included. Only kinds whose held-out record passed are shown
+ * included. Only kinds positive on their held-out record are shown
  * (lib/setups/cardRecords.ts), and a card only to a member who chose its
  * strategy mode (opt-in, one at a time); with none, it says so.
  *

@@ -139,10 +139,11 @@ export async function getTradeCards(
   }
 
   type ForwardRow = { signal_date: string; stop: number | string; tp1: number | string; fill_price: number | string | null; call_outcome: string };
-  const records: TradeCardKindRecord[] = [];
-  for (const kind of kinds) {
+  // Each kind's record is read side by side: several kinds are published, and
+  // the Dashboard waits on the slowest one, not on their sum.
+  const readKind = async (kind: CardKind): Promise<TradeCardKindRecord | null> => {
     const heldOut = CARD_RECORDS[kind];
-    if (!heldOut) continue;
+    if (!heldOut) return null;
     const rows: ForwardRow[] = [];
     for (let from = 0; from < FORWARD_ROWS; from += READ_PAGE) {
       const { data } = await service
@@ -166,7 +167,8 @@ export async function getTradeCards(
         tp1: Number(r.tp1),
       })),
     );
-    records.push({ kind, label: STRATEGY_MODE_LABELS[kind], heldOut, forward, since: rows.length ? rows[rows.length - 1].signal_date : null });
-  }
+    return { kind, label: STRATEGY_MODE_LABELS[kind], heldOut, forward, since: rows.length ? rows[rows.length - 1].signal_date : null };
+  };
+  const records = (await Promise.all(kinds.map(readKind))).filter((r): r is TradeCardKindRecord => r != null);
   return { signalDate, cards, heldBack, unchosen, kinds: records };
 }
