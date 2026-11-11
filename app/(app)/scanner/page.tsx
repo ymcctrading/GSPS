@@ -43,6 +43,7 @@ function toRow(r: PublicScanResult): ScanRow {
     // The API redacts `decision.breakdown` to this rollup before it gets here.
     scoreSummary: r.decision.summary ?? null,
     trends: r.trends.map((t) => ({ timeframe: t.timeframe, direction: t.direction })),
+    brief: r.brief ?? null,
   };
 }
 

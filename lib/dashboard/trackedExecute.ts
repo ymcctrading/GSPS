@@ -41,6 +41,8 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SetupBrief } from "@/lib/setups/brief";
+import { briefMatchesLevels } from "@/lib/setups/card";
 
 export interface TrackedExecuteRow {
   symbol: string;
@@ -70,6 +72,12 @@ export interface TrackedExecuteRow {
    * row that is not Resting leaves the tier to the distance read.
    */
   resting?: boolean | null;
+  /**
+   * The same daily-scan row's setup brief (lib/setups/brief.ts), joined only
+   * when it prices this row's entry, stop, TP1 and MTP to the cent, so the
+   * brief's levels are the ones the tracked row shows.
+   */
+  brief?: SetupBrief | null;
 }
 
 /**
@@ -77,7 +85,7 @@ export interface TrackedExecuteRow {
  * symbol and side, for the resting-order read (owner, 2026-10-21).
  */
 export function withDailyScanRange<
-  R extends { symbol: string; direction: string; currentPrice?: number | null; dayRange?: number | null; resting?: boolean | null },
+  R extends { symbol: string; direction: string; currentPrice?: number | null; dayRange?: number | null; resting?: boolean | null; brief?: SetupBrief | null },
 >(rows: TrackedExecuteRow[], scanRows: R[]): TrackedExecuteRow[] {
   const bySymbolSide = new Map(scanRows.map((r) => [`${r.symbol}-${r.direction}`, r]));
   return rows.map((row) => {
@@ -88,6 +96,7 @@ export function withDailyScanRange<
       currentPrice: scan.currentPrice ?? null,
       dayRange: scan.dayRange ?? null,
       ...(scan.resting === true ? { resting: true } : {}),
+      ...(scan.brief && briefMatchesLevels(scan.brief, { entry: row.entry, stop: row.stopLoss, tp1: row.takeProfit1, mtp: row.masterProfit }) ? { brief: scan.brief } : {}),
     };
   });
 }

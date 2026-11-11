@@ -44,6 +44,8 @@ import { computeTimePriceSquare } from "@/lib/gann/timePriceSquare";
 import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { readDistributionStanding } from "@/lib/gann/distribution";
 import { readMultipleTops } from "@/lib/gann/multipleTops";
+import { buildSetupBrief } from "@/lib/setups/brief";
+import { tierOfDecision } from "@/lib/setups/resting";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
 import { armSessionEntries, chooseSessionEntry, entryChart, gannEntryOf, isWithGannTrend, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns, twoSidedDoubt } from "@/lib/scan/entrySelection";
 import type { GannEntryTrigger } from "@/lib/gann/entryTrigger";
@@ -86,6 +88,8 @@ import {
   levelBandPct,
 } from "@/lib/scoring/proximity";
 import { getActiveCriterionWeights } from "@/lib/scoring/active-weights";
+import { TOTAL_POINTS } from "@/lib/scoring/weights";
+import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import { meetsLiquidityFloor, readLiquidity } from "@/lib/scan/liquidity";
 import { classifyRegime } from "@/lib/signals/regime";
 import { isScheduledReportDay } from "@/lib/macro/earnings";
@@ -747,6 +751,46 @@ export async function scanTicker(
           })
         : null;
 
+    // The setup brief (lib/setups/brief.ts, owner 2026-11-11): the scan's own
+    // readings told as both sides, the plan's reasons, timing and what proves
+    // it wrong. Reads what is already computed above; adds no fetch.
+    const shownLevels = planExpiry ? null : levels;
+    const briefBuilt =
+      direction === "none"
+        ? null
+        : buildSetupBrief(
+            {
+              symbol: symbol.toUpperCase(),
+              side: direction === "bearish" ? "sell" : "buy",
+              verdict: tierOfDecision(decision),
+              score: decision.score,
+              scoreMax: TOTAL_POINTS,
+              stateNote: toPublicScoreSummary(decision).stateNote,
+              price: currentPrice > 0 ? currentPrice : null,
+              levels: shownLevels
+                ? {
+                    entry: shownLevels.entry,
+                    stop: shownLevels.stopLoss,
+                    tp1: shownLevels.takeProfit1,
+                    tp2: shownLevels.takeProfit2,
+                    mtp: shownLevels.masterProfit,
+                    entryKind: shownLevels.entryKind,
+                    entrySource: shownLevels.entrySource,
+                    entryLevelYear: shownLevels.entryLevelYear,
+                    entryRegained: shownLevels.entryRegained,
+                    entryAwaitsCrossing: shownLevels.entryAwaitsCrossing,
+                    stopBehindOldLevel: shownLevels.stopBehindOldLevel,
+                  }
+                : null,
+              trends: [monthlyTrend, weeklyTrend, dailyTrend].map((t) => ({ timeframe: t.timeframe, direction: t.direction })),
+              daily: charts.daily,
+              tests: failedTops,
+              campaign: campaignLedger,
+              setAside: setAsideEntry ?? null,
+            },
+            scannedAt,
+          );
+
     return {
       symbol: symbol.toUpperCase(),
       assetClass,
@@ -772,6 +816,8 @@ export async function scanTicker(
       executionBar: closedExecutionBars[closedExecutionBars.length - 1],
       decision,
       setAsideEntry,
+      brief: briefBuilt?.brief ?? null,
+      ...(briefBuilt ? { briefTrace: briefBuilt.trace } : {}),
       // Read off the same daily bars the structure was computed from, so any
       // consumer can apply the platform-wide liquidity floor without a second
       // fetch — see lib/scan/liquidity.ts.

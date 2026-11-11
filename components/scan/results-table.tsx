@@ -10,7 +10,7 @@ import { SaveSetupButton } from "@/components/scan/save-setup-button";
 import { SetupCardPanel, SetupNameButton, useCardStage } from "@/components/setups/setup-card";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import type { DecisionState, PublicScoreSummary, SetupKind } from "@/lib/types";
-import { buildDailyCardModel } from "@/lib/setups/card";
+import { briefVoiceOf, buildDailyCardModel } from "@/lib/setups/card";
 import { readResting, restingDistanceLabel, restingInputOfRow, splitResting } from "@/lib/setups/resting";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { formatUsd, cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
 import { isFundMarket } from "@/lib/market/otherMarkets";
+import type { SetupBrief } from "@/lib/setups/brief";
 
 export interface ScanRow {
   symbol: string;
@@ -71,6 +72,8 @@ export interface ScanRow {
   scoreSummary?: PublicScoreSummary | null;
   /** Higher-timeframe direction readings, for the card's "Higher timeframes" line. */
   trends?: { timeframe: string; direction: string }[] | null;
+  /** The setup brief (`lib/setups/brief.ts`); null on a row stored before it existed. */
+  brief?: SetupBrief | null;
 }
 
 /** What the Resting tier means, in the words every list shows it under. */
@@ -605,6 +608,7 @@ function ResultsRow({
                 left edge at the width of the screen, so it never opens off it. */}
             <div className="sticky left-0 w-[calc(100vw-3.5rem)] max-w-3xl sm:w-auto">
               <SetupCardPanel
+                briefVoice={briefVoiceOf(exactScoreDisplayEnabled)}
                 id={cardId}
                 model={model}
                 stage={stage}
