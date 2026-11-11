@@ -1074,6 +1074,20 @@ const SCORE_HOLDS: RegisteredCriterion[] = [
     saturation: { minPassRate: 0, maxPassRate: 1 },
   },
   {
+    id: "twoSidedDoubt",
+    family: "scoreHold",
+    source: "lib/scan/entrySelection.ts",
+    label: "A definite trend before a side is taken",
+    expectedSign: "unknown",
+    evidence: "unmeasured",
+    note:
+      "2026-11-11 (BKR review): with no trend on the monthly, weekly or daily chart, a buy point and a sell point " +
+      "both armed, and the nearer was shown and scored alone (fork F4 a). \"Keep out ... until a definite change in " +
+      "trend\" (MC Ch.1 pp.1-3; p.251); \"when in doubt, don't trade\" (pp.60-62; Commodities p.255; never-failing rule 6). Appended only when " +
+      "it holds such an Execute to Watch (a breakaway from a narrow range is exempt), so it is failed by construction.",
+    saturation: { minPassRate: 0, maxPassRate: 1 },
+  },
+  {
     id: "stopBreach",
     family: "scoreHold",
     source: "lib/gann/stopBreach.ts",

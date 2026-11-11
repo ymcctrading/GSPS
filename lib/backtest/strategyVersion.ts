@@ -1091,4 +1091,13 @@
 // its swing gives no stop) now rests it Gann's 3 points past that point
 // (`MIDPOINT_STOP_POINTS`, `stopPastMidpoint`; W006 pp.20-24, 46-47).
 // Intraday alerts replay trades move; daily verdicts and the daily replay don't.
-export const STRATEGY_VERSION = "2026-11-05-intraday-midpoint-stop-allowance";
+// 2026-11-11-two-sided-doubt (BKR review, owner: "explain how this still
+// scored a 7/9"). With no trend on the monthly, weekly or daily chart and a
+// buying point armed on each side, the nearer was shown and scored alone (fork
+// F4 a). Such an Execute now holds to Watch until a trend shows, unless the
+// entry breaks away from a narrow range (`twoSidedDoubt`,
+// `applyTwoSidedDoubtHold`; Master Course p. 251, "wait until it shows a
+// definite change in trend"; Commodities p. 255, "when in doubt, keep out";
+// never-failing rule 6), live and in the replay, and the card names the other
+// side. Live verdicts and replay buckets move; trades don't.
+export const STRATEGY_VERSION = "2026-11-11-two-sided-doubt";

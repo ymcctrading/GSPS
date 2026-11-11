@@ -45,12 +45,13 @@ import { computeVolumeClimax } from "@/lib/gann/volumeClimax";
 import { readDistributionStanding } from "@/lib/gann/distribution";
 import { readMultipleTops } from "@/lib/gann/multipleTops";
 import { computeBoilingPoint } from "@/lib/gann/boilingPoint";
-import { armSessionEntries, chooseSessionEntry, entryChart, gannEntryOf, isWithGannTrend, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns } from "@/lib/scan/entrySelection";
+import { armSessionEntries, chooseSessionEntry, entryChart, gannEntryOf, isWithGannTrend, MIN_DAILY_BARS_FOR_SCAN, preferredEntryDirection, rankArmedPatterns, twoSidedDoubt } from "@/lib/scan/entrySelection";
 import type { GannEntryTrigger } from "@/lib/gann/entryTrigger";
 import { computeTradeLevels, gannEntrySource, gannTargetPool, type EntrySource } from "@/lib/strat/levels";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
 import {
   applyBreakawayHold,
+  applyTwoSidedDoubtHold,
   applyDistributionBreakdownHold,
   applyFailedTopHold,
   applyTimeWindowHold,
@@ -332,6 +333,9 @@ export async function scanTicker(
     // arm, the nearer buying point is the one (the no-trend rule, fork F4 a).
     let gannTrigger: GannEntryTrigger | null = null;
     let setAsideEntry: ScanResult["setAsideEntry"] = null;
+    // Both sides armed with no trend on any chart (`twoSidedDoubt`): held to
+    // Watch below (`applyTwoSidedDoubtHold`), on every path that prices a plan.
+    let inDoubt = false;
     if (preference) {
       gannTrigger = entryOf(preference.direction);
       // The other side's buying point, when it armed too, is set aside here
@@ -346,12 +350,19 @@ export async function scanTicker(
         );
         if (other) setAsideEntry = { setupKind: other.setupKind, direction: other.trigger.direction };
       }
+      // The same doubt the unasked path reads, so the list row and the
+      // symbol's page hold alike.
+      if (gannTrigger && twoSidedDoubt(macroTrends, entryOf)) {
+        inDoubt = true;
+        setAsideEntry = { setupKind: "reversion", direction: gannTrigger.direction === "bullish" ? "bearish" : "bullish", inDoubt: true };
+      }
     } else if (entryDaily.length > 0) {
       const chosen = chooseSessionEntry(macroTrends, entryOf, entryDaily[entryDaily.length - 1].c);
       if (chosen) {
         gannTrigger = chosen.trigger;
         setupKind = chosen.setupKind;
         setAsideEntry = chosen.setAside;
+        inDoubt = chosen.inDoubt;
       }
     }
     const preferredDirection = gannTrigger?.direction ?? preferredEntryDirection(macroTrends, preference);
@@ -561,7 +572,7 @@ export async function scanTicker(
         });
 
     const decision = withDecisionState(applyStandAsideHold(applyPlanExpiredHold(applyStopBreachHold(applyReadyNowHold(applyDataLagHold(
-      applyFigureCrossingHold(applyMainTrendHold(applyCampaignSectionHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+      applyFigureCrossingHold(applyMainTrendHold(applyCampaignSectionHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyTwoSidedDoubtHold(applyBreakawayHold(
         computeScore({
           direction: scoreDirection,
           macroTrends: [monthlyTrend, weeklyTrend, dailyTrend],
@@ -591,7 +602,7 @@ export async function scanTicker(
           atrPct,
           weights: await getActiveCriterionWeights(),
           pillarFacts,
-        }), breakaway), monthlyWarning, scoreDirection), distributionStanding, scoreDirection), failedTops, scoreDirection, levels),
+        }), breakaway), inDoubt, breakaway), monthlyWarning, scoreDirection), distributionStanding, scoreDirection), failedTops, scoreDirection, levels),
         // Q19: a counter-trend Execute needs its turn to come on a dated window
         // (lib/gann/timeWindow.ts), read on the replay's chart, and only when needed.
         setupKind,

@@ -81,7 +81,8 @@ export const STOP_RULE_DETAIL =
  * The score cutoff is necessary and never sufficient, which is why a setup at
  * or over it can show as Watch: `computeScore` holds the state when there is
  * no priced trade plan, and the holds in `lib/scoring/score.ts` hold it for a
- * range not yet broken away (`applyBreakawayHold`), a broken monthly low
+ * range not yet broken away (`applyBreakawayHold`), no trend on any chart
+ * with a buying point armed on each side (`applyTwoSidedDoubtHold`), a broken monthly low
  * (`applyMonthlyBreakHold`), a distribution breakdown still standing
  * (`applyDistributionBreakdownHold`), a failed top between the entry and the
  * first target (`applyFailedTopHold`), a counter-trend turn that came on no
