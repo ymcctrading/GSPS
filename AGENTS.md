@@ -536,6 +536,9 @@ trigger fires, raise it with the user before touching the affected code.
   actionable wording may say "now". Revert trigger: a verified real-time
   feed, needing both `MARKET_DATA_REALTIME=true` and
   `MARKET_DATA_REALTIME_VERIFIED_AT`. Never set either without the owner.
+- **Longer scan deadlines on Render only (owner, 2026-11-11).** `scanDeadlines()`
+  (`lib/marketScan.ts`) stretches the scan's deadlines 5x on Render alone.
+  Revert trigger: the app is back on Vercel.
 - **Execution timeframe is 15Min.** Don't re-widen `EXECUTION_TIMEFRAME`
   for a thin Execute bucket; that was tried and reverted.
 - **Check the configuration surface, not just the code.** Before reporting
