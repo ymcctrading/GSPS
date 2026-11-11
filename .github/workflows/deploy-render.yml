@@ -132,15 +132,24 @@ jobs:
           auth="Authorization: Bearer $RENDER_API_KEY"
           # Render's list endpoint wraps each deploy as {"deploy": {...}}, and
           # the create call's reply has not always carried an id (2026-11-11:
-          # it came back empty and the poll read the list). So start the deploy,
-          # then follow the newest deploy of this commit in the list.
-          curl -fsS -m 30 -X POST -H "$auth" -H 'content-type: application/json' \
-            -d "{\"clearCache\":\"do_not_clear\",\"commitId\":\"${{ github.sha }}\"}" "$api/deploys" >/dev/null
+          # it came back empty and the poll read the list). So follow the
+          # reply's id when it has one, else this commit's deploy created since
+          # the POST.
+          # A redeploy of the same commit (workflow_dispatch) leaves the earlier
+          # live deploy of this SHA in the list, so only deploys created from
+          # just before this POST count (10 seconds of slack for clock skew;
+          # ISO-8601 UTC strings compare in time order).
+          since=$(date -u -d '10 seconds ago' +%Y-%m-%dT%H:%M:%S)
+          created=$(curl -fsS -m 30 -X POST -H "$auth" -H 'content-type: application/json' \
+            -d "{\"clearCache\":\"do_not_clear\",\"commitId\":\"${{ github.sha }}\"}" "$api/deploys" \
+            | jq -r '(.deploy // .).id // ""' 2>/dev/null || true)
+          echo "Render deploy ${created:-(no id in the reply; following the list)}"
           deploy=""
           for i in $(seq 1 100); do
             sleep 15
             row=$(curl -fsS -m 30 -H "$auth" "$api/deploys?limit=10" \
-              | jq -c --arg sha "${{ github.sha }}" '[.[] | (.deploy // .) | select(.commit.id == $sha)] | first // empty' || true)
+              | jq -c --arg sha "${{ github.sha }}" --arg id "$created" --arg since "$since" \
+                '[.[] | (.deploy // .) | select(if $id != "" then .id == $id else (.commit.id == $sha and (.createdAt // "") >= $since) end)] | first // empty' || true)
             deploy=$(echo "$row" | jq -r '.id // ""' 2>/dev/null || true)
             status=$(echo "$row" | jq -r '.status // "unknown"' 2>/dev/null || echo unknown)
             echo "$(date -u +%H:%M:%S) ${deploy:-no deploy yet} $status"
