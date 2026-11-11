@@ -175,7 +175,7 @@ describe("ConfluenceCard", () => {
 });
 
 /**
- * CYC-47 (Tomes, W043) and CYC-30 (Halberg, W041 pp. 29-30): a dated forward
+ * CYC-47 (ref: SRC-033 W043) and CYC-30 (ref: SRC-041 W041 pp. 29-30): a dated forward
  * claim needs its method and a measured record, and a rhythm is shown by
  * inference, not by eye alone. A time line on the card shows its measured
  * record, or is not shown.
