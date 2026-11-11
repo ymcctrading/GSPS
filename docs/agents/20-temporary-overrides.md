@@ -5,6 +5,22 @@ reason and with a stated revert trigger. Read this section every session. When a
 raise it with the user before doing anything else with the affected code — don't silently carry an
 override past the point it was supposed to end.
 
+### Longer scan deadlines on Render only (2026-11-11, until the app is back on Vercel)
+
+The owner chose "Yes, longer scans on Render only" on 2026-11-11 (11:19 AM ET).
+While Vercel's Hobby account is paused (until 2026-11-30) the app runs on
+Render's free web service, which has about 0.1 CPU. On a full-speed machine the
+market scan's full-pass bar fetch finished at +39.2 s of its 40 s deadline, so
+on Render every scan missed it and published nothing ("stock bars not read by
+the deadline; the earlier lists stand"). `scanDeadlines()` in
+`lib/marketScan.ts` multiplies the scan's three internal deadlines by
+`RENDER_SCAN_DEADLINE_SCALE` (5) when `hostPlatform()` is `"render"`. Vercel
+and Cloud Run keep the 60-second product budget exactly as before.
+
+**Revert trigger:** the app serves from Vercel again. Remove the scale (or set
+it to 1) and this entry in the same PR. Don't extend it to any other host
+without the owner.
+
 ### Equity data delay and notification freshness (2026-10-28, until real-time data is bought)
 
 Owner directives DATA-DELAY-001 and NOTIFY-FRESHNESS-001. Full record and coverage matrix:

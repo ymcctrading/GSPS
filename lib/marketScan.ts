@@ -82,6 +82,7 @@ import { getMarketDailyBars, getMarketMonthlyBars } from "@/lib/data/marketBench
 import { readLeadership, readWeakStockFrom, selectionStrength, type LeadershipReading, type WeakStockReading } from "@/lib/gann/leadership";
 import { readUniverseRank, type UniverseStrength } from "@/lib/gann/universeStrength";
 import { getUniverseStrength } from "@/lib/data/universeStrength";
+import { hostPlatform, type HostPlatform } from "@/lib/ops/usageLimits";
 import { ALPACA_PROVIDER_LABEL, inBackgroundLane, tokensLeft, tokensSpentSince, tokensSpentSnapshot } from "@/lib/data/http";
 
 /**
@@ -1054,7 +1055,7 @@ export function compareForList(a: ScanResult, b: ScanResult): number {
  * top-up here means publishing what was found instead of the whole run
  * getting killed with nothing persisted.
  */
-const CONTINUATION_DEADLINE_MS = 42_000;
+const CONTINUATION_DEADLINE_BASE_MS = 42_000;
 
 /**
  * Past this, in ms from the start of the scan, the full pass stops waiting for
@@ -1066,10 +1067,37 @@ const CONTINUATION_DEADLINE_MS = 42_000;
  * the rest of the budget. An engineering figure, as the continuation deadline
  * is.
  */
-const FULL_PASS_FETCH_DEADLINE_MS = 40_000;
+const FULL_PASS_FETCH_DEADLINE_BASE_MS = 40_000;
 
 /** The continuation pass's own bar fetch stops being waited for here (see above). */
-const CONTINUATION_FETCH_DEADLINE_MS = 48_000;
+const CONTINUATION_FETCH_DEADLINE_BASE_MS = 48_000;
+
+/**
+ * TEMPORARY (owner, 2026-11-11, chose "Yes, longer scans on Render only"):
+ * while Vercel is paused (until 2026-11-30) the app runs on Render's free web
+ * service, which has about a tenth of a CPU. Measured 2026-11-11: the full
+ * pass's bar fetch finished at +39.2 s of its 40 s on a full-speed machine,
+ * and every scan on Render missed it ("stock bars not read by the deadline").
+ * Render has no 60 s function ceiling, so on Render alone the scan's own
+ * deadlines stretch by this factor. Vercel and Cloud Run keep the 60 s product
+ * budget unchanged. An engineering figure, not a market claim: remove it (or
+ * set it to 1) once the app is back on Vercel.
+ */
+export const RENDER_SCAN_DEADLINE_SCALE = 5;
+
+/** The scan's internal deadlines, in ms from its start, for the host it runs on. */
+export function scanDeadlines(host: HostPlatform = hostPlatform()): {
+  fullPassFetch: number;
+  continuation: number;
+  continuationFetch: number;
+} {
+  const k = host === "render" ? RENDER_SCAN_DEADLINE_SCALE : 1;
+  return {
+    fullPassFetch: FULL_PASS_FETCH_DEADLINE_BASE_MS * k,
+    continuation: CONTINUATION_DEADLINE_BASE_MS * k,
+    continuationFetch: CONTINUATION_FETCH_DEADLINE_BASE_MS * k,
+  };
+}
 
 /**
  * `universeTop` defaults to `FULL_UNIVERSE_TOP` — see that constant's own
@@ -1111,6 +1139,11 @@ export async function runMarketScan(
   sweptSymbols: string[] = [],
 ): Promise<MarketScanOutput> {
   const startedAt = Date.now();
+  const {
+    fullPassFetch: FULL_PASS_FETCH_DEADLINE_MS,
+    continuation: CONTINUATION_DEADLINE_MS,
+    continuationFetch: CONTINUATION_FETCH_DEADLINE_MS,
+  } = scanDeadlines();
   // Temporary stage-timing breadcrumbs (2026-09-10) while the widened
   // universeTop default (see this function's own doc comment above) is
   // unverified against Vercel's 60s ceiling — a 504 kills the response
