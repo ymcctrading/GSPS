@@ -26,7 +26,7 @@ export const SIDEREAL_DAYS = {
 
 export type PeriodBody = keyof typeof SIDEREAL_DAYS;
 
-/** Synodic period S = s1·s2 / |s2 − s1|, in the inputs' unit (Bucholtz, W013 p.115). */
+/** Synodic period S = s1·s2 / |s2 − s1|, in the inputs' unit (ref: SRC-036 W013 p.115). */
 export function synodicPeriod(s1: number, s2: number): number {
   return (s1 * s2) / Math.abs(s2 - s1);
 }

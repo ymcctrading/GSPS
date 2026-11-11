@@ -3,13 +3,13 @@
  * 15-minute diagnosis run, `docs/replay-runs/2026-09-27-766sym-NOTES.md` run 16).
  *
  * Gann states his exit allowances in points: a crossed top "should not react
- * back 3 points under it" (*New Stock Trend Detector* p. 20), stops "3 points
- * beyond old tops or bottoms" (*Wall Street Stock Selector*), trail "1, 2, 3
- * or 5 points under each week's bottom" (NSTD Rule 2). He scales them with
+ * back 3 points under it" (ref: SRC-004 p. 20), stops "3 points
+ * beyond old tops or bottoms" (ref: SRC-003), trail "1, 2, 3
+ * or 5 points under each week's bottom" (ref: SRC-004 Rule 2). He scales them with
  * the price himself: 3 points for stocks at $25–60, 5–10 for $100–300
- * (*Truth of the Stock Tape* / *Stock Selector*, the chart box sizes), 4–5
+ * (ref: SRC-002 / ref: SRC-003, the chart box sizes), 4–5
  * points of profit before break-even "in high-priced stocks", stops of 1, 2
- * or 3 points on cheap ones, 10 points "at very high levels" (NSTD Rule 2).
+ * or 3 points on cheap ones, 10 points "at very high levels" (ref: SRC-004 Rule 2).
  * Sources: `docs/memory-bank/sources/A02_A04_...md`, `A05_...md`.
  *
  * The exit rules used to read this as `LOST_MOTION_BUFFER_PCT` (0.3%), about
@@ -24,8 +24,8 @@
  * the even-figure stop all read this figure; the 0.3% constant is gone. Gann
  * buys on crossing an old top by 3 points and sells short on breaking an old
  * bottom by 3 points, with stops 3 points beyond (W006 pp.20–24, 46–47). The
- * Master Course's "the average lost motion is 1-7/8 points" (Ch. 9, PDF
- * p.268; *Commodities* p.38 has 1⅞¢) was read on 2026-10-16 and does not
+ * ref: SRC-001's "the average lost motion is 1-7/8 points" (Ch. 9, PDF
+ * p.268; ref: SRC-007 p.38 has 1⅞¢) was read on 2026-10-16 and does not
  * change the crossing: it is how far, on average, price runs past a level
  * that then holds, which is why a level is only broken once price goes a full
  * 3 points through it (his reviews on the following pages: the 1937 top at

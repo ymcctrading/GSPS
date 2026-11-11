@@ -1,6 +1,6 @@
 /**
  * Never-failing rule 9: "Never limit your orders or fix a buying or selling
- * price. Trade at the market" (Commodities rule 9, pp.43-45, and p.19; W021
+ * price. Trade at the market" (ref: SRC-007 rule 9, pp.43-45, and p.19; W021
  * PDF p.124 and Appendix A). Read together with the reaction buy zone (W006
  * pp.20, 46-47: old top 50, a close at 53 crosses it, buy 51 down to 48, stop
  * 47): the zone is kept and the fixed price goes. Once a closed bar after the

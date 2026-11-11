@@ -254,7 +254,7 @@ describe("trade level messages", () => {
     const p = { ...pattern, triggerPrice: 100, stopPrice: 99 };
     const prev = bar(98, 101, 96, 99);
     // A bought option has no premium band to warn about (R-006: the premium
-    // paid is the stop, Master Course Ch. 19A), so the volatility advisory is
+    // paid is the stop, ref: SRC-001 Ch. 19A), so the volatility advisory is
     // the one stop message left.
     const warnings = [
       computeTradeLevels(p, prev, [], undefined, 0.2).stopBandWarning, // wide vs volatility

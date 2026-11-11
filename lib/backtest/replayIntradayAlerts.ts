@@ -31,13 +31,13 @@
  * **Which alerts are entered.** Every alert the panel offers as a trade.
  * `reversal_risk` is not one: the card prices no levels for it and its own
  * text says to stand aside (`lib/setups/intraday.ts#isReversalRisk`). A
- * reaction back under a crossed top is the long's exit (NSTD p. 20), not a
- * selling point (Rule 4, NSTD p. 46). It still counts toward the cooldown.
+ * reaction back under a crossed top is the long's exit (ref: SRC-004 p. 20), not a
+ * selling point (Rule 4, ref: SRC-004 p. 46). It still counts toward the cooldown.
  * Nor is an alert against the weekly trend (`Alert.againstDailyTrend`, audit
  * I-02, 2026-10-28; the 3-Day Chart's until 2026-10-30), or one after the
  * weekly trend's reaction over-balanced (`Alert.reactionOverbalanced`): the
  * panel shows them for study and offers no trade, "never buck the trend"
- * (never-failing rule 5, *Commodities* pp. 43-45). Nor, since
+ * (never-failing rule 5, ref: SRC-007 pp. 43-45). Nor, since
  * 2026-10-29, is a sale before the stock's monthly chart has turned its main
  * trend down (`Alert.againstMainTrend`), read from the same prior daily bars.
  *
@@ -427,8 +427,8 @@ export function enterAlert(input: {
   if (long ? entry <= stop : entry >= stop) return "through_stop";
   const target = alert.continuationPlan.firstTarget;
   // The live alert offers no "Trade this" without a first target, or with one
-  // that pays no more than the risk ("profits must exceed losses", *Wall
-  // Street Stock Selector* Ch. II; M-K5), so the replay trades neither
+  // that pays no more than the risk ("profits must exceed losses", ref: SRC-003
+  // Ch. II; M-K5), so the replay trades neither
   // (recheck 2026-10-22: it traded both).
   if (target == null || !Number.isFinite(target) || alert.continuationPlan.paysRisk === false) return "target_unpaid";
   if (long ? entry >= target : entry <= target) return "past_target";

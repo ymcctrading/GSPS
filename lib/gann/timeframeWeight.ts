@@ -1,12 +1,12 @@
 /**
- * Gann's chart-timeframe "power ratio" — *Wall Street Stock Selector*
+ * Gann's chart-timeframe "power ratio" — ref: SRC-003
  * (1930), Tier A public book (`docs/GANN_HISTORICAL_SOURCES.md` A4):
  * higher-timeframe agreement should be weighted, not counted equally as one
  * more vote. Gann states an explicit ratio — a Weekly chart move carries
  * roughly the significance of 7 Daily moves, a Monthly move roughly 30, a
  * Yearly move roughly 365 — each ratio simply that timeframe's calendar-day
- * span relative to one daily bar. *How to Make Profits Trading in
- * Commodities* (1941/51) adds a Quarterly Chart as a fourth tier between
+ * span relative to one daily bar. ref: SRC-007
+ * (1941/51) adds a Quarterly Chart as a fourth tier between
  * Monthly and Yearly, without restating a numeric ratio for it; this module
  * extends the same disclosed convention (calendar-day span, not an invented
  * number) rather than porting an unstated figure — 91 days ≈ one quarter,

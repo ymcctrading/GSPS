@@ -4,7 +4,7 @@ import { nineTwelveGrid, paritySquares, range144, readPriceGrids } from "../pric
 import { contextFactorsFor } from "../contextFactors";
 import { describeDisclosedRules, readDisclosedRules } from "../disclosedRules";
 
-describe("C-NUMEROLOGY-01: odd lows work to odd squares, even lows to even squares (Master Course Ch.6 PDF 209-210)", () => {
+describe("C-NUMEROLOGY-01: odd lows work to odd squares, even lows to even squares (ref: SRC-001 Ch.6 PDF 209-210)", () => {
   it("takes the squares of the low's parity either side of the price", () => {
     // Low 25 (odd): odd squares 49 and 81 bracket 60.
     const s = paritySquares(25, 60);
@@ -24,7 +24,7 @@ describe("C-NUMEROLOGY-01: odd lows work to odd squares, even lows to even squar
   });
 });
 
-describe("C-TIME-15: levels of 9 and 12 and their halves (Master Course Ch.6 PDF 186)", () => {
+describe("C-TIME-15: levels of 9 and 12 and their halves (ref: SRC-001 Ch.6 PDF 186)", () => {
   it("brackets the price with the 9 grid and the 12 grid", () => {
     const g = nineTwelveGrid(50);
     expect([g.nineBelow, g.nineAbove]).toEqual([49.5, 54]);
@@ -36,7 +36,7 @@ describe("C-TIME-15: levels of 9 and 12 and their halves (Master Course Ch.6 PDF
   });
 });
 
-describe("C-TIME-16 / C-NUMEROLOGY-03: a range near a multiple of 144 (Master Course Ch.13 PDF 375, 378)", () => {
+describe("C-TIME-16 / C-NUMEROLOGY-03: a range near a multiple of 144 (ref: SRC-001 Ch.13 PDF 375, 378)", () => {
   it("watches near 288 for a range of 281, the wheat example", () => {
     const r = range144(28, 309);
     expect(r.rangePoints).toBe(281);

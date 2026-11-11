@@ -71,7 +71,7 @@ export function buildStructuralLevels(input: {
   const all: StructuralLevel[] = [
     ...pivots(trends.daily),
     ...old,
-    // The nearest multiples of the low either side of the close (45 Years
+    // The nearest multiples of the low either side of the close (ref: SRC-005
     // Ch. IV p.30), in the list only: never in `old`, where a deep low's
     // close-spaced multiples would be "held" on noise (lowMultipleLevels).
     ...lowMultipleLevels([...charts.monthly, ...charts.daily]).map((p) => ({ price: p, timeframe: "1Month" as const })),

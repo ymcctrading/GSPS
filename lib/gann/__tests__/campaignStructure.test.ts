@@ -26,7 +26,7 @@ function steppingAdvance(cycles: number): number[] {
 }
 
 describe("C-TIME-27: campaign age in months, culmination months and the ceiling", () => {
-  it("counts months with the start month as the first (Master Course Ch.6 PDF 197: Mar 1901 to Oct 1911 is the 128th month)", () => {
+  it("counts months with the start month as the first (ref: SRC-001 Ch.6 PDF 197: Mar 1901 to Oct 1911 is the 128th month)", () => {
     expect(campaignMonthOrdinal("1901-03-15", "1911-10-02")).toBe(128);
     expect(campaignMonthOrdinal("1901-03-15", "1929-09-03")).toBe(343);
     expect(campaignMonthOrdinal("2026-01-05", "2026-01-30")).toBe(1);
@@ -52,7 +52,7 @@ describe("C-TIME-27: campaign age in months, culmination months and the ceiling"
 });
 
 describe("C-PRICE-01: a prior range added to a later low as a resistance candidate", () => {
-  it("adds the last completed leg with the trend to the bottom that followed it (Master Course Ch.6 PDF 197)", () => {
+  it("adds the last completed leg with the trend to the bottom that followed it (ref: SRC-001 Ch.6 PDF 197)", () => {
     const l = buildCampaignLedger(daily([...steppingAdvance(5), 131, 132]))!;
     const p = l.rangeProjection!;
     expect(p).not.toBeNull();

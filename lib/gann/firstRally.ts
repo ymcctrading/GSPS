@@ -1,7 +1,7 @@
 /**
  * The first rally out of a bear market (A-TIME-03), context only.
  *
- * Source (class A, *New Stock Trend Detector*, 1936; W006 pp. 14, 43): the
+ * Source (class A, ref: SRC-004, 1936; W006 pp. 14, 43): the
  * Averages ran from the 8 July 1932 low of 40½ to 81 on 8 September, "a fast
  * advance on short covering"; the market could not go higher in the third
  * month and the volume was large, so it was only a first rally (p. 14). From

@@ -36,7 +36,7 @@ describe("nearestGannAngle", () => {
   });
 });
 
-// C-LEVELS-20 (Jensen, Astro-Cycles, printed pp.~124-125): every calendar day
+// C-LEVELS-20 (ref: SRC-020, printed pp.~124-125): every calendar day
 // on the chart, non-trading days blank, one day's width equal to one price unit.
 describe("one price unit per calendar day", () => {
   it("rises $7 over a calendar week of five sessions on a $1-per-day scale", () => {

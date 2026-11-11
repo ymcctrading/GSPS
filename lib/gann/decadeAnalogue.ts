@@ -1,6 +1,6 @@
 /**
  * A-TIME-14, the part Gann discloses: a year is forecast from the years 10,
- * 20, 30 and 60 back ("1932 will run like 1902, 1912, 1922", Master Course
+ * 20, 30 and 60 back ("1932 will run like 1902, 1912, 1922", ref: SRC-001
  * Ch.2 PDF 51-52 Rule 9; "for the 1929 forecast, I compared 1919 … 1909 …
  * 1899 … and 1869", Ch.7 PDF 224-225; confirmed in the W023 reading notes,
  * 2026-10-16). Context only: nothing here moves a score, gate, plan or order,

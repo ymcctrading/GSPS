@@ -8,18 +8,18 @@
  *   so the bar where the close last crossed the 50% point is the engineering
  *   choice, labelled. The price unit is the fans' Gann point per bar
  *   (`fans.ts#angleUnit`; owner, Q27), so the two fans read alike.
- * - C-LEVELS-08 (W003 p.20; Master Course: a 100-point fall needs about 100
+ * - C-LEVELS-08 (W003 p.20; ref: SRC-001: a 100-point fall needs about 100
  *   months): a 1x1 from a high reaches zero after as many units of time as the
  *   high has points. `squareFromHigh` is that line at a fixed rate, on any
  *   time unit, and `squareFromLow` its mirror up from a low. The card reads
- *   both on the monthly chart at the Master Course's 1 point a month
+ *   both on the monthly chart at the ref: SRC-001's 1 point a month
  *   (`readMonthlySquareFromHigh`, and `monthlyAngle` in priceZone.ts): down from the latest monthly top, and up from the
  *   latest campaign bottom (the same line as A-PRICE-05's 45-degree line).
  *   The point the square closes is a date ahead, so it is not shown (no dated
  *   window reaches members until measured); the line's price today is.
  *
  * Three-question basis:
- * 1. Gann: class C (W003), with the Master Course's monthly square as his own
+ * 1. Gann: class C (W003), with the ref: SRC-001's monthly square as his own
  *    corroboration for C-LEVELS-08.
  * 2. Cycles: no periodicity claim; Dewey does not apply.
  * 3. Hermetic: Polarity (the 50% point is the balance between the high and

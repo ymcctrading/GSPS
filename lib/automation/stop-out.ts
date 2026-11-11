@@ -31,7 +31,7 @@
  *
  * 3. When the stop was a trailing one and Gann's swing chart still runs the
  *    trade's way, a re-buy plan on the same side is seeded at his reaction
- *    (A-PYRAMID-07, *Tunnel* p.198; lib/lifecycle/fromRebuy.ts), as the
+ *    (A-PYRAMID-07, ref: SRC-006 p.198; lib/lifecycle/fromRebuy.ts), as the
  *    replay's `rebuyAfterStop` walks it. Until 2026-10-22 automation's trades
  *    got only a note. A trailing stop reverses too, so both plans can stand:
  *    the reversal is covered at the re-buy's entry by the exit managers

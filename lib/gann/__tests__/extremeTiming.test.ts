@@ -36,7 +36,7 @@ describe("reverse signal day and the 7-10 Day Rule", () => {
 });
 
 describe("gap rules", () => {
-  it("reads an exhaust gap: a one-day gap to a new high, then a reverse signal day (Commodities p.319)", () => {
+  it("reads an exhaust gap: a one-day gap to a new high, then a reverse signal day (ref: SRC-007 p.319)", () => {
     const bars = rise(25);
     const p = bars[bars.length - 1];
     bars.push(bar(25, p.h + 2, p.h + 3, p.h + 1, p.h + 2.5)); // gap up to a new high
@@ -80,7 +80,7 @@ describe("gap rules", () => {
     expect(g.extended).toBe(true);
   });
 
-  it("puts the extended line exactly at 6 gaps: 5 is not extended, 6 is (Commodities p.321)", () => {
+  it("puts the extended line exactly at 6 gaps: 5 is not extended, 6 is (ref: SRC-007 p.321)", () => {
     const withGaps = (k: number) => {
       const bars = rise(25);
       for (let j = 0; j < k; j++) {

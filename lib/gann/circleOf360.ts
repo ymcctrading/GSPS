@@ -1,7 +1,7 @@
 /**
  * Gann's circle of 360° for time and price (Tier A): "Time Periods and Price
  * Resistance", the second part of the Master Calculator lesson signed
- * September 29, 1953 (Master Course Ch. 13), and the par-to-degrees rule on
+ * September 29, 1953 (ref: SRC-001 Ch. 13), and the par-to-degrees rule on
  * the last page of the geometric angles course, GA-32 (November 1935, Ch. 4).
  * Built 2026-09-30. Source note:
  * `docs/memory-bank/sources/A12_master_calculator_1953_and_1954_letter.md`.

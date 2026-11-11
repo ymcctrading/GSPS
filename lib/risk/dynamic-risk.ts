@@ -17,7 +17,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * Gann's trading unit (A-RISK-04, M-K3; owner, 2026-10-16, Q7). The capital a
  * per-trade risk percent is applied to:
  * - it stays at the starting capital until profits equal it, then doubles,
- *   and doubles again each time the capital doubles (Master Course: when your
+ *   and doubles again each time the capital doubles (ref: SRC-001: when your
  *   profits equal your original capital, you may double your unit);
  * - it is never raised on the gains of a long run of wins (rule 24: "never
  *   increase your trading after a long run of success"), so during such a run

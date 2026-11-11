@@ -61,7 +61,7 @@
  * Price at the turn (2026-10-28, alignment audit H2): the turn counts only
  * when its extreme also stood at the half or three quarters of a major range
  * (`turnAtDivision`). Gann reads time and price together: "when Time and
- * Space balance, the stock makes top or bottom" (Master Course PDF 202), and
+ * Space balance, the stock makes top or bottom" (ref: SRC-001 PDF 202), and
  * the time counts mark a change "especially if the price is at 1/2 or 3/4
  * resistance" (Ch. 18, TP-2, PDF 440); TP-3 (PDF 441) lists the price
  * resistance levels among the indications beside the time counts. With the
@@ -206,7 +206,7 @@ export const timeWindowsAt: WindowsAt = (bars, date, kind, monthly, anchors) => 
   const out: string[] = [];
   const cycles = timeCycles(bars, asOf);
   // Gann watches for a change in trend 1, 2 and 3 years, and his day counts,
-  // "from any important top or bottom" (W006 pp. 14, 44; 45 Years Rule 8), so
+  // "from any important top or bottom" (W006 pp. 14, 44; ref: SRC-005 Rule 8), so
   // a count from a high opens the window for a bottom as well as a top, and
   // the reverse (recheck 2026-10-22, A-TIME-04/11/24/37). Until then only a
   // count from a pivot of the turn's own kind opened it, a polarity his text

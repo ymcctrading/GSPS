@@ -299,7 +299,7 @@ describe("cross-domain period matches never reach a verdict (CYC-41)", () => {
     expect(offenders.map((f) => path.relative(ROOT, f))).toEqual([]);
   });
 
-  // CYC-21 (Dewey, W039 pp.30-31): so many cycles exist that a period fitting a
+  // CYC-21 (ref: SRC-032 W039 pp.30-31): so many cycles exist that a period fitting a
   // x2/x3 family from 17.75 years is easy, and periods are measured too
   // crudely, so no criterion or gate may award credit for such a fit.
   const FAMILY_FIT = /\b\w*(?:famil(?:y|ies)Fit|cycleFamil\w*|periodFamil\w*|harmonicFamil\w*|doublingFit|triplingFit|progressionFit)\w*\b/;

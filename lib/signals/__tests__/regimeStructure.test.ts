@@ -20,7 +20,7 @@ function daily(closes: number[], half = 0.4): Bar[] {
 // rising again (110, 112, 115 over 103, 106, 109), all still under the spike.
 // Corrected 2026-10-21: the earlier reactions were 6 points in 4 days, so the
 // spike's 20-point, 6-day reaction over-balanced the campaign in space and
-// time, which stands until price crosses 120 again (Master Course Ch. 8, PDF
+// time, which stands until price crosses 120 again (ref: SRC-001 Ch. 8, PDF
 // 249). The earlier reactions are now 22 points over 7 days, so the spike's
 // reaction is within the greatest, as the test means.
 const AFTER_SPIKE = daily([

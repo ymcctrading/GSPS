@@ -2,7 +2,7 @@
  * The largest weekly volume since a prior top warns to watch for a top
  * (A-VOLUME-12, W006 p.44: the week to 23 November 1935, nearly 19 million
  * shares, "the largest since the week of February 10, 1934", the 1934 top;
- * Master Course Ch.12: the largest volume of sales often comes before the
+ * ref: SRC-001 Ch.12: the largest volume of sales often comes before the
  * final top). Context only: Gann's verb is "watch for", so this is a card
  * line and a measured factor, never a gate. It is a top rule; the text gives
  * no bottom mirror (the bottom rule is the smallest volume in years), so none
@@ -17,7 +17,7 @@
  * alike.
  *
  * Three-question basis:
- * 1. Gann: W006 p.44 (class A), the Master Course corroborating.
+ * 1. Gann: W006 p.44 (class A), the ref: SRC-001 corroborating.
  * 2. Cycles: no periodicity claim; Dewey does not apply.
  * 3. Hermetic: Cause and Effect (the heaviest effort since the last top, with
  *    price still under it, is demand being spent).

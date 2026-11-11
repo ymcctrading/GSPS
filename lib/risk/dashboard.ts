@@ -33,7 +33,7 @@
  *
  * Three-question basis: 1. Gann: each figure cites its rule above; he kept
  * these rules in front of him before every trade ("the trader's rules",
- * *Tunnel* pp.198-199; W006 p.46). 2. Cycles: no periodicity claim. 3.
+ * ref: SRC-006 pp.198-199; W006 p.46). 2. Cycles: no periodicity claim. 3.
  * Hermetic: Correspondence, the screen reads the same rule placement does, so
  * what is shown above is what is enforced below. Law of Creation: risk taken
  * ⊗ capital held, a creation: neither the open trades nor the account's

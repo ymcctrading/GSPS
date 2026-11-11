@@ -1,8 +1,8 @@
 /**
  * The group map for Gann's relative strength rank within groups (S4: "buy the
  * strongest stocks in the group and sell short the ones in the weakest
- * position", *Wall Street Stock Selector* Ch. VII, the Sugar and Tobacco
- * reviews; *Truth of the Stock Tape* Ch. XVI-XIX, the Motors, Rubbers, Oils,
+ * position", ref: SRC-003 Ch. VII, the Sugar and Tobacco
+ * reviews; ref: SRC-002 Ch. XVI-XIX, the Motors, Rubbers, Oils,
  * Coppers and Rails). Gann's groups are industries. Since 2026-10-28 the live
  * map (`INDUSTRY_GROUPS`) reads the platform's industries
  * (`buildIndustryGroupMap`), which start from each company's SEC industry code

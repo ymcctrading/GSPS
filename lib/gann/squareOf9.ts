@@ -2,7 +2,7 @@
  * Gann Square of 9.
  *
  * Prices map onto a square-root spiral: one full 360° rotation adds 2 to
- * sqrt(price) (the Master Course wheel's diagonals, 3, 13, 31, 57, 91, step
+ * sqrt(price) (the ref: SRC-001 wheel's diagonals, 3, 13, 31, 57, 91, step
  * this way; the anonymous W009 table steps half as far, see C-LEVELS-14 in
  * `lib/__tests__/gann.test.ts`). From an anchor price (major low or high), levels on
  * each of the square's 16 lines, one every 22.5°, are:

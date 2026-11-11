@@ -5,7 +5,7 @@
  * 10 to 13 weeks, it is accumulating or distributing, and the trader stays
  * out until it breaks away. Buy when it crosses the top of the range, sell
  * when it breaks the bottom; a trade inside the range is a guess about which
- * way it will leave (*How to Make Profits in Commodities*, 1951, pp. 51-52;
+ * way it will leave (ref: SRC-007, 1951, pp. 51-52;
  * `docs/memory-bank/sources/A08_*`, Tier A).
  *
  * So a range-bound market can be context (Watch) but not an instruction to
@@ -26,7 +26,7 @@
  * - The narrow range is counted back from the latest session (2026-10-21,
  *   the 2-6 week case): Gann's "2 to 6 weeks or 10 to 13 weeks in a narrow
  *   range, then crossing the tops or breaking the bottoms of the previous
- *   weeks" (Master Course pp. 246-248; *Commodities* p. 51, "Many Weeks in
+ *   weeks" (ref: SRC-001 pp. 246-248; ref: SRC-007 p. 51, "Many Weeks in
  *   Narrow Range") measures the range the market is in now, however wide it
  *   was before. So the range is the longest run of sessions ending at the
  *   latest that stays narrow, at least `MIN_RANGE_SESSIONS` (Gann's two
@@ -103,8 +103,8 @@ export function readBreakaway(daily: Bar[], trigger: GannEntryTrigger | null): B
   // the top made after it is the breakaway's own move, not the range.
   const end = trigger?.held && trigger.crossedAt ? Date.parse(trigger.crossedAt) : Infinity;
   const cutoff = Math.min(Date.parse(daily[daily.length - 1].t), end) - BREAKAWAY_RANGE_DAYS * DAY_MS;
-  // Gann's sideways market is a narrow range held for weeks (Commodities
-  // pp. 51-52; Master Course: "2-6 or 10-13 weeks in a narrow range"), not
+  // Gann's sideways market is a narrow range held for weeks (ref: SRC-007
+  // pp. 51-52; ref: SRC-001: "2-6 or 10-13 weeks in a narrow range"), not
   // any market whose trend is unconfirmed (2026-10-21): the same narrow
   // sessions `breakawayVolumeMet` reads, counted back from the latest, at
   // least Gann's two weeks of them.
@@ -154,7 +154,7 @@ export interface BreakawayVolumeReading {
 
 /**
  * Gann: avoid stocks in long, narrow ranges until they break out on volume
- * (A-VOLUME-10; W006 p.20; Master Course: volume rises as a stock starts from
+ * (A-VOLUME-10; W006 p.20; ref: SRC-001: volume rises as a stock starts from
  * dullness). Context only for now; fork FV6 puts the test at entry
  * confirmation.
  *
@@ -193,7 +193,7 @@ export function readBreakawayVolume(daily: Bar[], asOf: Date): BreakawayVolumeRe
 
 /**
  * Gann: avoid stocks in long, narrow ranges until they break out on volume
- * (A-VOLUME-10; W006 p.20; Master Course: volume rises as a stock starts from
+ * (A-VOLUME-10; W006 p.20; ref: SRC-001: volume rises as a stock starts from
  * dullness). Fork FV6 (b): the test acts at entry confirmation, because the
  * plan is priced before the break and the break's volume exists only once a
  * session has closed past the line.
@@ -217,7 +217,7 @@ export const MIN_RANGE_SESSIONS = 10;
 /**
  * A range wider than this many 3-point allowances at its low is not "narrow".
  * Gann states no width, but every range he dates as narrow is 2 to 4 points:
- * 2 on the 1897 Rails, 2½ on the 1911 Rails, 56-60 in 1898 (Master Course
+ * 2 on the 1897 Rails, 2½ on the 1911 Rails, 56-60 in 1898 (ref: SRC-001
  * pp. 246-248), all on prices of about $50-100, where his allowance is 3
  * points. So the widest he calls narrow is 4 of his points, 4/3 of the
  * allowance. Corrected 2026-10-28 (alignment audit, `score-and-levels.md`):
@@ -240,8 +240,8 @@ export function isNarrowRange(range: Bar[]): boolean {
  * (Gann's two weeks). Pass the sessions of the `BREAKAWAY_RANGE_DAYS` window
  * (his 13 weeks), so the run is 2 to 13 weeks long. Gann counts the weeks a
  * market has been held narrow before it crosses the tops or breaks the
- * bottoms of the previous weeks (Master Course pp. 246-248: "2-6 or 10-13
- * weeks in a narrow range"; *Commodities* p. 51), so a narrow spell after a
+ * bottoms of the previous weeks (ref: SRC-001 pp. 246-248: "2-6 or 10-13
+ * weeks in a narrow range"; ref: SRC-007 p. 51), so a narrow spell after a
  * wide quarter is a range too. Widening the run only widens the span and
  * lowers its low, so the first session that breaks it ends the count.
  */
@@ -267,13 +267,13 @@ export function narrowRangeSessions(sessions: Bar[]): Bar[] | null {
  * closed beyond on one side and never on the other (the leg out of the range).
  * A close back inside on the way is the retest Gann expects ("a stock nearly
  * always gets support the first time it reacts back to old high levels",
- * *Truth of the Stock Tape*), not the end of the range; a close through the
+ * ref: SRC-002), not the end of the range; a close through the
  * far side is (queue review of #513: a retest had voided the volume rule). With the width at Gann's widest narrow range (4 of his points),
  * the walk from the range's top to its 3-point crossing line is itself wider
  * than narrow, so without this the range would be lost the day before the
  * crossing and the breakaway's volume rule would never be asked. Gann reads the
- * range the market breaks out of, "the tops of the previous weeks" (Master
- * Course pp. 246-248), not the sessions of the breakout itself.
+ * range the market breaks out of, "the tops of the previous weeks" (ref: SRC-001
+ * pp. 246-248), not the sessions of the breakout itself.
  */
 export function narrowRangeBeforeLeg(sessions: Bar[]): Bar[] | null {
   for (let j = sessions.length; j >= MIN_RANGE_SESSIONS; j--) {

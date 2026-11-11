@@ -8,7 +8,7 @@
  * Three-question basis:
  * 1. Gann: he read the market's response to news, not the news: tops come on
  *    bullish news and bottoms on bearish, because the news is already
- *    discounted (*Commodities* p. 8; W006 p. 14). `lib/gann/badNews.ts` reads
+ *    discounted (ref: SRC-007 p. 8; W006 p. 14). `lib/gann/badNews.ts` reads
  *    it the same way. So the page pairs each item with the close it met, and
  *    gives no sentiment score: Gann gives none, and one would be platform
  *    substance with no source. Nothing here reaches a score, plan or order.

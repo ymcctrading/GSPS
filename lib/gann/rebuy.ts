@@ -2,7 +2,7 @@
  * Re-buy after a stop (A-PYRAMID-07; owner's pick on the card, 2026-10-16:
  * "Re-buy after stop").
  *
- * 1. Source. *Tunnel Thru the Air*, W022 p.198, Tier A: Robert's long is
+ * 1. Source. ref: SRC-006, W022 p.198, Tier A: Robert's long is
  *    stopped out near the top at 225 after a run to about 230. He expects a
  *    reaction of "about 12 to 15 points", buys again at 218 (down a little
  *    over 12) and puts his stop at 212. The trend is still up, so the stop

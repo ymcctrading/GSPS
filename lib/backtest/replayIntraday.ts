@@ -20,14 +20,14 @@
  *
  * | Piece | Rule here | Gann source (Tier A) |
  * |---|---|---|
- * | Trend | The 3-bar swing chart's trend on the hourly roll-up of the bars: it turns only when the last completed swing top is crossed or bottom broken. The coarse chart says which way. | *Master Stock Market Course* Ch. 13 ("the hourly chart will give the first change in trend"); `lib/gann/swingChart.ts` |
+ * | Trend | The 3-bar swing chart's trend on the hourly roll-up of the bars: it turns only when the last completed swing top is crossed or bottom broken. The coarse chart says which way. | ref: SRC-001 Ch. 13 ("the hourly chart will give the first change in trend"); `lib/gann/swingChart.ts` |
  * | Entry | Cross of the last completed 3-bar swing top (bottom) of the bars, with a lost-motion allowance of one intraday point. Trades with the trend only. | A8 nine buying/selling points; `lib/gann/entryTrigger.ts` |
- * | Stop | One intraday point beyond the protective swing extreme. | *Master Course* Ch. 3 (1-point stops); NSTD stops of 1, 2, 3 points |
+ * | Stop | One intraday point beyond the protective swing extreme. | ref: SRC-001 Ch. 3 (1-point stops); ref: SRC-004 stops of 1, 2, 3 points |
  * | Confirmation | The four-stage sequence, on the run's bars, as registered. Under `reactionEntry` (Part 5.4, 2026-10-28), Gann's crossing rule instead: a close 3 points past, the buy on the reaction, the stop 3 points the other side. | Owner decision 4, 2026-09-27; `lib/lifecycle/entryConfirmation.ts`; W006 pp. 20, 46-47 |
- * | First target | `gannFirstTarget`, the very function the intraday alerts use: the nearest old top or bottom (the session's extreme, the prior close) or a round number just short of one, at least one intraday ATR away, or none. 60% leaves there. | *Truth of the Stock Tape*; `lib/gann/evenFigures.ts` |
+ * | First target | `gannFirstTarget`, the very function the intraday alerts use: the nearest old top or bottom (the session's extreme, the prior close) or a round number just short of one, at least one intraday ATR away, or none. 60% leaves there. | ref: SRC-002; `lib/gann/evenFigures.ts` |
  * | Master target | None. The stop trails one point under each higher completed bottom (above each lower top). | "Never fix a target price" (owner decision X4) |
- * | Exit on trend change | The hourly swing chart turns against the position: leave at the next bar's open. | *Master Course* Ch. 13 |
- * | Broken stop | The same test as the live scan and the daily replay (`lib/gann/stopBreach.ts`): a plan whose stop a candle traded through is not entered until a closed bar closes back through the broken level by his allowance, scaled to this chart; a different stop is a new plan. | NSTD p. 20; *Master Course* rules 4-5 |
+ * | Exit on trend change | The hourly swing chart turns against the position: leave at the next bar's open. | ref: SRC-001 Ch. 13 |
+ * | Broken stop | The same test as the live scan and the daily replay (`lib/gann/stopBreach.ts`): a plan whose stop a candle traded through is not entered until a closed bar closes back through the broken level by his allowance, scaled to this chart; a different stop is a new plan. | ref: SRC-004 p. 20; ref: SRC-001 rules 4-5 |
  *
  * The plan's 20-bar life and the 60% at the first target are the registered
  * run's. `sessionPlans` and `scaleOut: false` read them as the live paths do
@@ -210,7 +210,7 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
   // A US equity is read on its regular-session bars only, entries and exits
   // alike, as the live alerts (`lib/scanner/intraday.ts`, regular-session
   // bars) and exit managers (`lib/gann/intradayExit.ts`) read it; Gann reads
-  // the hourly chart on exchange hours (Master Course PDF 378). The IEX bars
+  // the hourly chart on exchange hours (ref: SRC-001 PDF 378). The IEX bars
   // carry pre- and post-market prints. Amended 2026-10-22 (review of #439):
   // before it, the profile read every print.
   const bars = assetClass === "crypto" ? allBars : allBars.filter(isRegularSessionBar);
@@ -409,7 +409,7 @@ export function replayIntraday(symbol: string, allBars: Bar[], options: Intraday
         risk: Math.abs(entry - stop),
       });
       // With none, the live alert offers no trade (M-K5, "profits must exceed
-      // losses", *Wall Street Stock Selector* Ch. II): gannFirstTarget falls
+      // losses", ref: SRC-003 Ch. II): gannFirstTarget falls
       // back to the nearest level, which the replay used to trade (recheck
       // 2026-10-22).
       if (targetPaysRisk(entry, stop, firstTarget) !== true) {

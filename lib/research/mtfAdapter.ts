@@ -11,16 +11,16 @@
  * Source-grounded:
  * - Major anchors are the instrument's own major tops and bottoms read on its
  *   monthly chart, "the most important chart of all in determining the main
- *   trend" (Master Course GA-2/3, A2.1): Gann's monthly swing chart
+ *   trend" (ref: SRC-001 GA-2/3, A2.1): Gann's monthly swing chart
  *   (`walkSwingChart` with the 7-day rule on monthly bars, as
  *   `lib/gann/mainTrend.ts` reads it), the trend turning on crossing the last
- *   swing top or breaking the last swing bottom (NSTD pp. 19-20, A05). A major
+ *   swing top or breaking the last swing bottom (ref: SRC-004 pp. 19-20, A05). A major
  *   top is the highest monthly high of a completed up campaign (from one
  *   main-trend change to the next); a major bottom, the lowest low of a
  *   completed down campaign. Each becomes known when the trend changes, and
  *   only months closed by the issue session are read.
  * - Reaction anchors are minor pivots: the last completed swing of the 3-Day
- *   Chart (*45 Years*, Ch. VII, p. 62; `THREE_DAY_CHART`), known on the bar
+ *   Chart (ref: SRC-005, Ch. VII, p. 62; `THREE_DAY_CHART`), known on the bar
  *   that reversed the line (the chart is a one-pass walk, so its pivots
  *   confirmed by a bar never change with later bars).
  * - The ordinary / rapid choice follows the package's reading of the source:

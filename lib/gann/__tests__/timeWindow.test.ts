@@ -57,7 +57,7 @@ describe("readWindowTurn", () => {
 });
 
 // Gann reads time and price together: "when Time and Space balance, the stock
-// makes top or bottom" (Master Course PDF 202), "especially if the price is at
+// makes top or bottom" (ref: SRC-001 PDF 202), "especially if the price is at
 // 1/2 or 3/4 resistance" (Ch. 18, TP-2, PDF 440).
 describe("price at the turn (turnAtDivision)", () => {
   // A 60-140 record: its extreme range's 1/4, 1/2 and 3/4 are 80, 100 and 120.
