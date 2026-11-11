@@ -10,7 +10,7 @@ improves the core on years it was not decided on.
 Code: `lib/backtest/ruleLadder.ts` (the rungs and their order),
 `lib/backtest/walkForward.ts` (the keep test), `readSessionRules` in
 `lib/backtest/replay.ts` (GSPS's reading of a session, which each rung reads).
-The core walker is `lib/backtest/replayCore.ts` (the "Build the bare Gann
+The core walker is `lib/backtest/replayCore.ts` (the "Build the bare the method
 core strategy" thread); it calls the ladder's rules at each candidate first
 entry through its `rules` hook.
 
@@ -33,11 +33,11 @@ Execute cutoff of 7 (`ref:score7`), and the verdict was Execute
 
 ## The order (fixed before any run)
 
-Gann's own pre-trade checklist, "How to Trade" (Master Course Ch. 7, Nov
+The method's own pre-trade checklist, "How to Trade" (SRC-001 Ch. 7, Nov
 1935, PDF 234-238; restated Ch. 10A, PDF 293-294), then his instrument
 checks, then the holds with "when not to trade" (C14) first:
 
-| # | Rung | Gann's check |
+| # | Rung | The method's check |
 |---|---|---|
 | 1 | pillar:marketCycle | C1-C2, the year's forecast and the stock's own cycle |
 | 2 | pillar:timeFactors | C3-C5, time squaring on the monthly, weekly, daily |
@@ -68,7 +68,7 @@ order it merged; `ruleLadder.test.ts` fails until `REPLAY_HOLD_KEYS` names it.
 
 - **Unit:** one campaign (a position with its adds), R on the whole line, by
   the ET year of its first entry.
-- **Measure:** mean R per campaign. Capital is the scarce thing (Gann's five
+- **Measure:** mean R per campaign. Capital is the scarce thing (the method's five
   stocks), so a filter earns its place by making the trades taken better.
 - **Folds:** anchored walk-forward by calendar year. Test years 2022, 2023,
   2024, 2025 and 2026 (to the run's end). For test year Y the decision uses
@@ -87,7 +87,7 @@ order it merged; `ruleLadder.test.ts` fails until `REPLAY_HOLD_KEYS` names it.
   figures are quoted.
 
 The years, the minimum counts and the 95% level are engineering choices, not
-Gann's. With 20 rungs a rule that does nothing has about a 5% chance of
+The method's. With 20 rungs a rule that does nothing has about a 5% chance of
 slipping through, so about one false keep is expected; the confirmation run
 and the forward test are the check on it. Nothing is tuned: no rule's
 threshold moves during the ladder. A rule that fails stays in the code and on

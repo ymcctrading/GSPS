@@ -17,7 +17,7 @@ now computes `novice_eligible` (`lib/universe/scanGates.ts`'s
 extra provider fetch) and attaches it to `ScanResult.noviceUniverse`. It is
 **informational, not gating**: by explicit decision, it does not change
 `eligibleUniverse`/`liquiditySpreadPass` on `SignalGates`, so it does not
-change which symbols the Signal and Regime Engine or the existing Gann/STRAT
+change which symbols the Signal and Regime Engine or the existing the method/STRAT
 verdict already treat as tradeable — see "Why informational, not gating"
 below for the reasoning and the data-coverage gap behind it.
 

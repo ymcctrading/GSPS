@@ -27,9 +27,9 @@ date.
   among shorts, and a buy in a weak stock is held to Watch. A crossing of a
   major round number is held to Watch the first and second times through. The
   secondary rally top joins the support and resistance levels, and range
-  divisions are ranked in Master Course Ch. 6's tiers. A calendar-day 1x1 is
+  divisions are ranked in SRC-001 Ch. 6's tiers. A calendar-day 1x1 is
   shown as context.
-- **Intraday first target reads more of Gann's old levels**
+- **Intraday first target reads more of the method's old levels**
   (`lib/scanner/intraday.ts#gannOldLevels`). Besides the session's own extreme
   and the prior close, the target now considers the session's completed swings,
   the prior session's high and low, and the 3-Day Chart's swing tops and bottoms
@@ -49,7 +49,7 @@ date.
   pack requires counsel review before this transition ships; with none recorded
   nothing is read or written and plans behave as before.
 - **Replay-only intraday profile** (`lib/backtest/replayIntraday.ts`,
-  `/api/backtest?profile=intraday`): Gann's trend, crossing, stop, confirmation,
+  `/api/backtest?profile=intraday`): the method's trend, crossing, stop, confirmation,
   first target, trailing stop and exit read from the run's own intraday bars. No
   product surface; its trades are unscored. Not run (no vendor keys in the
   session); rules and the rule for reading the run are fixed in
@@ -64,7 +64,7 @@ date.
 
 ### Changed (owner decisions, same day)
 - **A breached stop retires the plan** (AGENTS.md finding F3.7, resolved), and
-  it comes back only the way Gann says: **confirmed** if the break was false (a
+  it comes back only the way the method says: **confirmed** if the break was false (a
   closed bar closes back through the broken level by his 3-point allowance),
   **replaced** by a new plan from the new swing structure, never resumed at its
   old levels. The scan holds a broken plan to Reject (`lib/gann/stopBreach.ts`,
@@ -77,7 +77,7 @@ date.
   reports `retiredPlans`. `STRATEGY_VERSION` is
   `2026-09-30-stop-breach-retired`, so earlier replay runs no longer describe
   production. The `trade_plans` lifecycle is unchanged (held for counsel review).
-- **Intraday first target is a Gann level or none** (`gannFirstTarget`): the
+- **Intraday first target is a method level or none** (`gannFirstTarget`): the
   nearest old top or bottom, or a round number just short of one, instead of
   twice the risk. With no level ahead no target is fixed and the stop trails;
   the card, alert and email say so.
@@ -109,7 +109,7 @@ date.
   budget without spending one. No migration: refreshes are counted from
   `scan_executions` rows (`source = 'intraday'`), now written for every
   completed scan, alert or not.
-- `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md`: what Gann says when price
+- `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md`: what the method says when price
   breaks a stop and returns to the entry, how long an executable setup takes,
   and how the method translates to intraday, with the measured record.
 
@@ -121,31 +121,31 @@ date.
 - The Buy/Sell list rows show the name, price, entry, exit (S/L), TP1 and MTP;
   score, pattern and Signal Engine read moved onto the card.
 
-### Documentation (Gann sources)
+### Documentation (the method sources)
 
-- **A13, the Master Time Factor compilation** (Gann Study Group, 2014),
-  filed with the Gann sources. It confirms the Master Time Factor was never
+- **A13, the Master Time Factor compilation** (the method Study Group, 2014),
+  filed with the method sources. It confirms the Master Time Factor was never
   disclosed, so it adds nothing to build. It does add three corrections:
   the 1908 date is a biographer's, the November 1935 lesson never names it,
   and the 1953 calculator lesson names it once without defining it.
 - **B15, Global View Technology's 2002 Square of Nine and Hexagon help
   pages.** A secondary source, checked against `squareOf9.ts` and the B12
-  workbook. No new Gann source.
-- **G26 proposed:** the Hexagon Chart's time counts stated in Gann's
+  workbook. No new the method source.
+- **G26 proposed:** the Hexagon Chart's time counts stated in the method's
   January 1931 text. Held for the owner.
 - Code comments that called Ch. 7's cycles "the Master Time Factor" were
   corrected. No behaviour change.
 
 ## 2026-09-30
 
-### Added (Gann parity: the Master Calculator and the planetary averages)
+### Added (the method parity: the Master Calculator and the planetary averages)
 
 - **Square of 144 Master Calculator** (`lib/gann/masterCalculator.ts`), from
-  Gann's lesson of Sept 29, 1953: price and time as positions in the square,
+  the method's lesson of Sept 29, 1953: price and time as positions in the square,
   his strongest and triangle points, the five placements, time on the square's
   change points, time and price square, squaring the low, high and range in
   time, and the Great Cycle. Square ends and centres join the S/R list.
-- **Circle of 360°** (`lib/gann/circleOf360.ts`): Gann's ordered divisions,
+- **Circle of 360°** (`lib/gann/circleOf360.ts`): the method's ordered divisions,
   the table of 64ths, natural-degree readings of moves and half-way points,
   and GA-32's price on the degree of its time angle.
 - **Planetary averages, including the COE and MOF**
@@ -154,19 +154,19 @@ date.
   heliocentric and geocentric. Their nearest resistance points join the S/R
   list on the live scan and the replay (`lib/gann/masterLevels.ts`). Owner
   decision recorded in AGENTS.md "Astrology".
-- The Gann point (`pointScale.ts#gannPoint`), one price unit for all three.
+- The method point (`pointScale.ts#gannPoint`), one price unit for all three.
 - 15 new measured context factors; card tiles and trace lines.
 - `STRATEGY_VERSION` 2026-09-30-gann-calculator-planetary. Added scan time
   measured at 0.07 ms per symbol (about 53 ms over 766 symbols) plus a
   one-time 24 ms ephemeris load.
 
-### Added (Gann's Square of Nine plate, source note B12)
+### Added (the method's Square of Nine plate, source note B12)
 
 - The sixteenths of the seasonal year at the plate's dates (Apr 12, May 27,
   Jul 14, Aug 31, Oct 15, Nov 30, Jan 13, Feb 28), in `seasonalCounts.ts`.
 - `lib/gann/squareOfNineTime.ts`: the plate's lines in time, from the extreme
   high and low.
-- `lib/gann/dayCircle.ts`: Gann's day clock (0° = 6:00 AM New York time, 15°
+- `lib/gann/dayCircle.ts`: the method's day clock (0° = 6:00 AM New York time, 15°
   an hour), on the live card and at each replay entry.
 - 5 measured context factors. Context only; `STRATEGY_VERSION` unchanged.
   Added scan time about 0.08 ms per symbol.
@@ -174,19 +174,19 @@ date.
 ### Fixed (documentation)
 
 - The March 20, 1954 letter names the "COE" average, not "CE".
-- `masterTwelve.ts` no longer claims its spiral is Gann's calculator.
+- `masterTwelve.ts` no longer claims its spiral is the method's calculator.
 
 ## 2026-09-28
 
 ### Fixed (six-year diagnosis)
 
-- Gann's "3 points" in the exit rules (hold test, stops under swings and the
+- The method's "3 points" in the exit rules (hold test, stops under swings and the
   prior month's low) is now price-scaled from his own bands
   (`lib/gann/pointScale.ts`), instead of the entry's 0.3% lost-motion margin.
   The hold test had been ending most trades on noise. Applies to live exits
   and the replay alike. `STRATEGY_VERSION` 2026-09-28-gann-points-continuation.
 - Publication no longer requires a STRAT pattern; the continuation pass gates
-  on Gann's with-the-daily-trend crossing (`isGannContinuation`).
+  on the method's with-the-daily-trend crossing (`isGannContinuation`).
 - Intraday alerts use the session's 50% point instead of VWAP.
 - Replay pyramiding now places adds (fractional lots rounded them to zero).
 - The macro and decade cycles read as of the last bar, not the wall clock,
@@ -199,8 +199,8 @@ date.
   from Wikidata, fetched once by `scripts/fetch-instrument-reference.mjs` and
   stored in `instrument_profile` / `instrument_shares_outstanding` (migration
   0083). Two-thirds of the stock trading in one week at a top, or a week
-  turning over almost all of it, is now a Gann exit for longs in the replay's
-  `exitRule: "gann"`. The company anniversary, Gann's seasonal degrees from it
+  turning over almost all of it, is now a method exit for longs in the replay's
+  `exitRule: "gann"`. The company anniversary, the method's seasonal degrees from it
   and its 5–60-year cycles show on the confluence trace. All readings are
   recorded as replay context factors. Default verdicts and bracket trades are
   unchanged.
@@ -225,14 +225,14 @@ date.
 
 ### Changed
 - **`STRATEGY_VERSION` is `2026-09-28-gann-exits-figures`**: even figures
-  move plan stops and targets, and live exits follow Gann's rules.
-- **Exits run on Gann's rules** on every paper and live position: 60% at the
+  move plan stops and targets, and live exits follow the method's rules.
+- **Exits run on the method's rules** on every paper and live position: 60% at the
   first target, no fixed final target, the stop moved on the market's swings,
   and the rest closed on a failed breakout, three closes against the trade or
   a trend change.
 - **Six-year 1-hour backtest recorded:** every cell lost money; see
   `docs/replay-runs/2026-09-27-766sym-NOTES.md`.
-- **Gann's timing and extreme-price rules as measured context** (parity
+- **The method's timing and extreme-price rules as measured context** (parity
   F1). The reverse signal day and 7-10 Day Rule, gap rules (exhaust gaps,
   gaps in new territory, filled gaps), the 7/14-day turn count, Square-of-144
   time convergence and the spread of projected turn dates now show on the
@@ -259,8 +259,8 @@ date.
 ## 2026-09-27
 
 ### Changed
-- **Targets from Gann levels, and Gann's volume rule** (parity C4, D1).
-  Equity TP1 is the nearest Gann or support/resistance level in the TP1 band
+- **Targets from the method levels, and the method's volume rule** (parity C4, D1).
+  Equity TP1 is the nearest the method or support/resistance level in the TP1 band
   and the master target the next level beyond it; the range-scaled target is
   only a flagged fallback. The volume criterion (now "Volume at the turn")
   passes a low on volume drying up, a lower-volume retest, or a selling
@@ -275,52 +275,52 @@ date.
   3-point-rule buffer, a retest, and a close that held. Until then the order
   is refused with `awaiting_confirmation`; Guided keeps the recommendation
   open. Checked once, in `lib/trade/place-order.ts`.
-- **Gann's exit rules, built for measurement** (parity Stage C1–C4, owner
+- **The method's exit rules, built for measurement** (parity Stage C1–C4, owner
   decisions 2 and 6). `lib/gann/exitRules.ts` reads the hold test, three
   adverse closes, break-even after one risk unit, the structural trail (higher
   bottoms, prior month's low, final-stage rules) and trend-change exits, with
   no fixed target. The replay's new `exitRule: "gann"` measures them against
   the fixed bracket, and the backtest report splits them by exit reason. The
   live exit manager is unchanged until the replay agrees.
-- **Gann's breakaway rule gates Execute in sideways markets** (owner decision
-  5, "always adhere to Gann's rules"). Gann stays out of a narrow range until
-  it breaks away (*How to Make Profits in Commodities*, pp. 51-52). A
+- **The method's breakaway rule gates Execute in sideways markets** (owner decision
+  5, "always adhere to the method's rules"). The method stays out of a narrow range until
+  it breaks away (SRC-007, pp. 51-52). A
   range-bound setup (the weekly swing trend not confirmed) whose entry stays
   inside the 3-Day Chart's 13-week range is now held from Execute to Watch by
   `applyBreakawayHold` (`lib/gann/breakaway.ts`), on the live scan and the
   replay alike. The Signal & Regime Engine's Range Reversion state is never
   tradeable and prices no plan. `STRATEGY_VERSION` is
   `2026-09-27-gann-breakaway`.
-- **Gann's own swing charts replace the close-count charts** (parity roadmap
-  conflict X3, owner decision "Gann's method supersedes my own"). The 3-Day
-  Chart (*45 Years in Wall Street*, 1949) and the 7-day weekly swing chart
-  (*How to Make Profits in Commodities*, 1951) are now built on highs and
+- **The method's own swing charts replace the close-count charts** (parity roadmap
+  conflict X3, owner decision "the method supersedes my own"). The 3-Day
+  Chart (SRC-005, 1949) and the 7-day weekly swing chart
+  (SRC-007, 1951) are now built on highs and
   lows. The line reverses on a counter-move of 3 bars or 7 calendar days, and
   the trend turns only when the last swing top or bottom breaks. The
   unsourced "9-day" chart is gone. This feeds `swingChartTrend`, the Signal &
   Regime Engine, the macro trend read and the entry trigger's pivots, so
   **scores and trend reads change**. `STRATEGY_VERSION` is now
   `2026-09-27-gann-swing-charts`; the 6/3.5 cutoffs need re-deriving on it.
-- **Gann's rules now act on the verdict, not only the display** (parity
-  roadmap Stage A/B2, owner direction to implement Gann's method throughout):
+- **The method's rules now act on the verdict, not only the display** (parity
+  roadmap Stage A/B2, owner direction to implement the method throughout):
   - **Trend:** a trend stops reading as confirmed when a pullback is larger
     or longer than any earlier one in the campaign (over-balance of space or
     time), or when price breaks the prior month's low (high in a downtrend).
     This flows into the macro trend reads, the regime labels and setup
     direction.
   - **Time:** the time-cycle windows add ⅔ of a year and the odd eighths, and
-    Gann's day-count bands (7-12 … 175-185 days) from each major pivot.
-  - **Levels:** Gann's three most important percentage-of-price levels (50%
+    the method's day-count bands (7-12 … 175-185 days) from each major pivot.
+  - **Levels:** the method's three most important percentage-of-price levels (50%
     and 100% above the low, 50% of the high, from the monthly history) join
     the support/resistance list used for the level criterion, stops and
     targets.
   - **Rule of Three:** scored when it fires on weekly or monthly closes as
     well as daily.
-  - **Measurement:** every other Gann reading (bar midpoint, level tests,
+  - **Measurement:** every other the method reading (bar midpoint, level tests,
     counter-move length, campaign over-balance, …) is recorded on each
     backtest trade and attributed in a new `contextFactors` table.
   `STRATEGY_VERSION` is now `2026-09-27-gann-trend-time-levels`.
-- **Gann's permanent-cycle calendar uses his published dates** (Feb 8–10,
+- **The method's permanent-cycle calendar uses his published dates** (Feb 8–10,
   Mar 21–23, May 3–7, Jun 20–24, Aug 3–8, Sep 21–24, Nov 8–11, Dec 20–24)
   instead of the 5th of each month. Display only.
 
@@ -328,7 +328,7 @@ date.
 
 ### Added
 - **Macro time-cycle context in the confluence card** (`lib/gann/macroCycle.ts`).
-  Gann's 60-to-1-year cycle hierarchy (A2.1 Ch. 7), run from his own cited
+  the method's 60-to-1-year cycle hierarchy (A2.1 Ch. 7), run from his own cited
   DJIA turns (1896, 1897, 1907, 1909, 1929) rather than a single stock's
   chart. It recurs by anniversary month and reports which cycle lengths
   converge, plus the next major window (e.g. September 2029: the 1909 top
@@ -343,7 +343,7 @@ date.
   `2026-09-26-continuation-replay`.
 - **Moving averages and VWAP removed from GSPS's own verdict** (alignment
   audit F2.5, wider than reported). The macro trend read (`readTrend`) now
-  uses Gann's confirmed swing trend instead of SMA 20/50. The coarse scan
+  uses the method's confirmed swing trend instead of SMA 20/50. The coarse scan
   gates measure from the range's 50% point instead of closing means. The
   Signal & Regime Engine (regime, range reversion, trend pullback, confirmed
   reversal) no longer uses MA alignment, MA pullback locations or an
@@ -362,7 +362,7 @@ date.
 ### Fixed
 - **The backtest replay measured an entry trigger production never used**
   (alignment audit F3.1–F3.3). Since 2026-09-17 the live scan has armed trades
-  from Gann's swing-crossing trigger on daily bars, in the macro-derived
+  from the method's swing-crossing trigger on daily bars, in the macro-derived
   direction. `lib/backtest/replay.ts` instead computed it on 15-minute bars,
   only for STRAT-detected candidates, and filtered it through the STRAT gap
   rule and risk floor. The replay now arms exactly as the scan does, through
@@ -613,7 +613,7 @@ date.
 ### Changed
 - **Digital Root/Vortex engine rewritten to match the authoritative "GSPS
   Implementation Blueprint"** (v1.0, 2026-09-08, project owner) — a full
-  engineering spec uploaded after the earlier "GSPS Gann-Centered
+  engineering spec uploaded after the earlier "GSPS method-Centered
   Foundation" plain-English report, and the source of truth for exact
   formulas/API where the two differ. `lib/gann/digitalRoot.ts` is now a
   direct port of the blueprint's reference functions
@@ -687,8 +687,8 @@ date.
 
 ### Added
 - **Active 1–9 Digital Root/Vortex classification** (`lib/gann/digitalRoot.ts`),
-  implementing the authorized "GSPS Gann-Centered Foundation" specification
-  uploaded by the project owner this session. Wired into the Gann Confluence
+  implementing the authorized "GSPS method-Centered Foundation" specification
+  uploaded by the project owner this session. Wired into the method's Confluence
   Layer as `GannConfluenceResult.digitalRoot` (`lib/signals/confluence/gann.ts`),
   computed from a normalized-integer distance (cents to the nearest key price
   level) rather than a raw price, per the spec — zero/invalid input is
@@ -759,9 +759,9 @@ date.
 ## 2026-08-30
 
 ### Added
-- **Gann Confluence Layer and Sara Sniper Strat Confluence Layer**
+- **The method's Confluence Layer and Sara Sniper Strat Confluence Layer**
   (`lib/signals/confluence/`) — two modular, versioned, feature-flagged
-  confluence modules on the Signal and Regime Engine, per the "GSPS Gann &
+  confluence modules on the Signal and Regime Engine, per the "GSPS the method &
   Sara Cross-Market Integration Addendum" (2026-08-28). Out-of-phase relative
   to the Q1 roadmap; see `ROADMAP.md`'s Q1 initiatives and
   `docs/GANN_SARA_CONFLUENCE.md` for the full architecture and provenance.
@@ -832,7 +832,7 @@ date.
 
 ### Fixed
 - **The glossary, pattern badges and generated scoring copy still rendered the
-  proprietary Gann/Sara Sniper Strat pattern codes** (`2-2`, `1-2-2`, `3-2-2`,
+  proprietary the method/Sara Sniper Strat pattern codes** (`2-2`, `1-2-2`, `3-2-2`,
   `2-1-2`, `3-1-2`, `PMG`) directly to users — in the glossary's "Reversal &
   continuation patterns" section, the pattern badge on `SignalCard`, and
   strings generated at runtime in `lib/strat/patterns.ts` and
@@ -1457,7 +1457,7 @@ date.
 
 ### Added
 - **Structural levels now say support or resistance, not just "structural."**
-  Gann fan lines and Square-of-9 levels carry a `role` — support while price
+  the method fan lines and Square-of-9 levels carry a `role` — support while price
   sits above the line, resistance while below — computed fresh from current
   price so the label never goes stale as price crosses it. Every proximity
   criterion's note also says which timeframe the level is best used on
@@ -2497,7 +2497,7 @@ date.
 ## 2026-07-21
 
 ### Added
-- Initial scaffold: Next.js 16 app, Supabase auth, Gann/Strat scan engine.
+- Initial scaffold: Next.js 16 app, Supabase auth, the method/Strat scan engine.
 - Daily market scan (`/api/market-scan`) and its Vercel Cron configuration.
 - Accepted alternate Alpaca environment variable names (`ALPACA_KEY_ID`,
   `APCA_API_KEY_ID`, etc.) to survive naming mismatches across

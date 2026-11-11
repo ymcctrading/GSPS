@@ -21,12 +21,12 @@ actually ships, use "System".
 
 ## What must never be public
 
-The product's internal methodology — its origin in W.D. Gann-style
+The product's internal methodology — its origin in the method's author-style
 market geometry — is proprietary and must not be named, described, or
 implied anywhere a customer, script viewer, or public document can read it:
 
-- Gann Sniper Protocol Scanner / System, Gann Protocol, Gann-based scanner,
-  Gann calculation engine
+- The method Sniper Protocol Scanner / System, the method Protocol, method-based scanner,
+  the method calculation engine
 - Decimal stripping, modulo-9 reduction, harmonic roots, 3/6/9 nodes, or any
   other description of the internal calculation method
 
@@ -72,7 +72,7 @@ this table — import from there rather than hardcoding these strings.
 
 | Avoid | Use instead |
 |---|---|
-| Gann Root | Setup Signal |
+| The method Root | Setup Signal |
 | Harmonic Vector | Price Path |
 | Harmonic Node | Key Price Level |
 | Material Number | Major Price Level |
@@ -96,9 +96,9 @@ Path, Key Level, Confirmation.
 
 The same rule applies to GSPS School specifically: its Three-Element Method
 (Signal / Bull Case / Bear Challenge / Operator's Decision) traces its design
-rationale to Hermetic/alchemical source material, which is fine to document
+rationale to design-principle/alchemical source material, which is fine to document
 in code comments and internal docs (`docs/GSPS_SCHOOL.md`) but must never
-surface as product copy. Avoid: Philosopher's Stone, Hermetic, alchemical, or any of the seven
+surface as product copy. Avoid: Philosopher's Stone, design-principle, alchemical, or any of the seven
 principle names (Mentalism, Correspondence, Vibration, Polarity, Rhythm,
 Cause and Effect, Gender) — each has a plain product-control name already
 (Trader Operating System, Learning-to-Behavior Trace, Market-Regime

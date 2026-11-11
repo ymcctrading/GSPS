@@ -11,7 +11,7 @@ persistence, the legal/compliance workstream).
 replays the shipped entry logic bar by bar, so a number quoted from it
 describes the system that runs, not a re-implementation of it. Since
 2026-09-25 (`STRATEGY_VERSION` `2026-09-25-live-trigger-replay`) that logic is
-Gann's swing-crossing trigger, read from prior **daily** sessions in the
+The method's swing-crossing trigger, read from prior **daily** sessions in the
 macro-derived direction (`lib/scan/entrySelection.ts`, shared with
 `lib/scanTicker.ts`). The 15-minute bars decide when, and whether, the resting
 stop order fills. Earlier runs armed from STRAT-detected candidates on
@@ -240,7 +240,7 @@ shows up in the next run:
 - **`lib/scoring/score.ts`** — the nine criteria, the 7/4 bucket cutoffs, the
   bare-2-2 downgrade, and the decision-lag hold.
 - **`lib/gann/stopBreach.ts`** (2026-09-30) — a breached stop retires the plan,
-  which returns only by Gann's failed-break test. The replay does not enter a
+  which returns only by the method's failed-break test. The replay does not enter a
   plan whose stop an earlier candle of the session traded through (or whose stop
   the session's last close was already through) until a closed candle closes
   back through the broken level by his 3-point allowance, and reports how many
@@ -249,7 +249,7 @@ shows up in the next run:
   committed run on an older version measured a rule production no longer follows.
   Two replay-only options sit beside it (2026-10-01), neither changing
   production or `STRATEGY_VERSION`: `?reclaimPoints=3|5` (the reclaim allowance,
-  `ReplayOptions.reclaimPoints`) and `?profile=intraday` (Gann's rules read from
+  `ReplayOptions.reclaimPoints`) and `?profile=intraday` (the method's rules read from
   the run's own intraday bars, `lib/backtest/replayIntraday.ts`; unscored). Both
   runs are specified, with their reading rules, in
   `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md` Part 5, and have not been made.
@@ -678,13 +678,13 @@ Every reading clears `MIN_OBSERVATIONS_FOR_SATURATION` (30) and every one sits w
 5/5 distinct windows. **The criterion has been quarantined in `lib/validation/criteria-registry.ts`
 for this reason** (see that entry's `quarantineReason` for the full writeup).
 
-The mechanism: `nearestStructuralStop` (`lib/strat/levels.ts`) searches Gann targets *and*
+The mechanism: `nearestStructuralStop` (`lib/strat/levels.ts`) searches the method targets *and*
 clustered S/R pooled together for any favorable-side level inside 3–20% of entry (the default
-universe is entirely large-cap, so the wide band always applies). Gann fan/Square-of-9 levels are
+universe is entirely large-cap, so the wide band always applies). The method fan/Square-of-9 levels are
 dense enough across a 17-point band that one is almost always found — the fixed-percentage
 fallback fired on only 18/985, 6/438, 53/10,480, 3/367, and 2/100 trades. `historicalSR` (the
 criterion reading the same underlying S/R data, alone) passes only ~18–19% of real setups per
-`lib/strat/levels.ts`'s own comment on `EQUITY_FALLBACK_STOP_PCT` — pooling in Gann targets turned
+`lib/strat/levels.ts`'s own comment on `EQUITY_FALLBACK_STOP_PCT` — pooling in the method targets turned
 "is there real structure nearby" into "is there almost always something nearby," which isn't the
 same question.
 
@@ -696,7 +696,7 @@ inverted, just uninformative, which is what a criterion this saturated produces 
 **Fix applied 2026-09-15, confirmed by user.** `nearestStructuralStop`'s input is now split:
 `computeEquityTradeLevels`'s `structuralLevels` param feeds the stop alone (S/R only, same source
 `historicalSR` reads); a new `extensionLevels` param (defaults to `structuralLevels`) carries the
-old combined S/R+Gann pool for the runner extension only, which was never measured saturated —
+old combined S/R+the method pool for the runner extension only, which was never measured saturated —
 only the stop was. See `lib/strat/levels.ts`'s own doc comments.
 
 **Quarantine stays in place regardless — a code fix is not a measurement.** The exit condition is

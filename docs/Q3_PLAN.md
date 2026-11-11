@@ -6,7 +6,7 @@ document; nothing here is user copy.
 
 Three rules shape every item:
 
-- **Gann first.** Each item states how Gann answers it, before any design.
+- **The method first.** Each item states how the method answers it, before any design.
 - **Free tier only.** Anything that needs money or one of Chuck's accounts is
   listed separately at the end, not mixed into the plan.
 - **No claim without a record.** The "Forward-looking claims" and "no performance
@@ -29,7 +29,7 @@ Three rules shape every item:
 ## The plan, in build order
 
 Each item names the owning thread where it touches another thread's area
-(`SYNTHESIZED_ROADMAP.md` Part 7). Boundaries with the Gann-rules thread are
+(`SYNTHESIZED_ROADMAP.md` Part 7). Boundaries with the method-rules thread are
 under "Boundaries" below.
 
 ### 1. An installable web app (the free mobile path)
@@ -38,7 +38,7 @@ under "Boundaries" below.
 `public/sw.js` (network first, nothing else cached), and an Install card beside
 the push switch in Settings. Not yet tried on a real phone.
 
-**Gann:** none; this is a delivery surface. **Hermetic:** Correspondence: the same
+**The method:** none; this is a delivery surface. **design-principle:** Correspondence: the same
 plan, verdict and levels on the phone as on the desktop, with no mobile-only
 reading.
 
@@ -51,7 +51,7 @@ reading.
   the Dashboard home, which could not be rendered locally.
 - Quick order entry is the existing ticket. A phone never gets a separate,
   simpler order path with different rules: placement's confirmation, the
-  5-point stop cap and Gann's capital rules hold as they do everywhere.
+  5-point stop cap and the method's capital rules hold as they do everywhere.
 
 This covers the roadmap's mobile goals (alerts, quick orders, positions, charts,
 notifications) at no cost. A native app in the stores is listed under paid
@@ -59,7 +59,7 @@ items.
 
 ### 2. Notes on closed trades, and the trader's own record read back
 
-**Gann:** keep a record of every trade and read it back to find your own good
+**The method:** keep a record of every trade and read it back to find your own good
 and bad runs, and quit after 2 or 3 losses then restart small (*Truth of the
 Stock Tape*, PDF 246-247, `/mnt/project-files/private-research/sources/A02_A04_truth_of_stock_tape_1923_and_stock_selector_1930.md`). The loss
 series pause (`lib/risk/lossSeries.ts`) and the profit ceiling already read that
@@ -82,18 +82,18 @@ scan already uses. Breadth counts the stocks, and the groups' middle stocks, in
 the upper half of their twelve months' range. Positions and ranks only, no
 pass or fail. Not yet seen on production data.
 
-**Gann:** rank the groups before the stocks in them, and buy the strongest stocks
+**The method:** rank the groups before the stocks in them, and buy the strongest stocks
 in the strongest groups and sell the weakest in the weakest (*Truth of the Stock
-Tape* Ch. XVI-XVII; *Stock Selector* Ch. VII). The rank is built and already
+Tape* Ch. XVI-XVII; SRC-003 Ch. VII). The rank is built and already
 scores P3(c). Q3 shows it.
 
 - A Scanner tab listing the 71 industry groups by the members' median position in
   their year of monthly highs and lows (the same figure `groupPercentile` reads),
   each opening to its stocks in rank order. Read from the same function as the
   score, so the page and the verdict can't disagree (cross-platform rule).
-- Breadth, read as Gann reads it: how many groups and stocks stand above or below
+- Breadth, read as the method reads it: how many groups and stocks stand above or below
   their monthly levels, not an advance/decline indicator.
-- The roadmap's put/call ratio is not Gann's, and its data is paid. It is left
+- The roadmap's put/call ratio is not the method's, and its data is paid. It is left
   out. If Chuck wants it later, it would be a chart tool a member turns on, like
   the other indicators, and would never feed a verdict.
 - No method name in any label (confidential-sources rule).
@@ -108,7 +108,7 @@ reorders them, saved per member in `settings.prefs.dashboard`
 (`lib/dashboard/sections.ts`); the default order is the old page, Novice summary
 first. The welcome banner, rest reminder and stale-scan notice stay fixed on top.
 
-**Gann:** none. **Hermetic:** Polarity: novice and expert each get a designed view,
+**The method:** none. **design-principle:** Polarity: novice and expert each get a designed view,
 not a shortened list.
 
 - Light and dark: the CSS exists; add the switch to Settings and the header, and
@@ -127,7 +127,7 @@ stands, and the groups' strongest and weakest, with the moves since last month
 in the month's first digest. Bell and push always; email only when the member
 turned it on and within the "digest" budget, after the day's journals.
 
-**Gann:** he reviewed his charts weekly and judged the trend by the week's close
+**The method:** he reviewed his charts weekly and judged the trend by the week's close
 (the weekly chart and the green/red line, `lib/gann/weeklyOneBar.ts`). A weekly
 review fits the method better than a stream of signals.
 
@@ -149,28 +149,28 @@ that session's change (after the 4 PM close it counts on the next session, as
 Read once a symbol an hour per server instance, not once a day: a page a person
 opens needs the day's headlines. The macro calendar is still held for a source.
 
-**Gann:** he read the market's response to news, not the news itself: tops on
+**The method:** he read the market's response to news, not the news itself: tops on
 bullish news, bottoms on bearish (*Commodities* p. 8; W006 p. 14), which is how
 `badNews.ts` reads it.
 
 - Show Alpaca's headlines for the symbol (free with the data plan, one read per
   symbol a day as `fetchNews` does now), each beside the session's close that day.
-- No sentiment score: Gann gives none, and a sentiment indicator would be platform
+- No sentiment score: the method gives none, and a sentiment indicator would be platform
   substance with no source.
 - A macro calendar needs a data source. Free ones exist (for example the Fed's and
   BLS's published release schedules), but each needs its terms checked before use.
   Held until a source is chosen.
 
-### 7. Community, Gann's way
+### 7. Community, the method's way
 
-**Gann:** losses come from hope, tips and opinions; trade only on definite rules
-(*New Stock Trend Detector*, `/mnt/project-files/private-research/sources/A05_new_stock_trend_detector.md`; *Economic Forecaster*, A11:
+**The method:** losses come from hope, tips and opinions; trade only on definite rules
+(SRC-004, `/mnt/project-files/private-research/sources/A05_new_stock_trend_detector.md`; SRC-012, A11:
 "ignore tips; follow rules"). "Follow expert traders" is a tip service by
 another name, so it is not built as copying.
 
 - Shared watchlists: a member shares a list by link, read-only. It shares symbols,
   not trades or calls.
-- Discipline before results: the shared standard is Gann's (paper-trade first, the
+- Discipline before results: the shared standard is the method's (paper-trade first, the
   five qualifications, hope and fear), as the synthesized roadmap says.
 - An opt-in public leaderboard is held. It is a performance claim about members'
   trading, and needs Q2 item 1's record, a compliance read and moderation first.
@@ -179,7 +179,7 @@ another name, so it is not built as copying.
 - Any member-written text (notes shared publicly, list names) needs moderation and
   anti-spam guardrails before it is public. Until then, notes stay private.
 
-## Boundaries with the Gann-rules thread (to confirm with it)
+## Boundaries with the method-rules thread (to confirm with it)
 
 - **Q2 item 1, Prove the edge.** Q3 builds no record and states none. Items 5 and
   7 link to that thread's measured record once it exists and show nothing in its
@@ -195,7 +195,7 @@ another name, so it is not built as copying.
   check: since #559 a long gets P3 credit for its rank only when `longMayLead`
   holds (`lib/gann/leadership.ts`, G25), so "strongest in its group" can differ
   from what the score credits.
-- Confirmed by the Gann-rules thread, 2026-10-29 04:28 UTC: the boundaries above
+- Confirmed by the method-rules thread, 2026-10-29 04:28 UTC: the boundaries above
   are fine, and its next record is the six-year rerun after the 2026-10-29
   8 PM ET release.
 
@@ -210,7 +210,7 @@ another name, so it is not built as copying.
 | Put/call data | A paid options-data feed | Only if Chuck wants it, as a chart tool |
 | Moderation service | Optional; free tooling may be enough at small scale | Public notes and lists |
 
-## Open questions for Chuck (no Gann answer)
+## Open questions for Chuck (no the method answer)
 
 1. Is the installable web app enough for Q3, or does he want the store apps (paid)?
 2. Should shared watchlists be public by link, or only to members he approves?
@@ -218,10 +218,10 @@ another name, so it is not built as copying.
 
 ## Design basis
 
-Mandate: 1. Gann answers items 2, 3, 5, 6 and 7, cited in each; 1 and 4 are
-delivery and display with no Gann content. 2. Dewey: item 5's weekly cadence is
+Mandate: 1. The method answers items 2, 3, 5, 6 and 7, cited in each; 1 and 4 are
+delivery and display with no the method content. 2. SRC-032: item 5's weekly cadence is
 a review interval, not a periodicity claim about markets, so the checklist does
-not apply. 3. Hermetic: Correspondence (one method on every screen size),
+not apply. 3. design-principle: Correspondence (one method on every screen size),
 Polarity (novice and expert views), and Cause and Effect (a member's record read
 back is the cause their next trade learns from). Law of Creation: member ⊗
 record is a creation, the trader seeing their own runs, which re-enters as the

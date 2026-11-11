@@ -37,7 +37,7 @@ wrote. `lib/lifecycle/store.ts`'s `createTradePlan`/
 second, queryable `trend_state` row joined to the plan via `trade_plan_id`.
 `digital_root_feature` is populated only via
 `app/api/learning/record-event`'s `scan` case, when a caller supplies
-`gann_root` — nothing in the live scan pipeline computes a Gann digital-root
+`gann_root` — nothing in the live scan pipeline computes a method digital-root
 value yet, so `recordScanVerdict` deliberately leaves that table alone
 rather than inventing one.
 
@@ -171,9 +171,9 @@ XBRL, all share classes, with its as-of, filed date and source concept) and
 `instrument_shares_outstanding` keeps every reported count so the backtest can
 read the one filed before each session. Written only by
 `scripts/fetch-instrument-reference.mjs` (service role, `--apply`); read by
-`lib/data/instrumentReference.ts` for Gann's capital-stock and
+`lib/data/instrumentReference.ts` for the method's capital-stock and
 incorporation-date rules (parity D2, D3). `float_shares` stays unset: float is
-not the figure Gann used.
+not the figure the method used.
 
 Graduation exams (`0084`, applied 2026-09-28): `graduation_exam_attempts`, one
 row per attempt with the scenarios and answer key fixed at start. Owner can read

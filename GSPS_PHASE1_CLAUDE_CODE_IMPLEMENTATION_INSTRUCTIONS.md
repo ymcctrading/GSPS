@@ -86,7 +86,7 @@ INVALIDATED/EXPIRED/NO_SETUP -> WATCH -> EXECUTE (new valid transition)
 
 - Ticker, asset type, timestamp in ET, scan time frame, and source.
 - WATCH → EXECUTE transition and Buy/bullish or Sell/bearish direction.
-- Confirmation price, active Gann Root (3/6/9), entry trigger, Take Profit 1, Master Target, and Stop Loss/invalidation vector.
+- Confirmation price, active the method Root (3/6/9), entry trigger, Take Profit 1, Master Target, and Stop Loss/invalidation vector.
 - Deep link to the user-authorized latest GSPS trade plan.
 
 ## 5. Architecture Requirements

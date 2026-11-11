@@ -88,7 +88,7 @@ that exists here, and this pass doesn't attempt it.
 
 ## Non-negotiables verified
 
-- No claim anywhere that Hermetic/Gann framing predicts markets (unrelated
+- No claim anywhere that design-principle/the method framing predicts markets (unrelated
   to this brief's scope; not touched).
 - No client-side bypass: `entryReady`/`checkPlanEligibleForAutomation`/
   `authorizeAutomatedOrder` all run server-side; RLS on the three new

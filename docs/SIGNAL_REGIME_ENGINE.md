@@ -5,7 +5,7 @@ Claude Code, August 28, 2026 — draft implementation directives; **requires
 securities/compliance counsel review before use in live personalized
 recommendations or execution.**
 
-This is a new, separate decision layer from the existing Gann/STRAT scan
+This is a new, separate decision layer from the existing the method/STRAT scan
 engine (`lib/strat`, `lib/scoring`, `lib/scan`), never merged into it. It is
 out-of-phase relative to `ROADMAP.md`'s Q1 focus (notifications, analytics,
 conditional orders); it was implemented directly against this spec, not
@@ -20,7 +20,7 @@ pulled from the roadmap.
   base, an exhaustion/break, a verified range — rather than gating on the
   regime label; see `requiredRegime`'s doc comment in
   `lib/signals/types.ts`). All four verdicts attach to `ScanResult.signals`,
-  independently — never merged into each other or into the Gann/STRAT
+  independently — never merged into each other or into the method/STRAT
   verdict. This is a symbol-only scan with no account in scope, so
   account-only gates (sizing, correlation, cooldown, total open risk) are
   optimistic placeholders — see `lib/signals/scanGates.ts` and the
@@ -39,14 +39,14 @@ pulled from the roadmap.
   (see that file's header for why).
 - **Chart/ticker UI** (`components/scan/signal-regime-card.tsx`, wired into
   `components/scan/ticker-view.tsx`) — a card of its own, separate from
-  `SignalCard`'s Gann/STRAT verdict, showing the regime and each of the
+  `SignalCard`'s the method/STRAT verdict, showing the regime and each of the
   four states' tier/tradeable/plan. Deliberately its own component rather
   than reusing `lib/chart/signal-overlay.ts`'s `SignalOverlay` type, which
   is built around the existing engine's 0–9 score — force-fitting this
   engine's 0–100 score into it would misrepresent both. The strongest
   tradeable state's plan also draws `SRE Entry`/`SRE Stop`/`SRE Target`
   price markers on the chart itself, alongside (not replacing) the
-  Gann/STRAT plan's own markers.
+  the method/STRAT plan's own markers.
 - **API redaction** (`lib/signals/publicSummary.ts`'s `redactScanSignals`,
   called from `lib/scoring/public-summary.ts`'s `redactScanResult`) — fixed
   as part of wiring the UI: `/api/scan` was serializing every verdict's full
@@ -55,7 +55,7 @@ pulled from the roadmap.
   `disqualifiers` (which name specific internal thresholds, e.g. "ADX >=
   20") straight into the network response — the exact leak
   `lib/scoring/public-summary.ts` already exists to prevent for the
-  Gann/STRAT engine, just not yet applied to this one. `score`/`tier`/
+  the method/STRAT engine, just not yet applied to this one. `score`/`tier`/
   `tradeable`/`plan` still cross the boundary; the breakdown and threshold
   text now don't.
 - **Notification/alert fan-out** (`lib/entitlements/scan-fanout.ts`'s
@@ -65,7 +65,7 @@ pulled from the roadmap.
   the Signal and Regime Engine's rollup (via the already-safe
   `toPublicSignalSummary`) as an extra, clearly-labeled section. It is
   purely informational: the WATCH → EXECUTE transition that decides whether
-  an alert fires at all is still computed from the Gann/STRAT
+  an alert fires at all is still computed from the method/STRAT
   `decision.outputState` alone, unchanged by this. No new monitor state
   machine or table — `active_monitors` has a partial unique index on
   `(profile_id, symbol)` for an open state, so a second, independently-keyed
@@ -86,14 +86,14 @@ pulled from the roadmap.
 ## What's implemented
 
 - **Regime classifier** (`lib/signals/regime.ts`): Trend / Range /
-  Transition / Event-high-uncertainty. Built from Gann's 3-day/9-day swing
+  Transition / Event-high-uncertainty. Built from the method's 3-day/9-day swing
   charts (`lib/gann/trendStrength.ts`), HH/HL swing structure, ATR-based
   volatility, volume behavior, and horizontal support/resistance via
   swing-pivot clustering. The spec's original inputs included MA
   slope/alignment, ADX/DMI, anchored VWAP and a PSAR/Supertrend overlay.
   None of those remain. ADX went 2026-09-17, the overlay hook 2026-09-17,
   and the MAs and VWAP 2026-09-26 (alignment audit F2.5). AGENTS.md's
-  "Gann-grounded platform" section records why.
+  "method-grounded platform" section records why.
 - **Rules Alignment Score** (`lib/signals/scoring.ts`) — 0–100, tallied from
   a per-state weighted breakdown, sorted into internal readiness tiers (the
   weights and cutoffs are defined once in code — `lib/signals/scoring.ts`

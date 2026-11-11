@@ -93,7 +93,7 @@ gsps/
    - Fetches historical bars (1m, 5m, timeframes)
    - Runs structural analysis (fans, geometric price levels, time cycles)
    - Runs pattern analysis (patterns, levels)
-   - Scores setups out of 9, one point per pillar of Gann's selection checks (`lib/scoring/pillars.ts`)
+   - Scores setups out of 9, one point per pillar of the method's selection checks (`lib/scoring/pillars.ts`)
    - Returns signal with score and details
 5. **Database Storage**:
    - Scan results stored in Supabase
@@ -149,14 +149,14 @@ gsps/
 - Used for price projections
 - Implementation: Spiral lookup table with mathematical calculations
 
-**Gann Fans** (`lib/gann/fans.ts`):
+**The method Fans** (`lib/gann/fans.ts`):
 - Geometric angles drawn from pivot points
 - Standard angles: 45°, 63.75°, 26.25°, etc.
 - Projects future support/resistance
 - Implementation: Angle calculations with point projection
 
 **Time Cycles** (`lib/gann/timeCycles.ts`):
-- Important time periods based on Gann principles
+- Important time periods based on the method principles
 - Predicts turning points in market
 - Uses date mathematics for cycle calculation
 - Implementation: Timestamp math with cycle intervals
@@ -330,7 +330,7 @@ SNAPTRADE_CONSUMER_KEY - SnapTrade consumer key
 ## Testing Strategy
 
 ### Unit Tests
-- Gann calculations (`lib/__tests__/gann.test.ts`)
+- The method calculations (`lib/__tests__/gann.test.ts`)
 - Pattern recognition (`lib/__tests__/strat.test.ts`)
 - Scoring algorithms
 - Utility functions

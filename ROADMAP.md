@@ -4,10 +4,10 @@
 **Horizon:** 12 months from August 2026.
 **Synthesized roadmap (2026-10-21):** `docs/SYNTHESIZED_ROADMAP.md` now
 governs what is built and in what order. It joins this roadmap with the parity
-documents, Gann's books, the cycle literature, Hauck and the Law of Creation.
+documents, the method's books, the cycle literature, SRC-034 and the Law of Creation.
 This file keeps each phase's detail and history.
 **Last updated:** 2026-10-23 (Q2 indicator periods and saved presets built). Previously 2026-10-22 (Q2 advanced orders: automated pyramid adds on
-paper, OCO answered by Gann's no-fixed-target rule; see
+paper, OCO answered by the method's no-fixed-target rule; see
 `docs/SYNTHESIZED_ROADMAP.md` Part 5 item 3. Also Q2's crypto scanner started
 on Alpaca's free data, and Q2's Performance replay UI built as the Scanner's
 "Past scans" tab). Earlier the same day (two stale Q1 notes corrected: the
@@ -56,8 +56,8 @@ mode-filtering bug found in the same pass — see that note under Q1.)
 Previously same day (Closed two open BACKLOG.md/Q1 items under the
 Scan history initiative note: saved scan criteria/watchlists, and the
 system-scan cron path's monitor fan-out gap. See that note under Q1.)
-Previously: 2026-09-20 (Documented the 2026-09-16/17 Gann-grounding
-audit here for the first time — see the Gann & Sara Cross-Market Confluence
+Previously: 2026-09-20 (Documented the 2026-09-16/17 method-grounding
+audit here for the first time — see the method & Sara Cross-Market Confluence
 Layers initiative note under Q1; that work was recorded only in AGENTS.md
 until now, which is stale against AGENTS.md's own "update ROADMAP.md in the
 same PR" rule). Previously: 2026-09-17 (Home dashboard universe coverage + intraday
@@ -101,7 +101,7 @@ both signal discovery and execution.
 
 ### What's built
 
-- **Core engine (production)** — Structural analysis engine (Gann fans,
+- **Core engine (production)** — Structural analysis engine (the method fans,
   geometric price levels, time cycles), pattern recognition, multi-timeframe
   support (1m–1y), real-time charting via Lightweight Charts.
 - **Trading infrastructure (production)** — Per-user simulated paper trading
@@ -235,11 +235,11 @@ both signal discovery and execution.
   out-of-phase Q1 entries already set. An opt-in, non-default,
   one-at-a-time system (`lib/strategies/`, `docs/STRATEGY_MODES.md`) that
   generates entry/stop-loss/TP1/master-target levels from a named, real,
-  non-Gann trading technique — Gann's own trade plan (`ScanResult.levels`,
+  non-method trading technique — the method's own trade plan (`ScanResult.levels`,
   the scorecard, `SignalGates`, Automation) is untouched and remains the
   default and the only substance behind GSPS's own verdict. This required a
   scoped, explicit, project-owner-authorized exception to AGENTS.md's
-  "Gann-grounded platform" non-Gann boundary — see AGENTS.md's "Strategy
+  "method-grounded platform" non-method boundary — see AGENTS.md's "Strategy
   Modes" section for that amendment and why it doesn't loosen the boundary
   anywhere else. Six modes shipped: PSAR+Supertrend intraday reversal
   agreement-flip, Sara Strat bar-pattern precision entry (reusing
@@ -303,28 +303,28 @@ both signal discovery and execution.
   (`lib/entitlements/intraday-refresh.ts`). (5) The Default watchlist is the
   user's own 3–9 symbols, stored in the existing `watchlists` tables
   (`lib/dashboard/watchlist.ts`). **Owner decisions, 2026-09-30, built:** a
-  breached stop retires the plan, and it returns only by Gann's own rule:
+  breached stop retires the plan, and it returns only by the method's own rule:
   confirmed if the break was false (a close back through the broken level by his
   3-point allowance), replaced by a new plan from the new structure, never
   resumed at its old levels (the scan itself holds it to Reject, so the chart,
   lists, monitors and replay agree — AGENTS.md finding F3.7, resolved); and the intraday first target is a
-  Gann level (the nearest old top or bottom, or a round number just short of
+  the method level (the nearest old top or bottom, or a round number just short of
   one) or none, never a multiple of the risk. **Built 2026-10-01 (owner
   go-ahead):** a pre-entry "retired" transition in the `trade_plans` lifecycle,
   dormant until a counsel sign-off is recorded (its spec pack flags the change
   for review); a replay-only intraday profile (`?profile=intraday`); and a
   `reclaimPoints` replay option (3 or 5). **Not run:** both measurements need
-  vendor data, and their reading rules are pre-registered. Gann's sources and the measured record are in
+  vendor data, and their reading rules are pre-registered. The method's sources and the measured record are in
   `docs/GANN_SETUP_LIFECYCLE_INTRADAY_TIMELINE.md`.
-- **Gann & Sara Cross-Market Confluence Layers** *(out-of-phase, direct
-  request: "GSPS Gann & Sara Cross-Market Integration Addendum", 2026-08-28.
+- **The method & Sara Cross-Market Confluence Layers** *(out-of-phase, direct
+  request: "GSPS the method & Sara Cross-Market Integration Addendum", 2026-08-28.
   Fits no Q1 strategic goal above — it's a signal-engine addition, not
   monetization/retention — but was scoped and built as a modular,
   feature-flagged extension of the existing Signal and Regime Engine rather
-  than deferred, per the addendum's explicit directive. Delivered: Gann
+  than deferred, per the addendum's explicit directive. Delivered: the method
   Confluence Layer and Sara Sniper Strat Confluence Layer
   (`lib/signals/confluence/`), wrapping GSPS's existing, already-authorized
-  Gann techniques (`lib/gann/`) and STRAT pattern taxonomy
+  the method techniques (`lib/gann/`) and STRAT pattern taxonomy
   (`lib/strat/patterns.ts`) rather than inventing new numerology or scenario
   rules — the addendum explicitly forbids inferring undocumented "personally
   sourced" logic, so the addendum's own net-new Material Number/Harmonic Node
@@ -332,15 +332,15 @@ both signal discovery and execution.
   specification. Both modules are additive confluence factors only: never a
   sole signal, never able to override a safety/account/eligibility gate. See
   `docs/GANN_SARA_CONFLUENCE.md`.)* *(Follow-up, 2026-09-16/17, out-of-phase
-  project-owner direction, documented here 2026-09-20: the "Gann-grounded
-  platform" and "WD Gann precedence" standing principles were adopted
-  (AGENTS.md), driving a platform-wide audit of non-Gann substance. Outcomes:
+  project-owner direction, documented here 2026-09-20: the "method-grounded
+  platform" and "the method's author precedence" standing principles were adopted
+  (AGENTS.md), driving a platform-wide audit of non-method substance. Outcomes:
   `adxTrendStrength` (Wilder's ADX) discarded outright as a scored criterion
-  with no Gann lineage (PR #236); its two remaining regime/range-state
+  with no the method lineage (PR #236); its two remaining regime/range-state
   consumers replaced by `lib/gann/trendStrength.ts`'s 3-day/9-day swing-chart
   read; trade-plan entry pricing moved off the STRAT bar-sequence trigger
-  onto Gann's own swing-crossing + lost-motion rule
-  (`lib/gann/entryTrigger.ts`), the largest single Gann-grounding change to
+  onto the method's own swing-crossing + lost-motion rule
+  (`lib/gann/entryTrigger.ts`), the largest single method-grounding change to
   date since it drove every trade plan's entry price and position size, not
   just one scored point; an eight-item orphan-module audit wired up
   `lib/risk/position-limits.ts` and `lib/risk/cooldown.ts`'s
@@ -350,7 +350,7 @@ both signal discovery and execution.
   decision in production. `patternArmed` (the STRAT taxonomy's remaining
   scored-criterion use) was the one open item from this audit; it was closed
   the same day, renamed `entryTriggerArmed` and moved onto
-  `lib/gann/entryTrigger.ts` (AGENTS.md, "Gann-derived AND measured"). This entry exists specifically
+  `lib/gann/entryTrigger.ts` (AGENTS.md, "method-derived AND measured"). This entry exists specifically
   because AGENTS.md's "update ROADMAP.md in the same PR" rule was not
   followed at the time; nothing here reflects new work done today.)*
 - **Portfolio analytics dashboard** *(shipped 2026-08-18, PR #83 — carried
@@ -1207,13 +1207,13 @@ Portfolio analytics drives retention and trust.
   periods, so a preset never moves a Strategy Mode's levels or ranking.
   Squarely a differentiation play — it converts the scanner from a single
   opinionated method into a platform a sophisticated user will stay on.
-  **Deliberately non-Gann, and that is the point.** This is the one place the
-  "Gann-grounded platform" principle in AGENTS.md yields by explicit design:
+  **Deliberately non-method, and that is the point.** This is the one place the
+  "method-grounded platform" principle in AGENTS.md yields by explicit design:
   these are analysis tools the user drives, not substance the platform asserts.
   The boundary that keeps both true — no indicator added here may feed a
   scored criterion, a signal gate, a trade plan, or any verdict GSPS itself
   issues. See AGENTS.md's "Audit outcomes" entry for the full reasoning, and
-  do not let a future Gann-grounding audit strip these out. *(Note,
+  do not let a future method-grounding audit strip these out. *(Note,
   2026-09-23: the TradingView-style custom-script/plugin system requested
   alongside "Strategy Modes" (Q1, out-of-phase, see that entry above) is
   scoped to land here rather than as its own initiative — see

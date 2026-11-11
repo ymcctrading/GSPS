@@ -1,7 +1,7 @@
 # GSPS Synthesized Roadmap
 
 **Status:** Governing plan from 2026-10-21 (owner: "the roadmaps, as well as
-paritys, WD Gann files, observation of cycles, William Hauck book and multi
+paritys, the method's author files, the cycle literature, SRC-034 book and multi
 dimensional documents/creation equation, should coagulate together and create
 a synthesized roadmap. that we shall follow moving forward").
 **Last updated:** 2026-10-30 (Track M: the dated-forecast record built, `docs/GANN_FORECAST_TRACK_RECORD.md`). Previously 2026-10-29 (Q2 item 7: shared quotes and the capacity read; status re-read against production 2026-10-28, see Part 5 and "Q2 status").
@@ -14,21 +14,21 @@ on: they keep the detail and the history, and this file points to them.
 | Source | What it contributes | Where it lives |
 |---|---|---|
 | The product roadmap | Phases Q1 to Q4, the business goals, metrics and decision gates | `ROADMAP.md` (history and per-initiative detail) |
-| The parity documents | Every rule Gann disclosed, its status in GSPS and the build order | `docs/memory-bank/GANN_PARITY_ROADMAP.md`; the 342-rule map in `/mnt/project-files/gann-feature-map/` (`gann_features.json`, `review/tally.md`) |
-| W. D. Gann's books | The method itself: time, price, trend, entries, stops, exits, risk, the trader | `/mnt/project-files/literature-reading-output/collection-synthesis.md` and `works/W*`; `/mnt/project-files/private-research/sources/A*`; `docs/GANN_HISTORICAL_SOURCES.md` |
-| Observation of Cycles (Dewey, Halberg, Tomes) | How a cycle or timing claim is proven: Dewey's 18 criteria, significance tests, out-of-sample persistence | `/mnt/project-files/private-research/sources/C01`–`C07`; master report Part I |
-| Hauck, *The Emerald Tablet* | The design lens: two-way correspondence, the seven operations as a returning cycle, the union of opposites into a third | `/mnt/project-files/private-research/sources/H01_hauck_emerald_tablet.md` (read 2026-09-27; Chs. 1 and 3 are absent from the source PDF itself) |
+| The parity documents | Every rule the method disclosed, its status in GSPS and the build order | `docs/memory-bank/GANN_PARITY_ROADMAP.md`; the 342-rule map in `/mnt/project-files/gann-feature-map/` (`gann_features.json`, `review/tally.md`) |
+| The method author's books | The method itself: time, price, trend, entries, stops, exits, risk, the trader | `/mnt/project-files/literature-reading-output/collection-synthesis.md` and `works/W*`; `/mnt/project-files/private-research/sources/A*`; `docs/GANN_HISTORICAL_SOURCES.md` |
+| The cycle literature (SRC-032, SRC-041, SRC-033) | How a cycle or timing claim is proven: SRC-032's 18 criteria, significance tests, out-of-sample persistence | `/mnt/project-files/private-research/sources/C01`–`C07`; master report Part I |
+| SRC-034, SRC-034 | The design lens: two-way correspondence, the seven operations as a returning cycle, the union of opposites into a third | `/mnt/project-files/private-research/sources/H01_hauck_emerald_tablet.md` (read 2026-09-27; Chs. 1 and 3 are absent from the source PDF itself) |
 | The Multi-Dimensional Creation Equation | The fourth design question: is a join a creation (1 ⊗ 1 = 3) or a mixture (1 + 1 = 2)? | `docs/memory-bank/LAW_OF_CREATION.md`; project instructions; `AGENTS.md` |
 
 ## Order of authority
 
 When two sources disagree, this order settles it:
 
-1. **Gann's own text** decides the method: any rule, threshold, entry, exit,
-   stop, size, time or price reading that a Gann method answers. Decide from
+1. **The method's own text** decides the method: any rule, threshold, entry, exit,
+   stop, size, time or price reading that a the method answers. Decide from
    his text, cite it, build it, and tell the owner what was decided. Hold for
-   the owner only what no Gann method answers (security, access, billing, ops,
-   legal, copy with no Gann content, figures Gann never gave).
+   the owner only what no the method answers (security, access, billing, ops,
+   legal, copy with no the method content, figures the method never gave).
 2. **The owner's recorded decisions** in `AGENTS.md`.
 3. **This roadmap** decides what is built and when.
 4. **`ROADMAP.md`** holds each phase's detail and history.
@@ -40,8 +40,8 @@ When two sources disagree, this order settles it:
 
 Every source above lands on one of two tracks.
 
-- **Track M, the method.** Carry Gann's disclosed method one for one, on every
-  surface it applies to, and measure each translation. Sources: Gann's books,
+- **Track M, the method.** Carry the method's disclosed method one for one, on every
+  surface it applies to, and measure each translation. Sources: the method's books,
   the parity documents, the cycle literature (the proof standard).
 - **Track P, the product.** Get the method to traders who pay for it and stay.
   Sources: the product roadmap's phases, metrics and gates.
@@ -56,22 +56,22 @@ what the product may claim and show. The third thing that pair creates is
 **a platform whose edge is measured and visible to the trader**. Neither track
 contains that alone.
 
-Hauck's reading of the Emerald Tablet gives the shape of the cycle that
-creates it, and it agrees with Gann's "what has been will be":
+SRC-034's reading of the SRC-034 gives the shape of the cycle that
+creates it, and it agrees with the method's "what has been will be":
 
-| Operation (Hauck) | What it means for the build | Where GSPS does it |
+| Operation (SRC-034) | What it means for the build | Where GSPS does it |
 |---|---|---|
-| Calcination | Burn off what isn't Gann | The Gann-grounding audits; non-Gann inputs removed from the verdict |
+| Calcination | Burn off what isn't the method | The method-grounding audits; non-method inputs removed from the verdict |
 | Dissolution | Break the market's history into its parts | Swing charts, levels, time counts |
-| Separation, "at the proper moment" | Keep the layers apart; time the decision | Context vs. scoring vs. gating; Gann's time rules |
+| Separation, "at the proper moment" | Keep the layers apart; time the decision | Context vs. scoring vs. gating; the method's time rules |
 | Conjunction | Join complementary pairs into a third | Price ⊗ time squared, level ⊗ close (the crossing), the nine pillars |
 | Fermentation | New evidence after an apparent failure | Replays that lose are read as translation defects first |
 | Distillation, repeated | Purify by repetition, never one pass | Replay, diagnose, fix, replay again on a new `STRATEGY_VERSION` |
 | Coagulation | Fix the result as a stable release | Versioned releases; only measured claims shown to users |
 
-Hauck's eighth step returns to the first: a release starts the next round.
+SRC-034's eighth step returns to the first: a release starts the next round.
 The cycle is a returning wheel, not a pipeline that stops ("Cycles as
-architecture", `AGENTS.md`). Hauck's two-way correspondence adds the point the
+architecture", `AGENTS.md`). SRC-034's two-way correspondence adds the point the
 platform most needs: work begins in the Below. Evidence from a single trade or
 an intraday bar must be allowed to revise the method's translation above it,
 which is exactly what the measurement gate does.
@@ -81,23 +81,23 @@ which is exactly what the measurement gate does.
 These are restated from `AGENTS.md` and the project instructions so that a
 session reading only this file still follows them.
 
-1. **Gann first, and Gann answers.** Ask "what would Gann do" and do that. Do
+1. **The method first, and the method answers.** Ask "what would the method do" and do that. Do
    not hold a question for the owner that his text settles.
 2. **Everywhere it applies.** A rule, filter or check built for one surface is
    built on every surface it fits: daily scan, intraday scan, dashboard,
    notifications and alerts, scanner, ticker page, order ticket, Guided Mode,
    the portfolio manager, the replay and the backtest. List the surfaces
    before calling a change done.
-3. **Gann-derived and measured.** Every scored or acting rule cites a source
+3. **method-derived and measured.** Every scored or acting rule cites a source
    and has outcome evidence. An inverted measurement is presumed a translation
    defect on our side first.
-4. **The score stays out of 9**, earned by Gann's own selection criteria (the
+4. **The score stays out of 9**, earned by the method's own selection criteria (the
    nine pillars, `lib/scoring/pillars.ts`). One pillar may need several checks.
-5. **Cycle claims meet Dewey's standard** before they are claimed: a base
+5. **Cycle claims meet SRC-032's standard** before they are claimed: a base
    rate, a significance test with a multiple-comparisons correction,
    out-of-sample persistence, the rule fixed before the test.
-6. **The four design questions**, answered while the idea forms: Gann's source
-   and tier; what the cycle literature says; which Hermetic principle fits;
+6. **The four design questions**, answered while the idea forms: the method's source
+   and tier; what the cycle literature says; which design principle fits;
    and what the join creates (Law of Creation). They are lenses, never
    evidence. They cannot move a threshold, weight, gate or verdict.
 7. **No market-cap ceiling.** The only cap rule is the $10B floor
@@ -114,26 +114,26 @@ session reading only this file still follows them.
 ## Part 3. Where GSPS stands (2026-10-21)
 
 **Track M.**
-- **295 of 342** rules in the Gann feature map pass a fresh review
+- **295 of 342** rules in the method feature map pass a fresh review
   (`review/tally.md`). Of the other 47, 43 are declined or blocked by recorded
   owner decisions or missing data, and the rest are in review or fix. The
   2026-10-22 recheck of all 342 (`review/2026-10-22-recheck.md`) reads 203
   faithful, 110 approximated (each labelled), 28 correctly not built, 1 absent
   (A-TIME-19) and 0 contradicted; 34 are missing from a surface they apply to.
-  The Gann-rules thread owns these counts.
+  The method-rules thread owns these counts.
 - The parity matrix (`GANN_PARITY_ROADMAP.md`) has every buildable row built.
-  The shared time-window mechanism the astro and Jensen time readings act
-  through was built 2026-10-16 (`lib/gann/timeWindow.ts`), and Gann's other
+  The shared time-window mechanism the astro and SRC-031 time readings act
+  through was built 2026-10-16 (`lib/gann/timeWindow.ts`), and the method's other
   time counts act through it since 2026-10-27 (53d36fba, `countWindows.ts`).
   The dated-forecast example's documented record is built (2026-10-30,
   `docs/GANN_FORECAST_TRACK_RECORD.md`): the macro cycle is no better than
   chance out of sample, so its dated windows stay off member surfaces. Open
   there: the
   Square of 67, which no source in the
-  collection holds. (The Square of 52 is Master Course Ch. 14 and is built;
+  collection holds. (The Square of 52 is SRC-001 Ch. 14 and is built;
   Ch. 15A gives the Square of 90's days.) The 42 open feature-map rules are
-  sorted in the doc "Filling the open Gann rules" (2026-10-21): 10 fillable
-  from Gann's text, 11 with a labelled reconstruction, 15 not Gann's, 6
+  sorted in the doc "Filling the open the method rules" (2026-10-21): 10 fillable
+  from the method's text, 11 with a labelled reconstruction, 15 not the method's, 6
   missing.
 - **Named in the books, method under re-check (Chuck, 2026-10-21):** the
   Master Time Factor, the Master Three-Dimension Chart, mass pressure and name
@@ -177,21 +177,21 @@ method goal (Track M) and the created third it aims at.
 - **Track P:** alerts reach users on every channel that costs nothing; the
   paid tier is ready to switch on; the decision gate can be read from data.
 - **Track M:** the method's parity work and the cutoff re-derivation (owned by
-  the Gann-rules thread).
+  the method-rules thread).
 - **The third:** a trader who gets an alert, opens a setup card whose score
-  counts Gann's own conditions, and can see what the platform has and has not
+  counts the method's own conditions, and can see what the platform has and has not
   proven.
 - **Exit test:** every Q1 item in Part 5 that costs nothing is done, and the
   edge is measured on the current version. There is no budget (owner,
   2026-10-21): paid items (Part 6) stay parked, not counted as pending. The
-  owner's plan is to fund them from trading GSPS's own signals once Gann is
+  owner's plan is to fund them from trading GSPS's own signals once the method is
   carried 1 for 1 and the edge is proven, with progress recorded daily, and
   from customers his stories bring in.
 
 ### Q2 — Differentiation and scale (Nov 2026–Jan 2027)
 
 The product roadmap's Q2 items, re-read against what is already built and
-against Gann:
+against the method:
 
 1. **Prove the edge** (the roadmap's "Backtesting engine"). The replay is
    built and matches production's code. What remains: re-derive the cutoffs
@@ -199,22 +199,22 @@ against Gann:
    trade list; stress windows (gaps, selloffs, volatility spikes); regime
    splits. Read every loss as a translation question first. This gates every
    public accuracy claim in later phases.
-2. **Markets beyond US equities.** One instrument spec (Gann point, session,
+2. **Markets beyond US equities.** One instrument spec (the method point, session,
    contract size, risk) and one target rule for every instrument
    (`/mnt/project-files/trade-style/DESIGN.md`, owned by the trade-style
    thread). Crypto first, since its data and broker exist. Forex and futures
    need a bars feed and a broker.
-3. **Advanced orders.** Built 2026-10-22. Gann's trailing stops already ran
-   in the exit managers. Broker-side OCO is answered by Gann: under Q14 there
+3. **Advanced orders.** Built 2026-10-22. The method's trailing stops already ran
+   in the exit managers. Broker-side OCO is answered by the method: under Q14 there
    is no fixed target, so the live entry carries one stop and nothing pairs
    with it; the bracket rule's profit tranches already rest as OCO orders
    (`lib/trade/exit-manager.ts`). Automated pyramid adds now run on paper
    (`lib/automation/pyramid-adds.ts`, migration 0111): the portfolio manager
-   adds Gann's 100/50/30/20/10 lots to the lines it opened and merges each add
+   adds the method's 100/50/30/20/10 lots to the lines it opened and merges each add
    into the line's one exit row, as the replay walks one position. Live adds
    wait for the end of the proving period and a live broker.
 4. **Risk dashboard.** Built 2026-10-21 (the Risk card on the Portfolio page,
-   `lib/risk/dashboard.ts`, `/api/risk/dashboard`): Gann's capital rules (30
+   `lib/risk/dashboard.ts`, `/api/risk/dashboard`): the method's capital rules (30
    points a share, a tenth at risk, five stocks), open risk to each stop the
    exit manager holds now, the loss-series pause, the profit ceiling and the
    drawdown, read by the same functions placement uses. Paper accounts; a
@@ -236,7 +236,7 @@ against Gann:
    forward test is read by version. Of the 139 calls for sessions from
    2026-10-14, 98 expired without filling, 4 filled and closed (1 win), 6
    filled and are open, and 31 await their session. That fill rate is the
-   Gann-rules thread's to read (it moved Execute to plans placeable today in
+   method-rules thread's to read (it moved Execute to plans placeable today in
    `2026-10-27-execute-ready-now`).
 6. **Expanded indicator library.** Built in Q1 out of phase; Q2 adds
    configurable periods and saved presets for the chart overlays (Practice
@@ -274,10 +274,10 @@ against Gann:
      day binds first, then the 500 MB database (the bell and monitor
      transitions keep every row), in about four months.
 8. **Track M:** the shared time-window mechanism is built (2026-10-16), and
-   the astro, Jensen, hexagon, Master Chart and the other time counts act
+   the astro, SRC-031, hexagon, Master Chart and the other time counts act
    through it (the last of them 2026-10-27). The dated-forecast record is
    built (2026-10-30, `docs/GANN_FORECAST_TRACK_RECORD.md`). Open: the
-   remaining review rows (Gann-rules thread).
+   remaining review rows (method-rules thread).
 
 **The third Q2 aims at:** a measured record a trader can read before trusting
 an alert.
@@ -285,9 +285,9 @@ an alert.
 ### Q3 — Mobile and community (Feb–Apr 2027)
 
 As in `ROADMAP.md`: the native app, trade journal and sharing, Interactive
-Brokers, sector and breadth scanning (Gann's group rank is built and is the
+Brokers, sector and breadth scanning (the method's group rank is built and is the
 natural base), dashboard customisation, and the weekly digest. Track M: the
-School carries every rule the product shows, in our own words. Gann's
+School carries every rule the product shows, in our own words. The method's
 discipline teaching (hope and fear, paper-trade first, the five
 qualifications) is the community's standard, not a feature.
 
@@ -324,27 +324,27 @@ budget or his own account); **Other thread** (owned elsewhere, see Part 7).
 | 16 | Novice risk engine reset checklist | **Done** (PR #404) | `/api/risk/reset-checklist`, a Settings card, and the circuit breaker holds new entries until it is completed |
 | 17 | Decision-gate metrics (retention, adoption, signal quality) | **Done** (PR #404) | `/api/admin/decision-gate` (operator secret only). Read 2026-10-21: 20 members, 3 active in 30 days, first-cohort retention 1 of 18 (6%), 0 paying, forward test 19 of 30 winners (+0.82R average), alerts 714 of 12,974 sent |
 | 18 | Scheduled jobs running on time | Other thread | Moved from GitHub schedules to Supabase pg_cron (#381), with job staggering in PR #403. Scan speed is bounded by Alpaca's free-tier rate limit. Senior-review thread |
-| 19 | Restore the 7/4 cutoffs (Chuck, 2026-10-21) and measure them | Restored (PR #414); measurement owed | Gann-rules thread |
-| 20 | Intraday alerts on Gann's primitives | **Done** | #402, #416; the Intraday trade style (#439) |
+| 19 | Restore the 7/4 cutoffs (Chuck, 2026-10-21) and measure them | Restored (PR #414); measurement owed | method-rules thread |
+| 20 | Intraday alerts on the method's primitives | **Done** | #402, #416; the Intraday trade style (#439) |
 | 21 | Trade plans by style and instrument | **Done** | #405, #411. Fast retired 2026-10-28 (#484): two styles, Swing from the daily plan and Intraday from an intraday alert, and the chart's timeframe picks which plan it draws |
 
 **Q1 outcome (re-read 2026-10-28).** Every unpaid Q1 item is done except two
 that need Chuck's accounts: E2E tests in CI (item 15, a test Supabase project)
-and the measurement of the 7/4 cutoffs (item 19, the Gann-rules thread's
+and the measurement of the 7/4 cutoffs (item 19, the method-rules thread's
 replays, running). The paid items stay parked (Part 6).
 
 ## Q2 status, item by item (re-read 2026-10-28)
 
 | # | Q2 item | Status | Owner or next step |
 |---|---|---|---|
-| 1 | Prove the edge | Running | Gann-rules thread: six-year daily slices on the current version (GitHub "Universe backtest (manual)"). Walk-forward, stress windows and regime splits are built (2026-10-28, `lib/backtest/robustness.ts`) and run locally on a finished run's `trades.csv` (`npm run backtest:robustness`); since 2026-10-29 the universe runner's summary carries them per cell beside the Monte Carlo (`monteCarlo.ts`), so the next run reports both. Reading them on the current version's run is next |
+| 1 | Prove the edge | Running | method-rules thread: six-year daily slices on the current version (GitHub "Universe backtest (manual)"). Walk-forward, stress windows and regime splits are built (2026-10-28, `lib/backtest/robustness.ts`) and run locally on a finished run's `trades.csv` (`npm run backtest:robustness`); since 2026-10-29 the universe runner's summary carries them per cell beside the Monte Carlo (`monteCarlo.ts`), so the next run reports both. Reading them on the current version's run is next |
 | 2 | Markets beyond US equities | Crypto built; forex and futures parked | One plan and one instrument spec for every market (#405, #411). Forex and futures need a bars feed and a broker (Part 6) |
 | 3 | Advanced orders | **Done** 2026-10-22 | Live pyramid adds wait for the proving period |
 | 4 | Risk dashboard | **Done** 2026-10-21 | |
-| 5 | Performance replay UI | **Done** 2026-10-22 | Forward-test faults fixed; its fill rate is with the Gann-rules thread |
+| 5 | Performance replay UI | **Done** 2026-10-22 | Forward-test faults fixed; its fill rate is with the method-rules thread |
 | 6 | Expanded indicator library | **Done** 2026-10-23 | |
 | 7 | Scale safely | **Done** 2026-10-29: first pass, baselines re-read, `visible_scan_results` rolled up (0124), shared quotes, the 100-member capacity read, notification retention built (0138; its prune job was not yet scheduled in production at 04:30 UTC) | Email capacity (#561): past about 60 digest readers a day the rest read it in the bell; Resend's paid tier restores email (Part 6) |
-| 8 | Track M | Time-window mechanism done; review rows open | Gann-rules thread |
+| 8 | Track M | Time-window mechanism done; review rows open | method-rules thread |
 
 ## Part 6. Waiting on Chuck's budget or accounts
 
@@ -364,8 +364,8 @@ replays, running). The paid items stay parked (Part 6).
 
 | Thread | Owns |
 |---|---|
-| Gann rules mapped to GSPS | Scoring, the pillars, replays, the cutoffs, the feature map |
-| Intraday trading with Gann | Intraday alerts (PR #402) |
+| The method rules mapped to GSPS | Scoring, the pillars, replays, the cutoffs, the feature map |
+| Intraday trading with the method | Intraday alerts (PR #402) |
 | Intraday replay | The intraday replay profile |
 | Trade plans by trade style | Swing and fast styles; the instrument types |
 | Senior code review | Security, ops, the gsps.world domain, Resend email, pg_cron |
@@ -385,12 +385,12 @@ Agree file boundaries with the owning thread before touching its area.
 
 ## Design basis
 
-1. **Gann:** every method item cites his text through the parity documents.
-   The roadmap itself is a plan, not a Gann technique.
+1. **The method:** every method item cites his text through the parity documents.
+   The roadmap itself is a plan, not a method technique.
 2. **Cycles:** the roadmap makes one periodicity claim about itself, that the
    build is a returning cycle. That is an engineering property, not a market
-   claim. Every market timing claim it schedules goes through Dewey's test.
-3. **Hermetic:** Polarity (method and product, novice and expert) and
+   claim. Every market timing claim it schedules goes through SRC-032's test.
+3. **design-principle:** Polarity (method and product, novice and expert) and
    Correspondence in both directions (the rule above shapes every surface
    below; evidence below corrects the translation above). Rhythm shapes the
    cycle of Part 1. Mentalism, Vibration and Gender don't describe a plan's

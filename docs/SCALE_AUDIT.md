@@ -151,11 +151,11 @@ about 4 MB a weekday, this table alone would fill the free plan's 500 MB in
 about four months. Nothing in the app reads it: the fan-out writes it and
 clears a retried profile's rows. It is the record of what each member's plan
 let them see (migration 0036). How long to keep it is an ops decision for
-Chuck; Gann's method doesn't answer it. It is not a trade record, so the
+Chuck; the method doesn't answer it. It is not a trade record, so the
 "keep indefinitely" rule (S-07) does not cover it.
 
 **Decided the same day (migration 0124).** The nightly recap judges what
-members were shown, so the record is kept, the way Gann kept his, but in a
+members were shown, so the record is kept, the way the method kept his, but in a
 compact form: `visible_scan_daily` holds one row per member, setup, side and
 New York day, with the first and last time it was shown, how many scans
 showed it and its best rank. A pg_cron job at 08:00 UTC

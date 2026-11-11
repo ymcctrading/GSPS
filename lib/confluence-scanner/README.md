@@ -47,7 +47,7 @@ Tier 1 change here moves it.
 
 ## How It Works
 
-This module does **not** fetch market data or talk to Gann/Sq9/RSI libraries itself. You (or whatever script/tool already computes those indicators) fill in a `SetupInput` dataclass and pass it to `run_scan()`. That keeps this module portable regardless of your data source, and keeps the scoring logic testable in isolation.
+This module does **not** fetch market data or talk to the method/Sq9/RSI libraries itself. You (or whatever script/tool already computes those indicators) fill in a `SetupInput` dataclass and pass it to `run_scan()`. That keeps this module portable regardless of your data source, and keeps the scoring logic testable in isolation.
 
 ```python
 from schema import SetupInput
@@ -135,7 +135,7 @@ export async function POST(request: Request) {
 
 2. **Missing risk data fails closed.** If earnings calendar unavailable, gate fails — it does not silently award zero.
 
-3. **Structure cluster uses diminishing returns.** Four overlapping descriptions of the same price level (Gann/Sq9/S-R/Fib) aren't counted as four independent confirmations.
+3. **Structure cluster uses diminishing returns.** Four overlapping descriptions of the same price level (the method/Sq9/S-R/Fib) aren't counted as four independent confirmations.
 
 4. **Risk-reward sliding scale (Tier 1 Fix A).** 1.2R gets 2pts, 1.5R gets 4pts, 1.8R gets 6pts, 2.0R+ gets 8pts. No more binary 0/8.
 

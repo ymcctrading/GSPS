@@ -130,7 +130,7 @@ economic lever.
 The likely explanation is population, not contradiction: the snapshot covers
 the whole scan universe (roughly 70 symbols across 12 sectors, top-15-per-direction
 ranked daily), while the replay walks only six large, liquid names bar-by-bar
-over two months. Whether a target lands on a real Gann/harmonic structural
+over two months. Whether a target lands on a real the method/harmonic structural
 level, or whether a symbol sits at a clustered historical S/R level, plausibly
 depends on the instrument mix in a way frequency counts alone can't separate
 from this data. **Treat this disagreement itself as the finding**: there is
