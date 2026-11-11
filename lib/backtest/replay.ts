@@ -252,6 +252,20 @@ export interface ReplayOptions {
    */
   usePlanLevels?: boolean;
   /**
+   * The member's "Protect profits" switch (`lib/trade/protocol-exit.ts`,
+   * project owner 2026-11-11), measured as live and paper apply it, under
+   * `exitRule` "structure" or "structure-runner": the whole position leaves at
+   * the plan's MTP on the first candle that trades to it (at the MTP, or at
+   * the open of a candle that gaps through it), and once the best price has
+   * reached TP1 the stop never sits behind the entry. The stop is checked
+   * first on a candle that touches both (the conservative order). The MTP
+   * needs `usePlanLevels` (only the plan carries one); without it only the
+   * TP1 lock acts, on the replay's own target. Reversals and re-buys a
+   * walk opens are walked without it, and a trade that left at the MTP opens
+   * neither (`exitReason` "master_target"). Default off: identical results.
+   */
+  protectProfits?: boolean;
+  /**
    * The trade style walked (`lib/trade/tradeStyle.ts`, 2026-10-21). "fast"
    * trades Gann's fast-market method: the same plan, entry and stop as
    * swing (Rule 3, W006 pp.46-47), and from the fill's session the stop
@@ -605,7 +619,7 @@ export interface ReplayTrade {
    * Under the bracket only a timeout carries one (`TimeoutReason`); a stop or
    * target there leaves it undefined.
    */
-  exitReason?: GannStopReason | GannExitReason | IntradayExitReason | "covered" | TimeoutReason;
+  exitReason?: GannStopReason | GannExitReason | IntradayExitReason | "covered" | "master_target" | TimeoutReason;
   /**
    * Reporting only: the old level the plan's entry was priced from, the old
    * top or bottom crossed (`crossing`) or the double or triple bottom bought
@@ -1164,6 +1178,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     weights,
     useProductionStop = false,
     usePlanLevels = false,
+    protectProfits = false,
     tradeStyle = "swing",
     roundNumberHold = false,
     entryRule = "reaction",
@@ -1739,6 +1754,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           sharesOn: instrument ? (date) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined,
           disabled,
           style: tradeStyle,
+          ...(protectProfits ? { protect: { tp1: target, mtp: planLevels?.masterProfit ?? null } } : {}),
         });
         trades.push({
           symbol, openedAt: fillBar.t, pattern: pattern?.name ?? null, setupKind, entryKind: trigger.kind, holdBasis: trigger.holdBasis, direction: trigger.direction,
@@ -1766,6 +1782,8 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
           rMultiple: (dir * (walked.exit - entry) - costPerShare) / risk,
           ambiguous: false,
         });
+        // A win banked at the MTP is neither reversed nor re-bought, as live.
+        if (walked.reason === "master_target") continue;
         const caughtAt = f + walked.barsHeld - 1;
         const sharesOn = instrument ? (date: string) => splitAdjustedSharesAsOf(instrument.sharesHistory, date) : undefined;
         const rebuy = rebuyAfterStop ? rebuyPlanAt({ bars, dailyBars: dailyBars ?? [], caughtAt, side: long ? "long" : "short", cause: walked.reason, extreme: walked.best ?? entry, entryPrice: entry }) : null;
@@ -2147,7 +2165,8 @@ export function walkReversals(input: {
       reversal: depth,
       contextFactors: {},
     });
-    if (isTimeoutReason(walked.reason)) break;
+    // A reversal is walked without Protect profits, so it never leaves at an MTP.
+    if (isTimeoutReason(walked.reason) || walked.reason === "master_target") break;
     losses = outcome === "loss" ? losses + 1 : 0;
     caughtAt = fillAt + walked.barsHeld - 1;
     side = plan.side;
@@ -2208,13 +2227,19 @@ export function walkGannExit(input: {
   disabled?: ReadonlySet<GannExitRuleName>;
   /** The trade style (`ReplayOptions.tradeStyle`): "fast" adds the day trail. Default swing. */
   style?: DailyTradeStyle;
+  /**
+   * Protect profits (`ReplayOptions.protectProfits`): leave at `mtp` when a
+   * candle trades to it, and keep the stop at or past the entry once the best
+   * price has reached `tp1`. An `mtp` not beyond `tp1` is ignored.
+   */
+  protect?: { tp1: number; mtp: number | null };
 }): {
   /** The single price that gives the whole exit's P&L per first-lot unit (scale-outs and adds blended in): for R only. */
   exit: number;
   /** Where the last of the position actually left: the stop, the signal's open, the cover or the timeout close. The level that broke, for a reversal. */
   finalExit: number;
   barsHeld: number;
-  reason: GannStopReason | GannExitReason | "covered" | TimeoutReason;
+  reason: GannStopReason | GannExitReason | "covered" | "master_target" | TimeoutReason;
   lots: number;
   best: number | null;
 } {
@@ -2228,7 +2253,7 @@ export function walkGannExit(input: {
   let realized = 0;
   const lots: PyramidLot[] = [{ qty: 1, price: entry, date: bars[from].t.slice(0, 10) }];
   const close = (price: number) => realized + dir * (openQty * price - cost);
-  const done = (price: number, j: number, reason: GannStopReason | GannExitReason | "covered" | TimeoutReason) => ({
+  const done = (price: number, j: number, reason: GannStopReason | GannExitReason | "covered" | "master_target" | TimeoutReason) => ({
     exit: entry + dir * close(price),
     finalExit: price,
     barsHeld: j,
@@ -2244,6 +2269,8 @@ export function walkGannExit(input: {
   let stopReason: GannStopReason = "initial";
   let best: number | null = null;
   const end = Math.min(bars.length, from + maxBarsHeld);
+  const protect = input.protect;
+  const mtp = protect && protect.mtp != null && Number.isFinite(protect.mtp) && (long ? protect.mtp > protect.tp1 : protect.mtp < protect.tp1) ? protect.mtp : null;
   for (let j = from; j < end; j++) {
     const b = bars[j];
     const date = b.t.slice(0, 10);
@@ -2276,6 +2303,11 @@ export function walkGannExit(input: {
       }
     }
     if (long ? b.l <= stop : b.h >= stop) return done(stopFill(long, stop, b.o), j - from + 1, stopReason);
+    // Protect profits: the MTP's resting limit fills at the MTP, or at the
+    // open of a candle that gaps through it.
+    if (mtp != null && (long ? b.h >= mtp : b.l <= mtp)) {
+      return done(long ? Math.max(mtp, b.o) : Math.min(mtp, b.o), j - from + 1, "master_target");
+    }
     if (coverAt != null && (long ? b.h >= coverAt : b.l <= coverAt)) {
       return done(long ? Math.max(coverAt, b.o) : Math.min(coverAt, b.o), j - from + 1, "covered");
     }
@@ -2305,6 +2337,12 @@ export function walkGannExit(input: {
       scaled = true;
     }
     best = best === null ? (long ? b.h : b.l) : long ? Math.max(best, b.h) : Math.min(best, b.l);
+    // Protect profits: TP1 reached locks the entry from the next candle on
+    // (the candle that reached it may have traded back first).
+    if (protect && (long ? best >= protect.tp1 : best <= protect.tp1) && (long ? entry > stop : entry < stop)) {
+      stop = entry;
+      stopReason = "break_even";
+    }
   }
   return done(bars[end - 1].c, end - from, timeoutReasonAt(from, maxBarsHeld, bars.length));
 }

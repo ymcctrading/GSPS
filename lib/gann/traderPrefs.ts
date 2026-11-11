@@ -23,6 +23,13 @@
  *   The replay models no trader absence, so the rule does not apply there.
  *   `AWAY_NOTICE_DAYS` is an engineering choice: Gann names no lead time.
  *
+ * - `protectProfits`: the member's "Protect profits" switch (project owner,
+ *   2026-11-11): the whole position sells at the MTP, and once TP1 is reached
+ *   the stop never sits below the entry. It acts on live and paper exits
+ *   (`lib/trade/protocol-exit.ts`, header "Protect profits") and the replay
+ *   measures it. Default off: Gann fixes no profit objective (*Truth of the
+ *   Stock Tape*), so his runner stays the default and this is an opt-in.
+ *
  * The rest windows are an engineering choice, labelled as such: Gann gives
  * "twice a year" without dates, so the reminder uses the two half-year turns
  * of his seasonal calendar (the June and December solstice dates, June 21 and
@@ -63,6 +70,8 @@ export interface GannRulePrefs {
    * re-manages a trade already open.
    */
   tradeStyleHistory: TradeStyleChange[];
+  /** Sell the whole position at the MTP, and lock the entry once TP1 is reached. Default off. */
+  protectProfits: boolean;
 }
 
 export interface TradeStyleChange {
@@ -104,6 +113,7 @@ export const DEFAULT_GANN_RULE_PREFS: GannRulePrefs = {
   awayFrom: null,
   tradeStyle: "swing",
   tradeStyleHistory: [],
+  protectProfits: false,
 };
 
 /** Days before an absence the close-out reminder opens (engineering choice). */
@@ -133,6 +143,7 @@ export function resolveGannRulePrefs(prefs: unknown): GannRulePrefs {
           .map((c) => ({ style: parseTradeStyle(c.style), since: c.since }))
           .slice(-TRADE_STYLE_HISTORY_MAX)
       : [],
+    protectProfits: bool(raw.protectProfits, DEFAULT_GANN_RULE_PREFS.protectProfits),
   };
 }
 

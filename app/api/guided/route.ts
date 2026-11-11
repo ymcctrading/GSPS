@@ -25,6 +25,7 @@
  * user has already moved on. Confirmed 2026-08-26.
  */
 
+import { readGannRulePrefs } from "@/lib/trade/away-notice";
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -151,6 +152,8 @@ export async function GET() {
         openMarkets: usage.openMarkets,
         universeThresholds,
         guidedPolicy,
+        // The card's exit sentence states the member's Protect profits switch.
+        protectProfits: (await readGannRulePrefs(supabase, user.id))?.protectProfits === true,
       });
 
       const logged = await logRecommendations(supabase, user.id, recommendations, caps.riskPct, account.equity);

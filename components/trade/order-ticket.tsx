@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { GlossaryTerm } from "@/components/glossary-term";
 import { bracketMinGap, checkBracket } from "@/lib/trade/bracket";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
-import { planProtocolExit } from "@/lib/trade/protocol-exit";
+import { LIVE_EXIT_RULE, planProtocolExit } from "@/lib/trade/protocol-exit";
+import { useTradeRulePrefs } from "@/components/gann/use-gann-rule-prefs";
 import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import {
   ROUNDING_MODE_LABELS,
@@ -102,6 +103,9 @@ export function OrderTicket({
 }) {
   const { pattern, symbol } = result;
   const levels = result.levels;
+  // The member's Protect profits switch (Settings): the exit summary states
+  // what the exit manager will do with it (lib/trade/protocol-exit.ts).
+  const protectProfits = useTradeRulePrefs().prefs.protectProfits;
   const currentPrice = livePrice ?? (result.currentPrice > 0 ? result.currentPrice : null);
 
   // `levels`/`result.direction` are Gann's swing-crossing entry trigger
@@ -560,11 +564,16 @@ export function OrderTicket({
   // an all-or-nothing bracket has been told the wrong thing.
   const exitPlan =
     useProtocolLevels && levels && assetType === "shares" && Number(qty) >= 1
-      ? planProtocolExit(Number(qty), {
-          stopLoss: levels.stopLoss,
-          takeProfit1: levels.takeProfit1,
-          masterProfit: levels.masterProfit,
-        })
+      ? planProtocolExit(
+          Number(qty),
+          {
+            stopLoss: levels.stopLoss,
+            takeProfit1: levels.takeProfit1,
+            masterProfit: levels.masterProfit,
+          },
+          LIVE_EXIT_RULE,
+          { protectProfits },
+        )
       : null;
 
   // The person's own levels carry no armed signal to source them from, so a
@@ -633,11 +642,16 @@ export function OrderTicket({
         : null;
   const manualExitPlan =
     chosenExit && Number(qty) >= 1
-      ? planProtocolExit(Number(qty), {
-          stopLoss: chosenExit.stopLoss,
-          takeProfit1: chosenExit.takeProfit,
-          masterProfit: chosenExit.masterProfit,
-        })
+      ? planProtocolExit(
+          Number(qty),
+          {
+            stopLoss: chosenExit.stopLoss,
+            takeProfit1: chosenExit.takeProfit,
+            masterProfit: chosenExit.masterProfit,
+          },
+          LIVE_EXIT_RULE,
+          { protectProfits },
+        )
       : null;
 
   // A limit price between two valid increments is refused by the broker
@@ -1066,6 +1080,7 @@ export function OrderTicket({
                     summary={exitPlan.summary}
                     splittable={exitPlan.splittable}
                     hasMaster={levels.masterProfit != null}
+                    sellsAtMaster={exitPlan.tranches.some((t) => t.takeProfit != null)}
                   />
                 )}
                 {bracketBlocked && (
@@ -1099,6 +1114,7 @@ export function OrderTicket({
                     summary={manualExitPlan.summary}
                     splittable={manualExitPlan.splittable}
                     hasMaster={intradayMaster != null}
+                    sellsAtMaster={manualExitPlan.tranches.some((t) => t.takeProfit != null)}
                     intraday
                   />
                 )}
@@ -1222,6 +1238,7 @@ export function OrderTicket({
                     summary={manualExitPlan.summary}
                     splittable={manualExitPlan.splittable}
                     hasMaster={manualMasterEntered}
+                    sellsAtMaster={manualExitPlan.tranches.some((t) => t.takeProfit != null)}
                     intraday={orderIntraday}
                   />
                 )}
@@ -1491,11 +1508,14 @@ function ExitPlanNotice({
   summary,
   splittable,
   hasMaster,
+  sellsAtMaster = false,
   intraday = false,
 }: {
   summary: string;
   splittable: boolean;
   hasMaster: boolean;
+  /** The member's Protect profits switch is on and the MTP is valid: the position sells there. */
+  sellsAtMaster?: boolean;
   /** An intraday plan's trade: its trail and session close are stated in the intraday panel. */
   intraday?: boolean;
 }) {
@@ -1519,9 +1539,11 @@ function ExitPlanNotice({
           {intraday
             ? "" // the intraday panel above states the session's trail and close
             : "Once the trade is clearly ahead, the stop moves to your entry. After that it follows each new swing in the trade's direction. The position is closed if price falls back through the level it broke out of, or the trend turns. "}
-          Nothing sells at {targets} automatically; the whole position stays in, with the stop moved
-          along behind it, until the stop is hit or the trend turns. The stop moves while the app is
-          open; the stop resting at the broker is what protects the position the rest of the time.
+          {sellsAtMaster
+            ? "With Protect profits on, the whole position sells at the MTP (master take profit), and once TP1 is reached the stop never sits below your entry. The MTP order rests with the stop, so it works while the app is closed. Turn it off in Settings."
+            : `Nothing sells at ${targets} automatically; the whole position stays in, with the stop moved along behind it, until the stop is hit or the trend turns.`}{" "}
+          The stop moves while the app is open; the stop resting at the broker is what protects the
+          position the rest of the time.
         </p>
       )}
     </div>

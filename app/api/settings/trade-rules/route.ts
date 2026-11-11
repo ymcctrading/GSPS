@@ -2,7 +2,7 @@
  * GSPS — /api/settings/trade-rules
  *
  * The trader's switches for Gann's round-number notice, the twice-yearly rest
- * reminder, the close-out reminder before an absence (A-EXIT-05), and the autonomous portfolio manager's round-number setting. See
+ * reminder, the close-out reminder before an absence (A-EXIT-05), the autonomous portfolio manager's round-number setting, and the member's Protect profits switch (MTP exit, entry locked at TP1). See
  * lib/gann/traderPrefs.ts. Stored under `settings.prefs.gannRules`.
  */
 
@@ -27,6 +27,8 @@ const PatchSchema = z
     awayFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
     // Swing only: Fast was retired (lib/trade/tradeStyle.ts, FAST_RETIRED_AT).
     tradeStyle: z.enum(["swing"]),
+    // Sell at the MTP and lock the entry at TP1 (lib/trade/protocol-exit.ts, "Protect profits").
+    protectProfits: z.boolean(),
   })
   .partial();
 

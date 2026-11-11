@@ -23,10 +23,18 @@ import { styleAt, type TradeStyleChange } from "@/lib/gann/traderPrefs";
 import type { TradeStyle } from "@/lib/trade/tradeStyle";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 
-/** One read of the trader's style history per manage pass. */
-export async function traderStyleHistory(supabase: SupabaseClient, userId: string): Promise<TradeStyleChange[]> {
+/**
+ * The trader's exit settings for one manage pass, from one read: the style
+ * history and the Protect profits switch (`lib/trade/protocol-exit.ts`). A
+ * failed read answers the defaults (Swing, switch off), so nothing tightens
+ * or sells on a guess.
+ */
+export async function traderExitPrefs(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ styleHistory: TradeStyleChange[]; protectProfits: boolean }> {
   const prefs = await readGannRulePrefs(supabase, userId);
-  return prefs?.tradeStyleHistory ?? [];
+  return { styleHistory: prefs?.tradeStyleHistory ?? [], protectProfits: prefs?.protectProfits === true };
 }
 
 /**

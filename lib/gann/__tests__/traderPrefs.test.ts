@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AWAY_REMINDER_COPY, awayReminderDue, currentRestWindow, resolveGannRulePrefs, restReminderDue } from "@/lib/gann/traderPrefs";
 
 describe("trader rule preferences", () => {
-  it("defaults: notices and the rest reminder on, round-number auto-orders off", () => {
+  it("defaults: notices and the rest reminder on, round-number auto-orders and Protect profits off", () => {
     expect(resolveGannRulePrefs(null)).toEqual({
       roundNumberNotices: true,
       restReminder: true,
@@ -11,6 +11,7 @@ describe("trader rule preferences", () => {
       awayFrom: null,
       tradeStyle: "swing",
       tradeStyleHistory: [],
+      protectProfits: false,
     });
     expect(resolveGannRulePrefs({ gannRules: { tradeStyle: "fast" } }).tradeStyle).toBe("fast");
     expect(resolveGannRulePrefs({ gannRules: { tradeStyle: "scalp" } }).tradeStyle).toBe("swing");

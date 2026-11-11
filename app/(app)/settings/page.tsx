@@ -27,6 +27,7 @@ import { RiskResetChecklist } from "@/components/settings/risk-reset-checklist";
 import { StrategyModeSettings } from "@/components/settings/strategy-mode-settings";
 import { CustomScriptsSettings } from "@/components/settings/custom-scripts-settings";
 import { TradingRemindersSettings } from "@/components/settings/trading-reminders-settings";
+import { ProtectProfitsSettings } from "@/components/settings/protect-profits-settings";
 import { ThemeSettings } from "@/components/settings/theme-settings";
 import { DashboardSectionsSettings } from "@/components/settings/dashboard-sections-settings";
 import { StartTourButton } from "@/components/onboarding/tour-provider";
@@ -134,6 +135,8 @@ export default function SettingsPage() {
       <StrategyModeSettings />
 
       <CustomScriptsSettings />
+
+      <ProtectProfitsSettings />
 
       <TradingRemindersSettings />
 

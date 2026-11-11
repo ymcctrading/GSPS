@@ -35,7 +35,7 @@ import { handleAutomatedStopOut, reversalOffer } from "@/lib/automation/stop-out
 import type { ReversalCause } from "@/lib/gann/reverse";
 import { readLiveBadNews, readLiveBestSinceFill, readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
 import { badNewsOffer } from "@/lib/gann/badNews";
-import { positionExitStyle, traderStyleHistory } from "@/lib/trade/exit-style";
+import { positionExitStyle, traderExitPrefs } from "@/lib/trade/exit-style";
 import type { TradeStyleChange } from "@/lib/gann/traderPrefs";
 import { rebuyOffer } from "@/lib/gann/rebuy";
 import { coverNote, coverReached, readRebuyCover } from "@/lib/automation/rebuy-cover";
@@ -127,10 +127,10 @@ export async function manageSimulatedExits(supabase: Supabase, userId: string): 
   if (plans.length === 0) return idle();
 
   const run: SimManageRun = { ...idle(), managed: plans.length };
-  const styleHistory = await traderStyleHistory(supabase, userId);
+  const { styleHistory, protectProfits } = await traderExitPrefs(supabase, userId);
   for (const plan of plans) {
     try {
-      await advance(supabase, userId, plan, run, styleHistory);
+      await advance(supabase, userId, plan, run, styleHistory, protectProfits);
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       console.error(`exit-manager-sim: ${plan.symbol} plan ${plan.id} — ${detail}`);
@@ -231,7 +231,15 @@ function tranches(plan: SimPlanRow): Tranche[] {
  * claiming are still null, so the loser of the race gets zero rows back and
  * walks away having mutated nothing.
  */
-async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run: SimManageRun, styleHistory: readonly TradeStyleChange[] = []): Promise<void> {
+async function advance(
+  supabase: Supabase,
+  userId: string,
+  plan: SimPlanRow,
+  run: SimManageRun,
+  styleHistory: readonly TradeStyleChange[] = [],
+  /** The member's Protect profits switch (`protocol-exit.ts`): MTP exit and the entry locked at TP1. */
+  protectProfits = false,
+): Promise<void> {
   const price = await quotePrice(plan.symbol, assetClassOf(plan.symbol));
   if (price == null) return; // no data this pass; try again next poll
 
@@ -286,6 +294,7 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
       lastPrice: price,
       appliedStop: plan.applied_stop,
       gann,
+      protectProfits,
     });
     // `planStopAdjustment` answers "none" once the stop it would place is the
     // one already applied. For a real broker that's right: the stop rests there
@@ -323,7 +332,11 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
       // A stop still at the initial ("protocol") is the initial stop: it
       // reverses, but it never re-buys (lib/gann/rebuy.ts), as the replay
       // reads the finer reason.
-      caught = covered
+      // The MTP reached under Protect profits (`fillAt` set) is a win
+      // banked, never a caught trade: it is neither reversed nor re-bought.
+      caught = stopAction.fillAt != null
+        ? null
+        : covered
         ? "covered"
         : gann?.exit && stopAction.atMarket
           ? gann.exit.reason
@@ -335,7 +348,9 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
       // exit manager's market close does. Filling a stop the price had already
       // passed at the stop itself paid the trade a better price than the
       // market offered (review finding R-010).
-      const fillAt = price;
+      // The MTP under Protect profits fills where its resting limit would
+      // have: at the MTP, which the best price since the fill has touched.
+      const fillAt = stopAction.fillAt ?? price;
       // The level that broke, for the reversal. A stop reverses at the stop
       // itself, as the replay (`done(stop, ...)`) and the broker exit manager
       // do, even when the quote gapped through it and the fill came at the
@@ -389,7 +404,12 @@ async function advance(supabase: Supabase, userId: string, plan: SimPlanRow, run
   }
   if (toFill.length > 0) run.filled++;
   for (const f of toFill) {
-    const label = f.key === "scale_out" ? "TP1" : f.key === "master" ? "master target" : "stop";
+    const label =
+      f.key === "scale_out"
+        ? "TP1"
+        : f.key === "master" || (stopAction?.kind === "close_all" && stopAction.fillAt != null)
+          ? "master target"
+          : "stop";
     run.notes.push(`${plan.symbol}: ${label} reached — took ${f.qty} shares at ${f.price.toFixed(2)}.`);
   }
   if (stopAction && stopAction.kind === "replace_stop") {
