@@ -6,6 +6,7 @@ import {
   describeTrends,
   hasPlan,
   rewardToRisk,
+  setAsideNoteOf,
   type DailySetupInput,
   type SetupCheck,
 } from "@/lib/setups/card";
@@ -225,5 +226,19 @@ describe("buildDailyCardModel", () => {
     expect(text).not.toMatch(/criterion/i);
     // What the checks say is a pillar's name and its count, nothing finer.
     expect(model.checks.map((c) => c.label)).toEqual(["Trend", "Structure", "Setup", "Timing", "Risk/reward"]);
+  });
+});
+
+describe("the set-aside note", () => {
+  it("names the other side in doubt when no chart shows a trend", () => {
+    const note = setAsideNoteOf({ setupKind: "reversion", direction: "bullish", inDoubt: true });
+    expect(note).toContain("A buy point also stands");
+    expect(note).toContain("no chart shows a trend");
+    expect(note).not.toContain("nearer");
+  });
+
+  it("keeps the against-the-trend note otherwise", () => {
+    expect(setAsideNoteOf({ setupKind: "reversion", direction: "bearish" })).toContain("against the trend");
+    expect(setAsideNoteOf(null)).toBeNull();
   });
 });

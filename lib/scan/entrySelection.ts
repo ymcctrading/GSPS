@@ -155,7 +155,13 @@ export function gannEntryOf(
   trends: Pick<TrendReading, "timeframe" | "direction">[],
 ): EntryOf {
   const main = gannMacroDirection(trends);
-  return (d) => selectGannEntry(bars, d, older, undefined, main === "bearish", main === "bullish");
+  // Read once a side: a session asks each side more than once (the
+  // reversion, the with-trend point, `twoSidedDoubt`).
+  const memo = new Map<EntryDirection, GannEntryTrigger | null>();
+  return (d) => {
+    if (!memo.has(d)) memo.set(d, selectGannEntry(bars, d, older, undefined, main === "bearish", main === "bullish"));
+    return memo.get(d)!;
+  };
 }
 
 /**
@@ -203,14 +209,69 @@ export function chooseSessionEntry(
 ): {
   setupKind: SetupKind;
   trigger: GannEntryTrigger;
-  /** The other side's buying point when both armed, set aside (D-06). */
-  setAside: { setupKind: SetupKind; direction: EntryDirection } | null;
+  /**
+   * The other side's buying point when both armed, set aside (D-06): against
+   * the trend, or, with no trend on any chart, the farther of the two
+   * (`inDoubt`).
+   */
+  setAside: { setupKind: SetupKind; direction: EntryDirection; inDoubt?: boolean } | null;
+  /** Both sides armed with no trend on any chart (`twoSidedDoubt`). */
+  inDoubt: boolean;
 } | null {
   const armed = armSessionEntries(trends, entryOf, price);
   const chosen = preferWithTrend(armed);
   if (!chosen) return null;
   const other = armed.find((a) => a !== chosen && a.trigger.direction !== chosen.trigger.direction);
-  return { ...chosen, setAside: other ? { setupKind: other.setupKind, direction: other.trigger.direction } : null };
+  if (other) return { ...chosen, setAside: { setupKind: other.setupKind, direction: other.trigger.direction }, inDoubt: false };
+  const doubt = twoSidedDoubt(trends, entryOf);
+  return doubt
+    ? { ...chosen, setAside: { setupKind: "reversion", direction: oppositeOf(chosen.trigger.direction), inDoubt: true }, inDoubt: true }
+    : { ...chosen, setAside: null, inDoubt: false };
+}
+
+function oppositeOf(d: EntryDirection): EntryDirection {
+  return d === "bullish" ? "bearish" : "bullish";
+}
+
+/**
+ * Whether the session is in doubt: no trend on the monthly, weekly or daily
+ * chart (`gannMacroDirection` null) while a buying point and a selling point
+ * both stand. Fork F4 (a) shows the nearer of the two, but nearness is not a
+ * side: Gann's buying and selling points standing at once with no trend is the
+ * chart itself undecided.
+ *
+ * Gann, Tier A (`A2_1` and `A08` records), main support first: "Keep out of
+ * slow trading markets until a definite change in trend" (Master Course
+ * Ch. 1, pp. 1-3); "When in doubt, don't trade. Wait for a break or cross of
+ * a resistance level ... especially after a long deadlock" (pp. 60-62);
+ * never-failing rule 6, "don't get in when in doubt". Secondary: "Don't try
+ * to get ahead of the market ... wait until it shows a definite change in
+ * trend" (p. 251, said of the daily chart's trend lines); "when in doubt,
+ * keep out" (*Commodities* p. 255, said against gambling).
+ *
+ * Read faithfully, pp. 60-62 make the break of a level the signal that ends
+ * the doubt. This rule exempts only the breakaway from a narrow range
+ * (`applyBreakawayHold`'s reading), so a crossing inside a wide sideways
+ * market still holds: APPROXIMATED, and measured in the replay (ladder key
+ * `twoSidedDoubt`) before it is called settled. "Both stand" counts the other
+ * side's buying point however far it sits; no distance is set, since Gann
+ * gives none. So such a setup is context (Watch), never an instruction to act,
+ * until a trend shows or the entry breaks away from its range
+ * (`applyTwoSidedDoubtHold`, `lib/scoring/score.ts`).
+ *
+ * Found on BKR, 2026-11-11: every chart sideways, the lost-old-top sell at
+ * $49.81 armed beside a buy above the tops at $67.38, and the sell was shown
+ * and scored 7/9 alone, with nothing on its card saying a buy point stood too.
+ *
+ * Three questions: (1) Gann, as cited, Tier A. (2) No periodicity claim, so
+ * Dewey's checklist does not apply. (3) Polarity: both poles stand and
+ * neither has given way; the rule waits for one to. Law of Creation: the pair
+ * (buy point, sell point) does not interact into a side while no trend joins
+ * them, so it is a mixture (1 + 1 = 2), not a trade.
+ */
+export function twoSidedDoubt(trends: Pick<TrendReading, "timeframe" | "direction">[], entryOf: EntryOf): boolean {
+  if (gannMacroDirection(trends) !== null) return false;
+  return entryOf("bullish") !== null && entryOf("bearish") !== null;
 }
 
 /**

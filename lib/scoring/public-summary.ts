@@ -120,6 +120,7 @@ const HOLD_PHRASES: Partial<Record<string, string>> = {
   tradePlanPriced: "the trade plan is not complete (nothing armed to enter, or a first target that pays no more than the risk)",
   reversionConfirmation: "the turn against the trend is not confirmed yet",
   breakaway: "the market is moving sideways and the entry stays inside its range",
+  twoSidedDoubt: "no chart shows a trend and a buy point and a sell point both stand, so the market has not yet shown its side",
   monthlyBreak: "this month has broken last month's extreme against the trade",
   distributionBreakdown: "the stock has broken down after a lower top",
   failedTop: "a failed top or bottom sits between the entry and the first target",

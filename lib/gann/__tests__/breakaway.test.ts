@@ -3,7 +3,8 @@ import type { Bar } from "@/lib/types";
 import { MIN_RANGE_SESSIONS, breakawayVolumeMet, isNarrowRange, narrowRangeBeforeLeg, narrowRangeSessions, readBreakaway, readBreakawayVolume } from "../breakaway";
 import { threePoints } from "../pointScale";
 import { computeGannEntryTrigger } from "../entryTrigger";
-import { applyBreakawayHold } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyTwoSidedDoubtHold } from "@/lib/scoring/score";
+import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import type { ScanDecision } from "@/lib/types";
 
 /** One bar per calendar day from 2026-01-01; each bar spans close ± 0.5. */
@@ -435,5 +436,24 @@ describe("readBreakaway reads a 2-6 week narrow range after a wide quarter", () 
     expect(read?.direction).toBe("bullish");
     // Against the spell's average, not the wide quarter's heavier sessions.
     expect(read?.ratio).toBeGreaterThan(2);
+  });
+});
+
+describe("applyTwoSidedDoubtHold", () => {
+  const execute = { outputState: "Execute", breakdown: [] } as unknown as ScanDecision;
+  const notRange = { rangeBound: false, rangeHigh: null, rangeLow: null, breaksAway: false };
+
+  it("holds an Execute in doubt to Watch", () => {
+    const held = applyTwoSidedDoubtHold(execute, true, notRange);
+    expect(held.outputState).toBe("Watch");
+    expect(held.breakdown.at(-1)?.key).toBe("twoSidedDoubt");
+    expect(toPublicScoreSummary({ ...held, score: 7 }).stateNote).toContain("a buy point and a sell point both stand");
+  });
+
+  it("leaves a breakaway from a narrow range, a session not in doubt, and a Watch alone", () => {
+    expect(applyTwoSidedDoubtHold(execute, true, { rangeBound: true, rangeHigh: 105, rangeLow: 95, breaksAway: true })).toBe(execute);
+    expect(applyTwoSidedDoubtHold(execute, false, notRange)).toBe(execute);
+    const watch = { ...execute, outputState: "Watch" } as ScanDecision;
+    expect(applyTwoSidedDoubtHold(watch, true, notRange)).toBe(watch);
   });
 });

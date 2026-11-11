@@ -343,9 +343,11 @@ export interface ScanResult {
   /**
    * The buying point the session armed on the other side and did not take:
    * against the trend, when the with-trend point armed too (never-failing
-   * rule 5; `chooseSessionEntry`). Null when only one side armed.
+   * rule 5; `chooseSessionEntry`), or, with no trend on any chart, the
+   * farther of the two (`inDoubt`, `twoSidedDoubt`). Null when only one side
+   * armed.
    */
-  setAsideEntry?: { setupKind: SetupKind; direction: "bullish" | "bearish" } | null;
+  setAsideEntry?: { setupKind: SetupKind; direction: "bullish" | "bearish"; inDoubt?: boolean } | null;
   /** Recent range expansion against the trailing baseline — the momentum read. */
   momentumElevated: boolean;
   trends: TrendReading[];

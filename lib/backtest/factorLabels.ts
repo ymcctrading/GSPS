@@ -77,6 +77,8 @@ const HOLD_ORDER = [
   "planExpired",
   "campaignSection",
   "mainTrend",
+  // Appended, so the earlier holds keep their public numbers.
+  "twoSidedDoubt",
 ];
 
 const HOLDS: Record<string, FactorName> = Object.fromEntries(

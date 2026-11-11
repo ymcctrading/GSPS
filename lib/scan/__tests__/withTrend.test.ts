@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import type { TrendReading } from "@/lib/types";
 import type { GannEntryTrigger } from "@/lib/gann/entryTrigger";
-import { armSessionEntries, chooseSessionEntry, gannMacroDirection, reversionEntry } from "@/lib/scan/entrySelection";
+import { armSessionEntries, chooseSessionEntry, gannMacroDirection, reversionEntry, twoSidedDoubt } from "@/lib/scan/entrySelection";
 
 const trend = (timeframe: TrendReading["timeframe"], direction: TrendReading["direction"]): TrendReading =>
   ({ timeframe, direction, support: [], resistance: [] }) as unknown as TrendReading;
@@ -84,5 +84,35 @@ describe("the setup a scan with no direction asked of it shows", () => {
 
   it("shows nothing when neither side armed", () => {
     expect(chooseSessionEntry(up, () => null, 100)).toBeNull();
+  });
+});
+
+// BKR, 2026-11-11: every chart sideways, a sell armed at the price beside a
+// buy above the tops. The nearer was shown and scored alone. Gann: "wait until
+// it shows a definite change in trend" (MC p. 251); "when in doubt, keep out"
+// (Commodities p. 255; never-failing rule 6).
+describe("a session in doubt: no trend on any chart, both sides armed", () => {
+  const none = [trend("1Month", "sideways"), trend("1Week", "sideways"), trend("1Day", "sideways")];
+  const up = [trend("1Month", "bullish"), trend("1Week", "bullish"), trend("1Day", "sideways")];
+  const both = (d: "bullish" | "bearish") => (d === "bullish" ? fake("bullish", 67.38) : fake("bearish", 49.81));
+
+  it("is in doubt only with no trend and both sides armed", () => {
+    expect(twoSidedDoubt(none, both)).toBe(true);
+    expect(twoSidedDoubt(up, both)).toBe(false);
+    expect(twoSidedDoubt(none, (d) => (d === "bearish" ? fake("bearish", 49.81) : null))).toBe(false);
+    expect(twoSidedDoubt(none, () => null)).toBe(false);
+  });
+
+  it("still shows the nearer side, flags the doubt and records the other side", () => {
+    const chosen = chooseSessionEntry(none, both, 49.8);
+    expect(chosen?.trigger.direction).toBe("bearish");
+    expect(chosen?.inDoubt).toBe(true);
+    expect(chosen?.setAside).toEqual({ setupKind: "reversion", direction: "bullish", inDoubt: true });
+  });
+
+  it("is not in doubt when a trend picks the side", () => {
+    const chosen = chooseSessionEntry(up, both, 49.8);
+    expect(chosen?.inDoubt).toBe(false);
+    expect(chosen?.setAside).toEqual({ setupKind: "reversion", direction: "bearish" });
   });
 });

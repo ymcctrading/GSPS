@@ -247,8 +247,8 @@ export interface DailySetupInput {
   dayRange?: number | null;
   /** The scan's Resting tier flag (`setupTier`). */
   resting?: boolean | null;
-  /** The buying point set aside against the trend, when both sides armed. */
-  setAsideEntry?: { setupKind: "reversion" | "continuation"; direction: "bullish" | "bearish" } | null;
+  /** The buying point set aside against the trend, or in doubt with no trend, when both sides armed. */
+  setAsideEntry?: { setupKind: "reversion" | "continuation"; direction: "bullish" | "bearish"; inDoubt?: boolean } | null;
   signal?: PublicSignalSummary | null;
   scoreSummary?: PublicScoreSummary | null;
   trends?: { timeframe: string; direction: string }[] | null;
@@ -262,6 +262,11 @@ export interface DailySetupInput {
 export function setAsideNoteOf(entry: DailySetupInput["setAsideEntry"]): string | null {
   if (!entry) return null;
   const side = entry.direction === "bearish" ? "sell" : "buy";
+  // No trend on any chart and both sides armed (`twoSidedDoubt`): the shown
+  // side is not the market's choice, so the card says the other one stands too.
+  if (entry.inDoubt) {
+    return `A ${side} point also stands, and no chart shows a trend, so the market has not picked a side yet. Wait for a definite trend.`;
+  }
   return `A ${side} point against the trend also armed and was set aside: the trade goes with the trend.`;
 }
 

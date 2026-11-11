@@ -33,7 +33,7 @@ vi.mock("@/lib/scan/entrySelection", async () => {
     chooseSessionEntry: (...args: Parameters<typeof actual.chooseSessionEntry>) => {
       if (!reversionOnly.on) return actual.chooseSessionEntry(...args);
       const reversion = actual.armSessionEntries(...args).find((a) => a.setupKind === "reversion");
-      return reversion ? { ...reversion, setAside: null } : null;
+      return reversion ? { ...reversion, setAside: null, inDoubt: false } : null;
     },
   };
 });

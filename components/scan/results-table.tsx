@@ -53,7 +53,7 @@ export interface ScanRow {
   /** The decision state (`lib/scoring/decisionState.ts`); the verdict badge already reads it one to one. */
   decisionState?: DecisionState | null;
   /** The buying point against the trend that also armed and was set aside (never-failing rule 5). */
-  setAsideEntry?: { setupKind: SetupKind; direction: "bullish" | "bearish" } | null;
+  setAsideEntry?: { setupKind: SetupKind; direction: "bullish" | "bearish"; inDoubt?: boolean } | null;
   /**
    * The Signal and Regime Engine's own rollup — a separate read from
    * `score`/`outputState` above, never merged into them. `null` when no

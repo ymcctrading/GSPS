@@ -762,6 +762,35 @@ export function applyBreakawayHold(decision: ScanDecision, breakaway: BreakawayR
 }
 
 /**
+ * Gann's rule for a market in doubt (`twoSidedDoubt`,
+ * `lib/scan/entrySelection.ts`): with no trend on any chart, a buying point
+ * and a selling point both stand, and neither is the market's choice. "Keep
+ * out of slow trading markets until a definite change in trend" (Master
+ * Course Ch. 1, pp. 1-3); "when in doubt, don't trade" (pp. 60-62); also
+ * p. 251 and *Commodities* p. 255 ("when in doubt, keep out"), never-failing
+ * rule 6. See `twoSidedDoubt` for how each reads. Held from Execute to Watch, unless the entry
+ * is the breakaway from a narrow range, which is the definite change Gann
+ * waits for (*Commodities* pp. 51-52, `applyBreakawayHold`).
+ */
+export function applyTwoSidedDoubtHold(decision: ScanDecision, inDoubt: boolean, breakaway: BreakawayReading): ScanDecision {
+  if (!inDoubt || decision.outputState !== "Execute") return decision;
+  if (breakaway.rangeBound && breakaway.breaksAway) return decision;
+  return {
+    ...decision,
+    outputState: "Watch",
+    breakdown: [
+      ...decision.breakdown,
+      {
+        key: "twoSidedDoubt",
+        criterion: "A definite trend before a side is taken",
+        passed: false,
+        note: "No trend on the monthly, weekly or daily chart, and a buy point and a sell point both stand, so the market has not picked a side. Held from Execute to Watch until the trend shows a definite change.",
+      },
+    ],
+  };
+}
+
+/**
  * Gann's monthly break as a warning (A-TREND-11/-12, W006 pp.40-43; PLAN.md
  * item 6, step 3): while the month so far has broken the prior month's low in
  * an advance (high in a decline), a new trade with the campaign's trend is

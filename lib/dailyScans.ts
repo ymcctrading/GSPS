@@ -33,7 +33,7 @@ interface DailyScanRow {
     dayRange?: number | null;
     resting?: boolean | null;
     decisionState?: DecisionState | null;
-    setAsideEntry?: { setupKind: SetupKind; direction: "bullish" | "bearish" } | null;
+    setAsideEntry?: { setupKind: SetupKind; direction: "bullish" | "bearish"; inDoubt?: boolean } | null;
     /** Rows written before 2026-10-21 only; see `lib/scan/publish.ts`. */
     breakdown?: ScoreBreakdownItem[] | null;
     scoreSummary?: PublicScoreSummary | null;

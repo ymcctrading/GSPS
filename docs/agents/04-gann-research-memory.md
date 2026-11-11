@@ -1469,3 +1469,20 @@ on DIA): a lead for a separately frozen candidate, not a finding. Forward
 ledger (record only) in `/mnt/project-files/private-research/mtf-r0-1/`.
 Research only; `lib/__tests__/mtfIsolation.test.ts` keeps it off every live
 path. Track record §14.
+
+**No trend and both sides armed is doubt, 2026-11-11 (BKR review; owner:
+"explain how this still scored a 7/9 Watch").** With every chart sideways,
+fork F4 (a) showed the nearer of the two armed buying points and scored only
+that side, so BKR read Sell 7/9 while Gann's buy rules at its third test of the
+$46 bottoms were never weighed, and the Buy at $67.38 was on no card. Gann
+settles it: "Don't try to get ahead of the market ... wait until it shows a
+definite change in trend" (Master Course p. 251); "when in doubt, keep out"
+(*Commodities* p. 255; never-failing rule 6). `twoSidedDoubt`
+(`lib/scan/entrySelection.ts`) flags the session, `applyTwoSidedDoubtHold`
+(`lib/scoring/score.ts`) holds such an Execute to Watch unless the entry is the
+breakaway from a narrow range, live (both scan paths) and in the replay (its
+ladder key `twoSidedDoubt`), and the card names the other side. Rule 6 is now
+enforced for getting in. Not changed here, logged for their own work: the
+Buy side has no plan at a third test of an old bottom (Master Course
+pp. 240-241, Buy 1), and the trend is read three ways (card, Trend point,
+intraday alert). `STRATEGY_VERSION` is `2026-11-11-two-sided-doubt`.
