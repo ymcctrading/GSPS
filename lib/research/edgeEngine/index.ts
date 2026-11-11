@@ -7,5 +7,6 @@ export * from "./price";
 export * from "./time";
 export * from "./pts";
 export * from "./trade";
+export * from "./card";
 export * from "./backtest";
 export * from "./reproduce";

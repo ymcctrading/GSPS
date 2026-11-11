@@ -68,11 +68,15 @@ export function riskRewardSentence(riskUsd: number, rewardUsd: number): string {
  * A short exits by buying back, and its stop trails *down* — the words have to
  * follow the trade or the sentence describes the opposite one.
  */
-export function exitSentence(scaleOutQty: number, qty: number, side: "buy" | "sell" = "buy"): string {
+export function exitSentence(scaleOutQty: number, qty: number, side: "buy" | "sell" = "buy", sellsAtMaster = false): string {
   const rest = qty - scaleOutQty;
   const close = side === "buy" ? "sold" : "bought back";
   const behind = side === "buy" ? "up" : "down";
   const swing = side === "buy" ? "each higher bottom" : "each lower top";
+  // Protect profits (lib/trade/protocol-exit.ts): the whole position leaves at the MTP.
+  if (sellsAtMaster) {
+    return `If it works, all ${qty} share${qty === 1 ? "" : "s"} are ${close} automatically at the master take profit, and once the first target is reached the stop moves to your entry. If it doesn't, the whole position is ${close} at the stop.`;
+  }
   // No fixed target (Q14, 2026-10-16): the whole position runs on Gann's
   // stop and exit signals.
   if (scaleOutQty <= 0) {

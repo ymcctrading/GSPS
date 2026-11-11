@@ -30,7 +30,7 @@ import { sizeGuidedTrade, type SizedTrade } from "@/lib/guided/sizing";
 import { capitalPerShare, MAX_OPEN_STOCKS } from "@/lib/risk/gannCapital";
 import { exitSentence, reasonLine, riskRewardSentence, trendSummary } from "@/lib/guided/copy";
 import { pickNearestMiss, type NearMiss } from "@/lib/guided/near-miss";
-import { planProtocolExit } from "@/lib/trade/protocol-exit";
+import { LIVE_EXIT_RULE, planProtocolExit } from "@/lib/trade/protocol-exit";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
 import { toPublicSignalSummary, type PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { tickerHref } from "@/lib/routes";
@@ -275,6 +275,8 @@ export async function buildRecommendations(params: {
   universeThresholds?: UniverseThresholds;
   /** `getGuidedPolicy()`-resolved platform thresholds, resolved once by the caller. Defaults to the code constants. */
   guidedPolicy?: GuidedPolicy;
+  /** The member's Protect profits switch (`lib/trade/protocol-exit.ts`): each card's exit sentence states it. */
+  protectProfits?: boolean;
 }): Promise<BuiltRecommendations> {
   const {
     symbols,
@@ -285,6 +287,7 @@ export async function buildRecommendations(params: {
     now = new Date(),
     universeThresholds = DEFAULT_UNIVERSE_THRESHOLDS,
     guidedPolicy = DEFAULT_GUIDED_POLICY,
+    protectProfits = false,
   } = params;
 
   const recommendations: Recommendation[] = [];
@@ -338,6 +341,7 @@ export async function buildRecommendations(params: {
       expiresAt,
       room: guidedPolicy.maxRecommendations - recommendations.length,
       minGuidedQty: guidedPolicy.minGuidedQty,
+      protectProfits,
     });
     recommendations.push(...batchResult.recommendations);
     skipped.push(...batchResult.skipped);
@@ -374,6 +378,7 @@ function collectBatch(params: {
   expiresAt: string;
   room: number;
   minGuidedQty: number;
+  protectProfits?: boolean;
 }): { recommendations: Recommendation[]; skipped: SkippedCandidate[]; committed: number } {
   const { batch, scans, shortable, account, caps, markets, expiresAt, room, minGuidedQty } = params;
   const recommendations: Recommendation[] = [];
@@ -423,7 +428,7 @@ function collectBatch(params: {
 
     committed += sized.qty * capitalPerShare(levels.entry);
     markets.add(result.symbol.toUpperCase());
-    recommendations.push(toRecommendation(result, side, sized, expiresAt));
+    recommendations.push(toRecommendation(result, side, sized, expiresAt, params.protectProfits === true));
   }
 
   return { recommendations, skipped, committed };
@@ -435,13 +440,20 @@ export function toRecommendation(
   side: "buy" | "sell",
   sized: SizedTrade,
   expiresAt: string,
+  /** The member's Protect profits switch: the whole position sells at the MTP. */
+  protectProfits = false,
 ): Recommendation {
   const levels = result.levels!;
-  const plan = planProtocolExit(sized.qty, {
-    stopLoss: levels.stopLoss,
-    takeProfit1: levels.takeProfit1,
-    masterProfit: levels.masterProfit,
-  });
+  const plan = planProtocolExit(
+    sized.qty,
+    {
+      stopLoss: levels.stopLoss,
+      takeProfit1: levels.takeProfit1,
+      masterProfit: levels.masterProfit,
+    },
+    LIVE_EXIT_RULE,
+    { protectProfits },
+  );
 
   return {
     id: null, // filled in once the row is logged
@@ -456,7 +468,7 @@ export function toRecommendation(
     rewardUsd: sized.rewardUsd,
     boundBy: sized.boundBy,
     riskRewardSentence: riskRewardSentence(sized.riskUsd, sized.rewardUsd),
-    exitSentence: exitSentence(plan.scaleOutQty, sized.qty, side),
+    exitSentence: exitSentence(plan.scaleOutQty, sized.qty, side, plan.tranches.some((t) => t.key === "runner" && t.takeProfit != null)),
     expiresAt,
     why: {
       // The rollup, not the breakdown: the scoring criteria do not cross an API
