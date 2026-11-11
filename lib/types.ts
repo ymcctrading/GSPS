@@ -8,6 +8,7 @@ import type { GannConfluenceResult, SaraConfluenceResult } from "@/lib/signals/c
 import type { NoviceEligibility } from "@/lib/universe/types";
 import type { ConfluenceType } from "@/lib/gann/digitalRoot";
 import type { PlanExpiredNotice } from "@/lib/gann/planExpiry";
+import type { BriefTrace, SetupBrief } from "@/lib/setups/brief";
 
 /**
  * `"commodity"` is a recognized value with no live market-data connection
@@ -343,9 +344,19 @@ export interface ScanResult {
   /**
    * The buying point the session armed on the other side and did not take:
    * against the trend, when the with-trend point armed too (never-failing
-   * rule 5; `chooseSessionEntry`). Null when only one side armed.
+   * rule 5; `chooseSessionEntry`), or, with no trend on any chart, the
+   * farther of the two (`inDoubt`, `twoSidedDoubt`). Null when only one side
+   * armed.
    */
-  setAsideEntry?: { setupKind: SetupKind; direction: "bullish" | "bearish" } | null;
+  setAsideEntry?: { setupKind: SetupKind; direction: "bullish" | "bearish"; inDoubt?: boolean } | null;
+  /**
+   * The setup brief (`lib/setups/brief.ts`): both sides, the plan with a
+   * reason for each level, timing, what proves it wrong, in two voices. Public
+   * strings only; null when the scan has no side to read.
+   */
+  brief?: SetupBrief | null;
+  /** The brief's rule ids, server only: stripped by `redactScanResult`. */
+  briefTrace?: BriefTrace;
   /** Recent range expansion against the trailing baseline — the momentum read. */
   momentumElevated: boolean;
   trends: TrendReading[];

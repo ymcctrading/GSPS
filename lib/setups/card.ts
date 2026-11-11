@@ -36,6 +36,7 @@ import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { priceUsd } from "@/lib/strat/priceText";
 import { tickerHref } from "@/lib/routes";
 import { readResting, restingInputOfRow, restingNote, setupTier, type RestingRead } from "@/lib/setups/resting";
+import type { BriefText, BriefVoice, SetupBrief } from "@/lib/setups/brief";
 
 export type SetupSide = "buy" | "sell";
 
@@ -86,6 +87,12 @@ export interface SetupCardModel {
    * pp. 43-45; `chooseSessionEntry`). Null otherwise.
    */
   setAsideNote: string | null;
+  /**
+   * The setup brief (`lib/setups/brief.ts`, owner 2026-11-11): both sides,
+   * each level's reason, timing, what proves it wrong, in two voices. Absent
+   * on intraday cards and on rows stored before it existed.
+   */
+  brief?: SetupBrief | null;
   synopsis: string;
   tickerHref: string;
 }
@@ -247,11 +254,12 @@ export interface DailySetupInput {
   dayRange?: number | null;
   /** The scan's Resting tier flag (`setupTier`). */
   resting?: boolean | null;
-  /** The buying point set aside against the trend, when both sides armed. */
-  setAsideEntry?: { setupKind: "reversion" | "continuation"; direction: "bullish" | "bearish" } | null;
+  /** The buying point set aside against the trend, or in doubt with no trend, when both sides armed. */
+  setAsideEntry?: { setupKind: "reversion" | "continuation"; direction: "bullish" | "bearish"; inDoubt?: boolean } | null;
   signal?: PublicSignalSummary | null;
   scoreSummary?: PublicScoreSummary | null;
   trends?: { timeframe: string; direction: string }[] | null;
+  brief?: SetupBrief | null;
 }
 
 /**
@@ -262,6 +270,11 @@ export interface DailySetupInput {
 export function setAsideNoteOf(entry: DailySetupInput["setAsideEntry"]): string | null {
   if (!entry) return null;
   const side = entry.direction === "bearish" ? "sell" : "buy";
+  // No trend on any chart and both sides armed (`twoSidedDoubt`): the shown
+  // side is not the market's choice, so the card says the other one stands too.
+  if (entry.inDoubt) {
+    return `A ${side} point also stands, and no chart shows a trend, so the market has not picked a side yet. Wait for a definite trend.`;
+  }
   return `A ${side} point against the trend also armed and was set aside: the trade goes with the trend.`;
 }
 
@@ -317,6 +330,9 @@ export function buildDailyCardModel(
     continuation: row.setupKind === "continuation",
     resting,
     setAsideNote: setAsideNoteOf(row.setAsideEntry),
+    // A brief read for the other side (a row stored before a re-scan flipped
+    // it) would contradict the card, so only one for the row's side is kept.
+    brief: row.brief && row.brief.side === side && briefMatchesLevels(row.brief, levels) ? row.brief : null,
     synopsis: buildSetupSynopsis({
       side,
       verdict: tier,
@@ -329,4 +345,37 @@ export function buildDailyCardModel(
     }),
     tickerHref: tickerHref(row.symbol),
   };
+}
+
+// ---------------------------------------------------------------------------
+// The brief's voice
+
+/**
+ * The voice a viewer reads the brief in: plain for Novice and Pro, full for
+ * Expert and Wall Street (owner, 2026-11-11). Those are the same two groups
+ * the policy's exact-score flag already splits (`lib/entitlements/policy.ts`:
+ * false for Novice and Pro, true for Expert and Wall Street), so a surface
+ * that has resolved one has resolved the other.
+ */
+export function briefVoiceOf(exactScoreDisplayEnabled: boolean): BriefVoice {
+  return exactScoreDisplayEnabled ? "full" : "plain";
+}
+
+/** One line of the brief in the viewer's voice. Kept here, not in brief.ts, so a client never bundles the builder. */
+export function voiced(t: BriefText, voice: BriefVoice): string {
+  return voice === "full" ? t.full : t.plain;
+}
+
+/**
+ * True when the brief prices exactly the levels a surface shows (entry, stop,
+ * TP1 and MTP, to the cent), so its "wrong if" and reasons can't disagree
+ * with the numbers beside them (review finding 1, 2026-11-11).
+ */
+export function briefMatchesLevels(
+  brief: Pick<SetupBrief, "plan">,
+  levels: { entry: number | null; stop: number | null; tp1: number | null; mtp: number | null },
+): boolean {
+  const at = (role: "entry" | "stop" | "tp1" | "mtp") => brief.plan.find((l) => l.role === role)?.price ?? null;
+  const same = (a: number | null, b: number | null) => a != null && b != null && Math.round(a * 100) === Math.round(Number(b) * 100);
+  return same(at("entry"), levels.entry) && same(at("stop"), levels.stop) && same(at("tp1"), levels.tp1) && same(at("mtp"), levels.mtp);
 }

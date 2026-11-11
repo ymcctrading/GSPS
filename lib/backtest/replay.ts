@@ -77,6 +77,7 @@ import {
   gannEntryOf,
   isWithGannTrend,
   preferWithTrend,
+  twoSidedDoubt,
   rankArmedPatterns,
 } from "@/lib/scan/entrySelection";
 import { isLargeCapStock } from "@/lib/strat/large-cap";
@@ -85,7 +86,7 @@ import { levelCharts, mondayOf, yearCycleMonths } from "@/lib/scan/levelCharts";
 import { etDateKey } from "@/lib/market/session";
 import { readPillarFacts, type PillarFacts } from "@/lib/scoring/pillars";
 import { buildStructuralLevels } from "@/lib/scan/structuralLevels";
-import { applyBreakawayHold, applyCampaignSectionHold, applyMainTrendHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, applyReadyNowHold, computeScore, indicationShownBy, readyNowReasons, srMatchForSide } from "@/lib/scoring/score";
+import { applyBreakawayHold, applyTwoSidedDoubtHold, applyCampaignSectionHold, applyMainTrendHold, applyDistributionBreakdownHold, applyFailedTopHold, applyMonthlyBreakHold, applyRuleFollowingHold, applyTimeWindowHold, applyWeakStockHold, applyFigureCrossingHold, applyReadyNowHold, computeScore, indicationShownBy, readyNowReasons, srMatchForSide } from "@/lib/scoring/score";
 import { withDecisionState } from "@/lib/scoring/decisionState";
 import { confirmedFirstTrade } from "@/lib/gann/firstTradeDates";
 import { readWindowTurn, type WindowTurn } from "@/lib/gann/timeWindow";
@@ -479,6 +480,7 @@ export interface ReplayOptions {
  */
 export const REPLAY_HOLD_KEYS = [
   "breakaway",
+  "twoSidedDoubt",
   "monthlyBreak",
   "distributionBreakdown",
   "failedTop",
@@ -1026,6 +1028,8 @@ interface SessionTrigger {
   breakaway: BreakawayReading;
   /** The monthly break as a warning, from the same chart (PLAN.md item 6, step 3). */
   monthlyWarning: MonthlyBreakWarning | null;
+  /** Both sides armed with no trend on any chart (`twoSidedDoubt`), as the live scan reads it. */
+  inDoubt: boolean;
   /**
    * Leaving a narrow range, the crossing session closed past the line on more
    * than the range's mean volume (A-VOLUME-10), read from completed sessions
@@ -1145,7 +1149,8 @@ export function readSessionRules(
   if (!session) return none;
   const { context, priorSessions } = session;
   const chart = entryChart(series.dailyBars, series.monthlyBars ?? [], date);
-  const trigger = gannEntryOf(chart.bars, chart.older, context.macroTrends)(side);
+  const entryOf = gannEntryOf(chart.bars, chart.older, context.macroTrends);
+  const trigger = entryOf(side);
   if (!trigger) return none;
   const assetClass = isCryptoSymbol(symbol) ? "crypto" : "us_equity";
   const { decision, holdsFired } = scoreSetup({
@@ -1159,6 +1164,7 @@ export function readSessionRules(
     setupKind: isWithGannTrend(context.macroTrends, side) ? "continuation" : "reversion",
     breakaway: readBreakaway(chart.bars, trigger),
     monthlyWarning: readMonthlyBreakWarning(chart.bars),
+    inDoubt: twoSidedDoubt(context.macroTrends, entryOf),
     weights: series.weights,
     readHolds: true,
   });
@@ -1278,14 +1284,18 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       const chart = entryChart(dailyBars, monthlyBars ?? [], date);
       const entryDaily = chart.bars;
       const reactionEntryOf = gannEntryOf(entryDaily, chart.older, context.macroTrends);
+      // The legacy entry rules read their own triggers, so their doubt
+      // (`twoSidedDoubt`, via `chooseSessionEntry`) can differ from the live
+      // scan's; the production cell is "reaction", where the two match.
       const entryOf = (d: "bullish" | "bearish") =>
         entryRule === "reaction" ? reactionEntryOf(d) : computeGannEntryTrigger(entryDaily, d);
       const monthlyWarning = readMonthlyBreakWarning(entryDaily);
-      const sessionTrigger = (setupKind: SetupKind, trigger: GannEntryTrigger): SessionTrigger => ({
+      const sessionTrigger = (setupKind: SetupKind, trigger: GannEntryTrigger, inDoubt: boolean): SessionTrigger => ({
         setupKind,
         trigger,
         breakaway: readBreakaway(entryDaily, trigger),
         monthlyWarning,
+        inDoubt,
         breakawayVolume:
           restsWithoutCrossing(trigger.kind) ||
           breakawayVolumeMet(entryDaily, trigger.direction, gannBreakLine(trigger.reactionEntry, trigger.reactionStop)),
@@ -1300,7 +1310,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
       // #395, finding 4).
       if (entryDaily.length > 0) {
         const chosen = chooseSessionEntry(context.macroTrends, entryOf, entryDaily[entryDaily.length - 1].c);
-        if (chosen) triggers.push(sessionTrigger(chosen.setupKind, chosen.trigger));
+        if (chosen) triggers.push(sessionTrigger(chosen.setupKind, chosen.trigger, chosen.inDoubt));
       }
       arm = {
         context,
@@ -1357,7 +1367,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
     if (sessionPlans && !sessionPlans.has(date)) sessionPlans.set(date, arm ? sessionDailyPlan(arm, history, armPrice, assetClass, weights) : null);
     if (plansOnly || !arm || !member) continue;
 
-    for (const { setupKind, trigger, breakaway, monthlyWarning, breakawayVolume, pivotAt } of arm.triggers) {
+    for (const { setupKind, trigger, breakaway, monthlyWarning, inDoubt, breakawayVolume, pivotAt } of arm.triggers) {
       const levelPrefix = `${setupKind}:${trigger.kind}:${trigger.direction}:${trigger.pivot.kind}`;
       // A crossing held for its reaction is one crossing of its level: a
       // level crossed again after a break is a new buy, as it is live (step 4
@@ -1611,6 +1621,7 @@ export function replay(symbol: string, bars: Bar[], options: ReplayOptions): Rep
         setupKind,
         breakaway,
         monthlyWarning,
+        inDoubt,
         weights,
       });
       const decision = scored.decision;
@@ -2409,6 +2420,7 @@ function sessionDailyPlan(arm: SessionArm, history: Bar[], armPrice: number, ass
     setupKind: chosen.setupKind,
     breakaway: chosen.breakaway,
     monthlyWarning: chosen.monthlyWarning,
+    inDoubt: chosen.inDoubt,
     weights,
   });
   if (!levels || isStopBreached(chosen.trigger.direction, levels.stopLoss, armPrice)) return null;
@@ -2476,11 +2488,13 @@ function scoreSetup(input: {
   setupKind: SetupKind;
   breakaway: BreakawayReading;
   monthlyWarning: MonthlyBreakWarning | null;
+  /** Both sides armed with no trend on any chart (`applyTwoSidedDoubtHold`). */
+  inDoubt: boolean;
   weights?: CriterionWeights;
   /** Also read each hold on its own (`holdsFired`), for the rule ladder. */
   readHolds?: boolean;
 }): { decision: ScanDecision; levels: TradeLevels | null; holdsFired?: ReplayHoldKey[] } {
-  const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, setupKind, breakaway, monthlyWarning, weights, readHolds = false } = input;
+  const { context, pattern, gannTrigger, history, executionAtr, assetClass, largeCap, setupKind, breakaway, monthlyWarning, inDoubt, weights, readHolds = false } = input;
 
   // The last 400 candles is ~15 sessions of hourly context, which is more than
   // readTrend looks back over and keeps the roll-up cheap.
@@ -2489,7 +2503,7 @@ function scoreSetup(input: {
 
   const levels = priceTradeLevels({ context, gannTrigger, history, executionAtr, assetClass, largeCap });
 
-  const decision = withDecisionState(applyReadyNowHold(applyFigureCrossingHold(applyMainTrendHold(applyCampaignSectionHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyBreakawayHold(
+  const decision = withDecisionState(applyReadyNowHold(applyFigureCrossingHold(applyMainTrendHold(applyCampaignSectionHold(applyWeakStockHold(applyRuleFollowingHold(applyTimeWindowHold(applyFailedTopHold(applyDistributionBreakdownHold(applyMonthlyBreakHold(applyTwoSidedDoubtHold(applyBreakawayHold(
     computeScore({
       direction: gannTrigger.direction,
       macroTrends: context.macroTrends,
@@ -2515,7 +2529,7 @@ function scoreSetup(input: {
       atrPct: context.atrPct,
       pillarFacts: context.pillarFacts,
       ...(weights ? { weights } : {}),
-    }), breakaway), monthlyWarning, gannTrigger.direction), context.disclosedRules.distributionStanding ?? null, gannTrigger.direction),
+    }), breakaway), inDoubt, breakaway), monthlyWarning, gannTrigger.direction), context.disclosedRules.distributionStanding ?? null, gannTrigger.direction),
     context.disclosedRules.multipleTops, gannTrigger.direction, levels), setupKind, () => context.windowTurn(gannTrigger.direction)), context.disclosedRules.ruleFollowing),
     // A-SELECTION-04: a buy in a weak stock holds to Watch, as on the live scan.
     context.disclosedRules.weakStock, gannTrigger.direction),
@@ -2544,6 +2558,7 @@ function scoreSetup(input: {
   const execute: ScanDecision = { ...decision, outputState: "Execute" };
   const holds: Record<ReplayHoldKey, (d: ScanDecision) => ScanDecision> = {
     breakaway: (d) => applyBreakawayHold(d, breakaway),
+    twoSidedDoubt: (d) => applyTwoSidedDoubtHold(d, inDoubt, breakaway),
     monthlyBreak: (d) => applyMonthlyBreakHold(d, monthlyWarning, gannTrigger.direction),
     distributionBreakdown: (d) => applyDistributionBreakdownHold(d, context.disclosedRules.distributionStanding ?? null, gannTrigger.direction),
     failedTop: (d) => applyFailedTopHold(d, context.disclosedRules.multipleTops, gannTrigger.direction, levels),

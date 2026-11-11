@@ -8,7 +8,7 @@ import { CollapsibleSection } from "@/components/dashboard/collapsible-section";
 import { SetupCardPanel, SetupNameButton, useCardStage } from "@/components/setups/setup-card";
 import { useLiveQuote } from "@/lib/hooks/useLiveQuote";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
-import { buildDailyCardModel } from "@/lib/setups/card";
+import { briefVoiceOf, buildDailyCardModel } from "@/lib/setups/card";
 import { readResting, restingDistanceLabel, restingInputOfRow, setupTier, splitResting } from "@/lib/setups/resting";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { cn, formatUsd } from "@/lib/utils";
@@ -175,6 +175,7 @@ function TrackedRow({
       currentPrice: row.currentPrice ?? null,
       dayRange: row.dayRange ?? null,
       resting: row.resting ?? null,
+      brief: row.brief ?? null,
     },
     { scoreText: formatScore(row.score, exactScoreDisplayEnabled), scoreMax: SCORE_MAX, livePrice: quote?.price ?? null },
   );
@@ -223,6 +224,7 @@ function TrackedRow({
 
       {stage !== "closed" && (
         <SetupCardPanel
+          briefVoice={briefVoiceOf(exactScoreDisplayEnabled)}
           id={cardId}
           model={model}
           stage={stage}

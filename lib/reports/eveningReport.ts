@@ -40,6 +40,7 @@ import { isCryptoSymbol } from "@/lib/market/cryptoSymbol";
 import type { FocusReason } from "@/lib/scanner/focusList";
 import { priceUsd } from "@/lib/strat/priceText";
 import { formatStage, OUTCOME_LABELS, splitMove, STAGE_KEYS, STAGE_LABELS, type CoverageStages, type MoverOutcome } from "@/lib/reports/coverage";
+import type { SetupBrief } from "@/lib/setups/brief";
 
 export type Side = "bullish" | "bearish";
 
@@ -99,6 +100,8 @@ export interface DailySetup {
   mtp: number | null;
   /** True when the plan's crossing is still to be made (`GannEntryTrigger.held`). */
   entryAwaitsCrossing: boolean;
+  /** The setup brief the plan was published with (lib/setups/brief.ts), when it has one. */
+  brief?: SetupBrief | null;
 }
 
 export type DailyOutcome =
@@ -121,6 +124,12 @@ export interface DailyJudgement {
   fillAt: string | null;
   /** Result in R at the session's close (or at the stop or TP1 when reached). */
   r: number | null;
+  /**
+   * The session's close read against the brief's deciding line
+   * (`readDecidingLine`): settled the call's way, proved it wrong, or open.
+   * Absent when the setup had no brief or the session no bars.
+   */
+  briefRead?: "call" | "wrong" | "open";
 }
 
 function sideSign(direction: Side): 1 | -1 {
@@ -365,6 +374,8 @@ export interface NextPlan {
   price: number | null;
   dayRange: number | null;
   entryAwaitsCrossing: boolean;
+  /** The setup brief the plan was published with, when it has one. */
+  brief?: SetupBrief | null;
 }
 
 /** What to look for on an executable plan, in plain English. */
@@ -438,6 +449,52 @@ const WRAP_OPEN = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Seg
 const FOOTER = (appUrl: string) =>
   `<p style="color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;padding-top:12px;margin-top:24px">A test email from GSPS, sent to the owner only. One session is one observation, not a measured record. <a href="${appUrl}" style="color:#0ea5e9">Open GSPS</a></p></div>`;
 
+// ---------------------------------------------------------------------------
+// The setup brief in the evening emails (owner, 2026-11-11: "that is what the
+// email recaps should look like. the list that you send out or signals to
+// watch for tomorrow"). The plain voice: these go to the owner today and are
+// what a Novice or Pro member would read.
+
+const BRIEF_READ_LABEL: Record<"call" | "wrong" | "open", string> = {
+  call: "settled the call's way",
+  wrong: "proved it wrong",
+  open: "not settled yet",
+};
+
+function briefReadNote(j: DailyJudgement): string {
+  return j.briefRead ? `; deciding line at the close: ${BRIEF_READ_LABEL[j.briefRead]}` : "";
+}
+
+const BRIEF_ROLE: Record<string, string> = { entry: "Entry", stop: "Stop", tp1: "TP1", tp2: "TP2", mtp: "MTP" };
+
+function briefLines(b: SetupBrief): { label: string; text: string }[] {
+  const out: { label: string; text: string }[] = [
+    { label: "The call", text: b.call.plain },
+    { label: "What settles it", text: b.decidingLine.plain.replace(/^What settles it: /, "") },
+  ];
+  const call = b.side === "buy" ? "buy" : "sell";
+  const other = b.side === "buy" ? "sell" : "buy";
+  if (b.forCall.length > 0) out.push({ label: `For the ${call}`, text: b.forCall.slice(0, 2).map((t) => t.plain).join(" ") });
+  if (b.forOther.length > 0) out.push({ label: `For the ${other}`, text: b.forOther.slice(0, 2).map((t) => t.plain).join(" ") });
+  out.push({
+    label: "Why these levels",
+    text: b.plan.map((l) => `${BRIEF_ROLE[l.role]} ${priceUsd(l.price)}: ${l.reason.plain}`).join("; ") + ".",
+  });
+  if (b.timing.length > 0) out.push({ label: "Timing", text: b.timing.map((t) => t.plain).join(" ") });
+  out.push({ label: "Wrong if", text: b.wrongIf.plain.replace(/^Wrong if /, "") });
+  return out;
+}
+
+function briefHtml(b: SetupBrief): string {
+  return briefLines(b)
+    .map((l) => `<p style="margin:4px 0 0"><b>${esc(l.label)}:</b> ${esc(l.text)}</p>`)
+    .join("");
+}
+
+function briefText(b: SetupBrief): string[] {
+  return briefLines(b).map((l) => `  ${l.label}: ${l.text}`);
+}
+
 export function renderFocusEmail(input: FocusEmailInput): { subject: string; html: string; text: string } {
   const subject = `GSPS evening focus list for ${dayLabel(input.forDate)}: ${input.executable.length} executable`;
   const onFocus = new Set(input.focus.map((f) => f.symbol));
@@ -459,9 +516,11 @@ export function renderFocusEmail(input: FocusEmailInput): { subject: string; htm
         `<p style="margin:0;font-weight:700">${esc(p.symbol)} · ${side(p.direction)} · ${p.score}/9${esc(where)}${p.price != null ? ` · last ${priceUsd(p.price)}` : ""}</p>` +
         `<p style="margin:6px 0 0"><b>Entry:</b> ${esc(s.entry)}</p>` +
         `<p style="margin:4px 0 0"><b>Stop:</b> ${esc(s.stop)}</p>` +
-        `<p style="margin:4px 0 0"><b>Take profits:</b> ${esc(s.targets)}</p></div>`,
+        `<p style="margin:4px 0 0"><b>Take profits:</b> ${esc(s.targets)}</p>` +
+        (p.brief ? briefHtml(p.brief) : "") +
+        `</div>`,
     );
-    text.push(`${p.symbol} ${side(p.direction)} ${p.score}/9${where}`, `  Entry: ${s.entry}`, `  Stop: ${s.stop}`, `  Take profits: ${s.targets}`, "");
+    text.push(`${p.symbol} ${side(p.direction)} ${p.score}/9${where}`, `  Entry: ${s.entry}`, `  Stop: ${s.stop}`, `  Take profits: ${s.targets}`, ...(p.brief ? briefText(p.brief) : []), "");
   }
 
   html.push(`<h3 style="margin:20px 0 8px">The rest of the focus list (${input.focus.filter((f) => f.plan?.verdict !== "Execute").length})</h3>`);
@@ -476,9 +535,11 @@ export function renderFocusEmail(input: FocusEmailInput): { subject: string; htm
       : "No plan from the daily scan.";
     html.push(
       `<tr style="border-top:1px solid #e2e8f0"><td style="padding:6px 8px 6px 0;vertical-align:top;font-weight:700;white-space:nowrap">${f.rank}. ${esc(f.symbol)}</td>` +
-        `<td style="padding:6px 0;vertical-align:top">${priceUsd(f.close)} · ${esc(why)}<br><span style="color:#475569">${esc(plan)}</span></td></tr>`,
+        `<td style="padding:6px 0;vertical-align:top">${priceUsd(f.close)} · ${esc(why)}<br><span style="color:#475569">${esc(plan)}</span>` +
+        (f.plan?.brief ? briefHtml(f.plan.brief) : "") +
+        `</td></tr>`,
     );
-    text.push(`${f.rank}. ${f.symbol} ${priceUsd(f.close)}: ${why}`, `   ${plan}`);
+    text.push(`${f.rank}. ${f.symbol} ${priceUsd(f.close)}: ${why}`, `   ${plan}`, ...(f.plan?.brief ? briefText(f.plan.brief).map((l) => ` ${l}`) : []));
   }
   html.push(`</table>`, FOOTER(input.appUrl));
   text.push("", "A test email from GSPS, sent to the owner only.");
@@ -641,7 +702,7 @@ export function renderRecapEmail(input: RecapEmailInput): { subject: string; htm
   text.push(`EVERY EXECUTABLE SETUP STANDING (${execs.length}): ${tally(execs.map((j) => DAILY_LABEL[j.outcome]))}`);
   html.push(`<p style="color:#64748b;margin:0 0 6px">${esc(tally(execs.map((j) => DAILY_LABEL[j.outcome])) || "None.")} Mean ${esc(meanR(execs.map((j) => j.r)))}.</p><ul style="margin:0;padding-left:18px">`);
   for (const j of execs) {
-    const line = `${j.setup.symbol} ${side(j.setup.direction).toLowerCase()} ${j.setup.score}/9, entry ${priceUsd(j.setup.entry)}, stop ${priceUsd(j.setup.stop)}, TP1 ${priceUsd(j.setup.tp1)}: ${DAILY_LABEL[j.outcome]}${j.fill != null ? ` at ${priceUsd(j.fill)}` : ""}${j.r != null ? `, ${signed(j.r)}R` : ""}`;
+    const line = `${j.setup.symbol} ${side(j.setup.direction).toLowerCase()} ${j.setup.score}/9, entry ${priceUsd(j.setup.entry)}, stop ${priceUsd(j.setup.stop)}, TP1 ${priceUsd(j.setup.tp1)}: ${DAILY_LABEL[j.outcome]}${j.fill != null ? ` at ${priceUsd(j.fill)}` : ""}${j.r != null ? `, ${signed(j.r)}R` : ""}${briefReadNote(j)}`;
     html.push(`<li>${esc(line)}</li>`);
     text.push(`  ${line}`);
   }
@@ -650,6 +711,12 @@ export function renderRecapEmail(input: RecapEmailInput): { subject: string; htm
   const watchTally = tally(watches.map((j) => DAILY_LABEL[j.outcome]));
   html.push(`<p style="margin:10px 0 0"><b>Watch setups (${watches.length}, not offered for trade):</b> ${esc(watchTally || "none")}. Mean ${esc(meanR(watches.map((j) => j.r)))} had they been taken.</p>`);
   text.push(`WATCH SETUPS (${watches.length}, not offered for trade): ${watchTally}. Mean ${meanR(watches.map((j) => j.r))}.`, "");
+  const briefed = input.daily.filter((j) => j.briefRead);
+  if (briefed.length > 0) {
+    const line = `The deciding line at the close, across ${briefed.length} setups with a brief: ${tally(briefed.map((j) => BRIEF_READ_LABEL[j.briefRead!]))}. One session is one observation, not a measured record.`;
+    html.push(`<p style="margin:10px 0 0"><b>Both sides:</b> ${esc(line)}</p>`);
+    text.push(`BOTH SIDES: ${line}`, "");
+  }
 
   html.push(`<h3 style="margin:20px 0 4px">Intraday signals, as each member received them</h3>`);
   html.push(

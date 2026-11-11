@@ -120,6 +120,7 @@ const HOLD_PHRASES: Partial<Record<string, string>> = {
   tradePlanPriced: "the trade plan is not complete (nothing armed to enter, or a first target that pays no more than the risk)",
   reversionConfirmation: "the turn against the trend is not confirmed yet",
   breakaway: "the market is moving sideways and the entry stays inside its range",
+  twoSidedDoubt: "no chart shows a trend and a buy point and a sell point both stand, so the market has not yet shown its side",
   monthlyBreak: "this month has broken last month's extreme against the trade",
   distributionBreakdown: "the stock has broken down after a lower top",
   failedTop: "a failed top or bottom sits between the entry and the first target",
@@ -240,6 +241,9 @@ export function redactScanResult(result: ScanResult): PublicScanResult {
     decision: redactDecision(result.decision),
     signals: publicSignals,
     dailyBars: undefined,
+    // The brief's trace names rule ids only, but stays server-side with the
+    // citations they key (lib/setups/briefSources.ts).
+    briefTrace: undefined,
     // The plan and its note only, never the reason key or the figures behind
     // it, whatever built the result (owner's disclosure rule, 2026-10-28).
     planExpired: result.planExpired
@@ -284,5 +288,7 @@ export function toAnonymousScanResult(result: ScanResult): PublicScanResult {
     volatilityRead: undefined,
     volumeRead: undefined,
     noviceUniverse: undefined,
+    // The brief is read by signed-in members, in their tier's voice.
+    brief: undefined,
   };
 }

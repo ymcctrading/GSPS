@@ -9,6 +9,7 @@ import { CandleChart, type PriceMarker } from "@/components/chart/candles";
 import { MarketTabs } from "@/components/chart/market-tabs";
 import { ShareButton } from "@/components/chart/share-button";
 import { SignalCard } from "@/components/scan/signal-card";
+import { SetupBriefCard } from "@/components/setups/setup-brief-card";
 import { SignalRegimeCard } from "@/components/scan/signal-regime-card";
 import { ConfluenceCard } from "@/components/scan/confluence-card";
 import { OrderTicket } from "@/components/trade/order-ticket";
@@ -453,6 +454,7 @@ export function TickerView({ symbol }: { symbol: string }) {
       <IntradayAlerts symbols={[symbol]} onChartPlan={setChartIntradayPlan} hideWhenLocked title={`${symbol} intraday, separate from the daily verdict`} />
 
       {result && <SignalCard result={result} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />}
+      {result && !retired && <SetupBriefCard result={result} exactScoreDisplayEnabled={exactScoreDisplayEnabled} />}
 
       {result && <SignalRegimeCard result={result} />}
 

@@ -75,6 +75,7 @@ import {
   type NextPlan,
   type Side,
 } from "@/lib/reports/eveningReport";
+import { isSetupBrief, readDecidingLine } from "@/lib/setups/brief";
 
 export const maxDuration = 60;
 
@@ -97,7 +98,7 @@ type ScanRow = {
   stop_loss: number | string | null;
   take_profit_1: number | string | null;
   master_profit: number | string | null;
-  detail: { currentPrice?: number; dayRange?: number; entryAwaitsCrossing?: boolean; scannedAt?: string; backfilledAt?: string } | null;
+  detail: { currentPrice?: number; dayRange?: number; entryAwaitsCrossing?: boolean; scannedAt?: string; backfilledAt?: string; brief?: unknown } | null;
 };
 
 const num = (v: unknown): number | null => {
@@ -124,6 +125,7 @@ function toNextPlan(r: ScanRow): NextPlan | null {
     price: num(r.detail?.currentPrice),
     dayRange: num(r.detail?.dayRange),
     entryAwaitsCrossing: r.detail?.entryAwaitsCrossing === true,
+    brief: isSetupBrief(r.detail?.brief) && r.detail.brief.side === (sideOf(r.direction) === "bearish" ? "sell" : "buy") ? r.detail.brief : null,
   };
 }
 
@@ -265,7 +267,7 @@ export async function GET(req: NextRequest) {
     for (const r of (data ?? []) as ScanRow[]) {
       const p = toNextPlan(r);
       if (!p || p.verdict === "Reject") continue;
-      setups.push({ symbol: p.symbol, direction: p.direction, verdict: p.verdict, score: p.score, entry: p.entry, stop: p.stop, tp1: p.tp1, mtp: p.mtp, entryAwaitsCrossing: p.entryAwaitsCrossing });
+      setups.push({ symbol: p.symbol, direction: p.direction, verdict: p.verdict, score: p.score, entry: p.entry, stop: p.stop, tp1: p.tp1, mtp: p.mtp, entryAwaitsCrossing: p.entryAwaitsCrossing, brief: p.brief ?? null });
     }
     const { data: pf } = await service.from("intraday_focus").select("symbol").eq("basis_date", setupsFrom).order("rank", { ascending: true }).limit(FOCUS_SIZE);
     priorFocus = new Set((pf ?? []).map((r) => r.symbol as string));
@@ -520,7 +522,10 @@ export async function GET(req: NextRequest) {
     const asset = assetOf(s.symbol);
     const bars = sessionBarsOf(barsFor(fifteen, s.symbol), basisDate, asset);
     const prev = prevCloseOf.get(s.symbol) ?? null;
-    return judgeDailySetup(s, bars, prev);
+    const judged = judgeDailySetup(s, bars, prev);
+    // The session's close against the brief's deciding line (lib/setups/brief.ts).
+    const last = bars[bars.length - 1];
+    return s.brief && last ? { ...judged, briefRead: readDecidingLine(s.brief, last.c) } : judged;
   });
 
   // The Intraday style closes from 3:45 PM ET (12:45 PM on an early close).

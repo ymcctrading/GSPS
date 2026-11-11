@@ -84,6 +84,7 @@ const PILLAR_ORDER: ReadonlyArray<readonly [CriterionKey, string]> = [
 
 const HOLD_SOURCES: Record<ReplayHoldKey, string> = {
   breakaway: "MC Ch. 7 C14; Commodities pp. 51-52 (stay out of a narrow range until it breaks away)",
+  twoSidedDoubt: "MC Ch. 1 pp. 1-3, pp. 60-62, p. 251; Commodities p. 255 (no trend and both sides armed: wait for a definite change in trend)",
   monthlyBreak: "W006 pp. 40-43 (a break of the prior month's low warns)",
   distributionBreakdown: "W006 pp. 39-40 (volume Rule 2, a narrow spell broken on volume)",
   failedTop: "W006 pp. 19-24 (a top price failed at is resistance)",
