@@ -3,7 +3,7 @@ import type { Bar } from "@/lib/types";
 import {
   DEFAULT_CONFIG, PRICE_FAMILIES, TIME_FAMILIES, BarClock, cells, creationTrades, decimalShifts, interaction, longTrades,
   percentLevels, prepare, ptsAt, quarterSquares, rangeDivisions, reproductionChecklist, ringSteps, squareDegrees,
-  squareOfNineDynamic, squaredCount, swingWalk, timeCandidates, manageLong, type EngineConfig,
+  squareOfNineDynamic, squaredCount, swingWalk, timeCandidates, manageLong, cardLevels, strongestLevel, type EngineConfig,
 } from "@/lib/research/edgeEngine";
 
 /** Weekday bars from 2016-01-04, a seeded random walk with swings. */
@@ -153,5 +153,57 @@ describe("reproduction checklist (section 8)", () => {
   });
   it("every row has a verdict", () => {
     for (const r of rows) expect(["MATCH", "CLOSE", "NO MATCH", "NOT RUN"]).toContain(r.verdict);
+  });
+});
+
+describe("setup card levels", () => {
+  const bars = synth(700, 11);
+  const P = prepare("SYN", bars, cfg, null);
+  const made: { e: number; c: NonNullable<ReturnType<typeof cardLevels>> }[] = [];
+  for (let e = 300; e < 690 && made.length < 25; e++) {
+    const c = cardLevels(P, e, e, cfg);
+    if (c) made.push({ e, c });
+  }
+  it("orders stop < entry < TP1 < TP2 < entry + 3R <= MTP", () => {
+    expect(made.length).toBeGreaterThan(5);
+    for (const { c } of made) {
+      const R = c.entry - c.stop;
+      expect(c.stop).toBeLessThan(c.entry);
+      expect(c.tp1).toBeGreaterThan(c.entry * 1.005);
+      if (c.tp2 !== null) {
+        expect(c.tp2).toBeGreaterThan(c.tp1);
+        expect(c.tp2).toBeLessThan(c.entry + 3 * R);
+        expect(c.tp2Families).toBeGreaterThan(0);
+      }
+      expect(c.mtp).toBeGreaterThanOrEqual(c.entry + 3 * R - 1e-9);
+    }
+  });
+  it("uses nothing after the bar it is published on", () => {
+    for (const { e, c } of made.slice(0, 6)) {
+      const Pt = prepare("SYN", bars.slice(0, e + 1), cfg, null);
+      expect(cardLevels(Pt, e, e, cfg)).toEqual(c);
+    }
+  });
+  it("is void once the entry has filled or the window has passed", () => {
+    const { e } = made[0];
+    expect(cardLevels(P, e, e + cfg.confirmBars, cfg)).toBeNull();
+    let lowest = e;
+    for (let i = e; i < e + cfg.confirmBars; i++) {
+      if (bars[i].l < bars[lowest].l) lowest = i;
+      if (i > lowest && bars[i].h > bars[lowest].h) { expect(cardLevels(P, e, i, cfg)).toBeNull(); break; }
+    }
+  });
+  it("prefers the level more families agree on", () => {
+    const fake = { levelSets: [{ at: 0, levels: [
+      { family: "P1.ring", price: 101, rule: "" }, { family: "P2.eighths", price: 104, rule: "" },
+      { family: "P2.ext", price: 104.05, rule: "" }, { family: "P1.static", price: 103.98, rule: "" },
+      { family: "P2.pct", price: 102, rule: "" }, { family: "P2.half", price: 102.02, rule: "" },
+    ] }] } as unknown as Parameters<typeof strongestLevel>[0];
+    const s = strongestLevel(fake, 5, 100, 110, 0.1);
+    expect(s?.families).toBe(3);
+    expect(s?.price).toBeCloseTo(103.98, 6);
+    // below 103.5 the two-family cluster holding the 50% level wins
+    const t = strongestLevel(fake, 5, 100, 103.5, 0.1);
+    expect(t?.half).toBe(true);
   });
 });
