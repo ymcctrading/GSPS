@@ -11,6 +11,7 @@ import type { ScanRow } from "@/components/scan/results-table";
 import type { DecisionState, PublicScoreSummary, ScanDecision, ScoreBreakdownItem, SetupKind } from "@/lib/types";
 import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { toPublicScoreSummary } from "@/lib/scoring/public-summary";
+import { isSetupBrief } from "@/lib/setups/brief";
 
 export type Direction = "bullish" | "bearish";
 
@@ -40,6 +41,8 @@ interface DailyScanRow {
     retired?: boolean | null;
     trends?: { timeframe: string; direction: string }[] | null;
     signal?: PublicSignalSummary | null;
+    /** The setup brief (lib/setups/brief.ts); absent on rows written before 2026-11-11. */
+    brief?: unknown;
   } | null;
 }
 
@@ -153,6 +156,7 @@ function toRow(r: DailyScanRow): ScanRow {
     signal: r.detail?.signal ?? null,
     scoreSummary: toScoreSummary(r),
     trends: Array.isArray(r.detail?.trends) ? r.detail!.trends : null,
+    brief: isSetupBrief(r.detail?.brief) ? r.detail!.brief : null,
   };
 }
 

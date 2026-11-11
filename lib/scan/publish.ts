@@ -112,6 +112,9 @@ export function buildScanRows(
       // (never-failing rule 5), so the lists can say so (D-06).
       decisionState: r.decision.decisionState ?? null,
       setAsideEntry: r.setAsideEntry ?? null,
+      // The setup brief, public strings only (lib/setups/brief.ts, owner
+      // 2026-11-11). The trace stays on the server.
+      brief: r.brief ?? null,
       // When the plan was priced, not just which day it is filed under. The
       // pre-open cron reads the previous session's closed bars, and the date
       // alone cannot show that — see pricedBeforeSession in scan/freshness.

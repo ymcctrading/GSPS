@@ -36,6 +36,7 @@ import { PATTERN_GLOSSARY_TERM } from "@/lib/education/patterns";
 import { priceUsd } from "@/lib/strat/priceText";
 import { tickerHref } from "@/lib/routes";
 import { readResting, restingInputOfRow, restingNote, setupTier, type RestingRead } from "@/lib/setups/resting";
+import type { BriefText, BriefVoice, SetupBrief } from "@/lib/setups/brief";
 
 export type SetupSide = "buy" | "sell";
 
@@ -86,6 +87,12 @@ export interface SetupCardModel {
    * pp. 43-45; `chooseSessionEntry`). Null otherwise.
    */
   setAsideNote: string | null;
+  /**
+   * The setup brief (`lib/setups/brief.ts`, owner 2026-11-11): both sides,
+   * each level's reason, timing, what proves it wrong, in two voices. Absent
+   * on intraday cards and on rows stored before it existed.
+   */
+  brief?: SetupBrief | null;
   synopsis: string;
   tickerHref: string;
 }
@@ -252,6 +259,7 @@ export interface DailySetupInput {
   signal?: PublicSignalSummary | null;
   scoreSummary?: PublicScoreSummary | null;
   trends?: { timeframe: string; direction: string }[] | null;
+  brief?: SetupBrief | null;
 }
 
 /**
@@ -317,6 +325,9 @@ export function buildDailyCardModel(
     continuation: row.setupKind === "continuation",
     resting,
     setAsideNote: setAsideNoteOf(row.setAsideEntry),
+    // A brief read for the other side (a row stored before a re-scan flipped
+    // it) would contradict the card, so only one for the row's side is kept.
+    brief: row.brief && row.brief.side === side ? row.brief : null,
     synopsis: buildSetupSynopsis({
       side,
       verdict: tier,
@@ -329,4 +340,23 @@ export function buildDailyCardModel(
     }),
     tickerHref: tickerHref(row.symbol),
   };
+}
+
+// ---------------------------------------------------------------------------
+// The brief's voice
+
+/**
+ * The voice a viewer reads the brief in: plain for Novice and Pro, full for
+ * Expert and Wall Street (owner, 2026-11-11). Those are the same two groups
+ * the policy's exact-score flag already splits (`lib/entitlements/policy.ts`:
+ * false for Novice and Pro, true for Expert and Wall Street), so a surface
+ * that has resolved one has resolved the other.
+ */
+export function briefVoiceOf(exactScoreDisplayEnabled: boolean): BriefVoice {
+  return exactScoreDisplayEnabled ? "full" : "plain";
+}
+
+/** One line of the brief in the viewer's voice. Kept here, not in brief.ts, so a client never bundles the builder. */
+export function voiced(t: BriefText, voice: BriefVoice): string {
+  return voice === "full" ? t.full : t.plain;
 }
