@@ -1,5 +1,5 @@
 /**
- * What A-RISK-07's tenth of the profits is read on (*Tunnel Thru the Air*,
+ * What A-RISK-07's tenth of the profits is read on (ref: SRC-006,
  * W022 pp.198-199, Tier A): the account's starting capital and the most profit
  * it has banked. Once profits have reached the starting capital, every later
  * trade risks at most a tenth of the profits that remain, so after a loss the

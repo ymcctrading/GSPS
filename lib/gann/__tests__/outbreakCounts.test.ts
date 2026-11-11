@@ -1,5 +1,5 @@
 /**
- * A-TIME-33 (Tunnel Thru the Air, 1927, printed pp. 213, 370-372): 1,290 and
+ * A-TIME-33 (ref: SRC-006, 1927, printed pp. 213, 370-372): 1,290 and
  * 1,335 days and 70 weeks (490 days) from an outbreak, here a major turn of
  * the long monthly chart (a labelled anchor). Context only.
  */

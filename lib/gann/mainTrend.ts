@@ -5,25 +5,25 @@
  *
  * Gann's text:
  * - The monthly high-low chart is "the most important chart of all in
- *   determining the main trend" (Master Course GA-2/3, A2.1); daily is the
+ *   determining the main trend" (ref: SRC-001 GA-2/3, A2.1); daily is the
  *   first indication, weekly next, monthly of greatest importance for changes
  *   in the main trend (A2.1; the 1953-54 chart order, A12).
  * - The main trend turns down on the monthly swing: "after a sharp break of
  *   2-3 days/weeks/months, a rally, then a break under the first sharp break's
- *   low, the main trend is down" (Master Course GA-12..16, A2.1). That is
+ *   low, the main trend is down" (ref: SRC-001 GA-12..16, A2.1). That is
  *   the swing chart turning on a break of its last swing bottom.
  * - He does not sell short while it is up: Vanadium, sold at 59¾ on the 50%
  *   point and record volume, "but don't short since main trend still up"
- *   (Master Course Ch. 1, 1954, pp. 22-24, A2.1); "never buck the trend" (the 24
+ *   (ref: SRC-001 Ch. 1, 1954, pp. 22-24, A2.1); "never buck the trend" (the 24
  *   never-failing rules); the sale is the secondary rally after the main trend
- *   has turned down (Sell 3, Master Course Ch. 8, 1939, pp. 241-245).
+ *   has turned down (Sell 3, ref: SRC-001 Ch. 8, 1939, pp. 241-245).
  *
  * Read here as Gann's monthly swing chart on closed months: a move counts as
- * months "without breaking the previous month's low or high" (*Commodities*
+ * months "without breaking the previous month's low or high" (ref: SRC-007
  * pp. 102-103), the 7-day chart's construction on bars that each span it
  * (`swingChart.ts`, rule recheck fix 1), and the trend turns on crossing the
  * last swing top or breaking the last swing bottom, "the point from which the
- * last run-up to the top began" (NSTD pp. 19-20, A05). One reading, shared with the core
+ * last run-up to the top began" (ref: SRC-004 pp. 19-20, A05). One reading, shared with the core
  * replay profile.
  *
  * Only the short is held. Gann's text forbids the short against a rising main

@@ -37,17 +37,17 @@
  *
  * **Retired is terminal here.** The scan holds no stored flag and can stand a
  * plan again when a close clears the reclaim line. A row cannot, and should not:
- * Gann never resumes a stopped trade at its old levels (Master Course,
- * Overnight Chart rule 4; *New Stock Trend Detector* Rule 6, "if stopped, cover
- * and go long again" is a new trade; *Tunnel*, re-bought at 218 with a new stop
+ * Gann never resumes a stopped trade at its old levels (ref: SRC-001,
+ * Overnight Chart rule 4; ref: SRC-004 Rule 6, "if stopped, cover
+ * and go long again" is a new trade; ref: SRC-006, re-bought at 218 with a new stop
  * at 212). A failed break that stands the setup again reaches the lifecycle the
  * way every plan does, as a fresh WATCH -> EXECUTE transition with its own
  * signal id and its own row, so the audit trail shows a retired plan and a
  * replacement rather than one row that flipped back.
  *
  * Three-question basis (AGENTS.md):
- * 1. Gann, as above and in `lib/gann/stopBreach.ts` (Tier A, NSTD, Master
- *    Course, *Tunnel*). The sign-off gate is access control, not technique.
+ * 1. Gann, as above and in `lib/gann/stopBreach.ts` (Tier A, ref: SRC-004, ref: SRC-001,
+ *    ref: SRC-006). The sign-off gate is access control, not technique.
  * 2. Cycles: no periodicity claim; Dewey's checklist does not apply. The
  *    engineering property borrowed is phase-resumption after distortion: each
  *    scan pass decides again from the current plan, so a missed pass retires the

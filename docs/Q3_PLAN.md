@@ -61,7 +61,7 @@ items.
 
 **Gann:** keep a record of every trade and read it back to find your own good
 and bad runs, and quit after 2 or 3 losses then restart small (*Truth of the
-Stock Tape*, PDF 246-247, `docs/memory-bank/sources/A02_A04_truth_of_stock_tape_1923_and_stock_selector_1930.md`). The loss
+Stock Tape*, PDF 246-247, `/mnt/project-files/private-research/sources/A02_A04_truth_of_stock_tape_1923_and_stock_selector_1930.md`). The loss
 series pause (`lib/risk/lossSeries.ts`) and the profit ceiling already read that
 record; the member should be able to read it too.
 
@@ -164,7 +164,7 @@ bullish news, bottoms on bearish (*Commodities* p. 8; W006 p. 14), which is how
 ### 7. Community, Gann's way
 
 **Gann:** losses come from hope, tips and opinions; trade only on definite rules
-(*New Stock Trend Detector*, `docs/memory-bank/sources/A05_new_stock_trend_detector.md`; *Economic Forecaster*, A11:
+(*New Stock Trend Detector*, `/mnt/project-files/private-research/sources/A05_new_stock_trend_detector.md`; *Economic Forecaster*, A11:
 "ignore tips; follow rules"). "Follow expert traders" is a tip service by
 another name, so it is not built as copying.
 

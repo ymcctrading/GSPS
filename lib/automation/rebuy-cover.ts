@@ -5,7 +5,7 @@
  * still the stopped trade's way, is bought again on the reaction
  * (lib/lifecycle/fromRebuy.ts). The two never both act on one stop: Gann's
  * Robert buys again 12 points back from the top (230 to 218;
- * `rebuy.ts` reads that reaction at his price) (*Tunnel Thru the Air* p.198),
+ * `rebuy.ts` reads that reaction at his price) (ref: SRC-006 p.198),
  * so a short opened at the stop is closed there, as the replay's
  * `walkGannExit` closes it (`coverAt`, exit reason "covered"). The exit
  * managers read the level here for an automated reversal and close it at the

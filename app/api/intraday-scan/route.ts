@@ -540,7 +540,7 @@ async function resolveSystemUniverse(
   // taken today, chosen from the whole universe by the overnight sweep and
   // the lists the 15-minute market scan keeps current
   // (lib/scanner/sessionSetups.ts). Gann chose from the daily charts and timed
-  // the entry in the session (Master Course Ch. 13).
+  // the entry in the session (ref: SRC-001 Ch. 13).
   //
   // Since 2026-10-28 (owner, "I approve all 5"), the slots are shared by the
   // fair queue (lib/scanner/queue.ts): each tier keeps a reserved share and

@@ -22,7 +22,7 @@ export interface RetracementLevel {
   role: LevelRole;
   /**
    * The rank of the division, lower is more important (M-P1; owner
-   * 2026-10-16: Ch. 6 tiers). Master Course Ch. 6, "Natural Resistance
+   * 2026-10-16: Ch. 6 tiers). ref: SRC-001 Ch. 6, "Natural Resistance
    * Levels" (PDF 185): on a basis of 100, first ¼, ½ and ¾; then ⅓ and ⅔;
    * then the ⅛ and 1/16 points. Every source flags 50% as the most
    * important, so ½ alone is 1; ¼, ¾ and the full range (the basis itself,
@@ -117,7 +117,7 @@ export function nearestRetracementLevel(
 
 /**
  * The halfway point of a range: midway between its highest high and lowest
- * low. Gann ranks 50% first among the divisions of a range (Master Course
+ * low. Gann ranks 50% first among the divisions of a range (ref: SRC-001
  * Ch. 6 and every other source; see `RetracementLevel.importance`), and
  * the halfway point of a range's extremes is the balance point his method
  * reads a market against.

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { badNewsOffer, readBadNews } from "@/lib/gann/badNews";
 import type { Bar } from "@/lib/types";
 
-// A-EXIT-04, Tunnel Thru the Air p.223: cover shorts on bad news. Bad is read
-// from the market: the close fell on the news (Commodities p.8).
+// A-EXIT-04, ref: SRC-006 p.223: cover shorts on bad news. Bad is read
+// from the market: the close fell on the news (ref: SRC-007 p.8).
 const bar = (day: string, c: number): Bar => ({ t: `${day}T04:00:00Z`, o: c, h: c + 1, l: c - 1, c, v: 1e6 });
 const daily = [bar("2026-10-19", 50), bar("2026-10-20", 48), bar("2026-10-21", 45)];
 // New York time in October is UTC-4.

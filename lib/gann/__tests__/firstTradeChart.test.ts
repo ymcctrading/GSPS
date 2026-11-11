@@ -7,7 +7,7 @@ import type { Bar } from "@/lib/types";
 const DAY = 86_400_000;
 const dayOf = (iso: string) => Math.floor(Date.parse(`${iso}T00:00:00Z`) / DAY);
 
-describe("C-ASTRO-09: the first-trade chart with its aspects chosen on a hold-out (Bucholtz, W013)", () => {
+describe("C-ASTRO-09: the first-trade chart with its aspects chosen on a hold-out (ref: SRC-036 W013)", () => {
   it("casts the chart at 9:30 am New York time, daylight time included", () => {
     expect(newYorkOpen("2020-01-15").toISOString()).toBe("2020-01-15T14:30:00.000Z");
     expect(newYorkOpen("2020-07-15").toISOString()).toBe("2020-07-15T13:30:00.000Z");

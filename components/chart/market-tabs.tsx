@@ -456,8 +456,8 @@ function OptionsPanel({
       simulated: chain.simulated,
       expirations,
       maxExpiration,
-      // Gann's term: the nearest expiration at least 30 days out (Master
-      // Course Ch. 19A: "buying PUTS and CALLS good 30 days").
+      // Gann's term: the nearest expiration at least 30 days out (ref: SRC-001
+      // Ch. 19A: "buying PUTS and CALLS good 30 days").
       defaultExpiration: gannOptionExpiration(expirations) ?? chain.expiration,
     });
   };

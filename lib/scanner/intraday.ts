@@ -40,18 +40,18 @@
  *
  * | Was | Now | Gann source |
  * |---|---|---|
- * | Break of the first 15 minutes' range | A close beyond the prior session's top or bottom by one intraday point (`old_level_cross`) | Buy on crossing old tops, sell on breaking old bottoms (*New Stock Trend Detector* pp. 20-22); a close decides, since intraday pokes often reverse (*Master Course* rule 5) |
- * | Move larger than 1.5 daily ATRs | The day's counter-move exceeds the greatest reaction of the daily campaign (`pullback_record`) | The Space Rule's over-balance of space (*Master Course* Ch. 7, 10A, 11A; *Commodities* p. 51), read by the same `buildCampaignLedger` the daily trend verdict uses |
- * | Higher highs and lows over six bars | The 3-bar swing chart's trend on the session's bars | The trend turns only when the last swing extreme breaks (NSTD pp. 19-20); "the hourly chart will give the first change in trend" (*Master Course* Ch. 13) |
- * | (new, 2026-10-16) | The same chart on hourly bars over recent sessions, a factor on the crossing and continuation alerts | "Keep an hourly High and Low Chart… the Hourly Chart will give the first change in trend" (*Master Course* Ch. 13) |
+ * | Break of the first 15 minutes' range | A close beyond the prior session's top or bottom by one intraday point (`old_level_cross`) | Buy on crossing old tops, sell on breaking old bottoms (ref: SRC-004 pp. 20-22); a close decides, since intraday pokes often reverse (ref: SRC-001 rule 5) |
+ * | Move larger than 1.5 daily ATRs | The day's counter-move exceeds the greatest reaction of the daily campaign (`pullback_record`) | The Space Rule's over-balance of space (ref: SRC-001 Ch. 7, 10A, 11A; ref: SRC-007 p. 51), read by the same `buildCampaignLedger` the daily trend verdict uses |
+ * | Higher highs and lows over six bars | The 3-bar swing chart's trend on the session's bars | The trend turns only when the last swing extreme breaks (ref: SRC-004 pp. 19-20); "the hourly chart will give the first change in trend" (ref: SRC-001 Ch. 13) |
+ * | (new, 2026-10-16) | The same chart on hourly bars over recent sessions, a factor on the crossing and continuation alerts | "Keep an hourly High and Low Chart… the Hourly Chart will give the first change in trend" (ref: SRC-001 Ch. 13) |
  *
  * The failed-break alert reads the same prior-session levels: a cross that
- * closes back one point inside the level is Gann's false break (NSTD p. 20,
+ * closes back one point inside the level is Gann's false break (ref: SRC-004 p. 20,
  * a crossed top "should not react back 3 points under it"). The intraday point
  * is `intradayPoint` (`lib/gann/pointScale.ts`), the same scaling the intraday
  * replay profile uses, so the alerts and the replay read one allowance.
- * Three-question basis: 1. Gann, as tabled (Tier A; the *Master Course* and
- * *Commodities* rows are read in `docs/memory-bank/sources/`). 2. No
+ * Three-question basis: 1. Gann, as tabled (Tier A; the ref: SRC-001 and
+ * ref: SRC-007 rows are read in `docs/memory-bank/sources/`). 2. No
  * periodicity claim; Dewey's checklist does not apply. 3. Correspondence: the
  * daily method's own constructions (old levels, swing chart, campaign ledger)
  * read at the session's scale rather than a second method; Polarity: every
@@ -156,7 +156,7 @@ export interface ScannerConfig {
 
 /**
  * Engineering figures, labelled as such (audit 2026-10-28): Gann reads volume
- * against the market's own past (*New Stock Trend Detector* Ch. VI pp. 39-40)
+ * against the market's own past (ref: SRC-004 Ch. VI pp. 39-40)
  * but gives no intraday ratio, no session-volume floor and no repeat interval,
  * so 1.2, 50,000 shares and 30 minutes are GSPS's. The data-age limit follows
  * the feed's own delay.
@@ -262,7 +262,7 @@ export interface SymbolInput {
    * Bars over the last several sessions (five-minute bars from the route),
    * oldest first, rolled up into Gann's hourly High and Low chart: "when
    * markets are very active… the Hourly Chart will give the first change in
-   * trend" (*Master Stock Market Course* Ch. 13). Without them the hourly
+   * trend" (ref: SRC-001 Ch. 13). Without them the hourly
    * factor is left out rather than counted as failed.
    */
   recentBars?: Bar[];
@@ -365,16 +365,16 @@ export interface SessionMetrics {
    * ledger reads it on the prior daily bars (`buildCampaignLedger`, the same
    * reading the daily plan's sections and exits take). The 3-Day Chart's turns
    * inside it are reactions: "stocks are a buy on a reaction of about 1
-   * month in a bull market" (Master Course p. 10, rule A; bull reactions 3-4
+   * month in a bull market" (ref: SRC-001 p. 10, rule A; bull reactions 3-4
    * weeks, PDF 253-254), and the reaction is the safest buying point
-   * (*Commodities* pp. 39-40 #3; Master Course PDF 244-245), never a short.
+   * (ref: SRC-007 pp. 39-40 #3; ref: SRC-001 PDF 244-245), never a short.
    * Null without enough daily history or before the weekly chart has a trend.
    */
   weeklyTrend: Direction | null;
   /**
    * A reaction of the campaign, in progress or still standing, has exceeded
    * the greatest before it "by one or more points", or lasted longer than it:
-   * the main trend "has changed or will soon" (Master Course Ch. 8, PDF
+   * the main trend "has changed or will soon" (ref: SRC-001 Ch. 8, PDF
    * 249-250). The space half reads the ledger's 1-point margin
    * (`spaceOverbalancedByPoint`), as Gann states the rule.
    */
@@ -399,7 +399,7 @@ export interface SessionMetrics {
 
 /**
  * Fewest hourly bars the hourly chart is read from. An engineering figure:
- * Gann reads the hourly chart (Master Course Ch. 13) but names no minimum.
+ * Gann reads the hourly chart (ref: SRC-001 Ch. 13) but names no minimum.
  */
 export const MIN_HOURLY_BARS = 10;
 
@@ -510,20 +510,20 @@ const SWING_BARS = 3;
 /**
  * The old tops and bottoms behind a session's first target: where the market
  * has turned before, so where it is expected to meet orders again ("old tops
- * become bottoms", *New Stock Trend Detector* p. 13). Read three ways, each a
+ * become bottoms", ref: SRC-004 p. 13). Read three ways, each a
  * completed turn rather than any bar's high or low:
  * - the session's own completed swings (the 3-bar swing chart on its bars).
  *   Gann's swing chart records the tops and bottoms of each reverse move, and
  *   those are the "old tops" and "old bottoms" his Buying and Selling Points
- *   are stated against (*How to Make Profits in Commodities*, 1951 New Rules,
+ *   are stated against (ref: SRC-007, 1951 New Rules,
  *   p. 316; A8). Reading it on the session's bars is the hourly-chart use he
- *   gives for active markets (*Master Stock Market Course* Ch. 13).
+ *   gives for active markets (ref: SRC-001 Ch. 13).
  * - the prior session's high and low: the old top and bottom of the day, the
  *   levels the crossing alert already reads ("buy on crossing old tops, sell on
- *   breaking old bottoms", *New Stock Trend Detector* pp. 20-22).
+ *   breaking old bottoms", ref: SRC-004 pp. 20-22).
  * - the 3-Day Chart's swing tops and bottoms on the prior daily bars
- *   (`THREE_DAY_CHART`: reverse moves of 2 to 3 days, A8 p. 316; *45 Years in
- *   Wall Street* Ch. VII p. 62), the same chart the daily plans read structure
+ *   (`THREE_DAY_CHART`: reverse moves of 2 to 3 days, A8 p. 316; ref: SRC-005
+ *   Ch. VII p. 62), the same chart the daily plans read structure
  *   from, so an intraday target and a daily plan name the same old levels.
  * Both kinds are returned: a top or a bottom above the price resists a rise,
  * and either below it supports a fall. The caller keeps the ones beyond the
@@ -697,7 +697,7 @@ export interface Alert {
    * True when the alert's direction runs against the weekly trend
    * (`tradeTrend`: the weekly swing chart's, the 3-Day Chart's only while the
    * weekly has none). Shown for study, never offered as a trade, belled or
-   * replayed: "never buck the trend" (never-failing rule 5, *Commodities*
+   * replayed: "never buck the trend" (never-failing rule 5, ref: SRC-007
    * pp. 43-45, 55; audit I-02, 2026-10-28). Read the 3-Day Chart alone until
    * 2026-10-29, which held the long at a pullback's end in a weekly uptrend and
    * offered the short into it. The name is kept for stored rows. Never set on a
@@ -709,7 +709,7 @@ export interface Alert {
    * True when the alert goes with the weekly trend but the campaign's latest
    * reaction has over-balanced its greatest in points or time
    * (`SessionMetrics.weeklyOverbalanced`): the trend "has changed or will
-   * soon" (Master Course PDF 249-250), so the reaction is no longer one to buy.
+   * soon" (ref: SRC-001 PDF 249-250), so the reaction is no longer one to buy.
    * Held as `againstDailyTrend` is. Never set on a warning, the plan's own
    * timing or a notice.
    */
@@ -728,7 +728,7 @@ export interface Alert {
    * study, never offered as a trade, belled or pushed: a stop inside Gann's
    * allowance is taken by lost motion, not by the market turning (his stops
    * stand his allowance beyond the level, W006 pp. 20, 46-47; the Overnight
-   * Chart's 1-point stop, Master Course Ch. 3). The intraday alerts replay
+   * Chart's 1-point stop, ref: SRC-001 Ch. 3). The intraday alerts replay
    * refuses the same trade (`risk_under_point`), so the live alert now reads
    * as the measured one does (2026-10-29, the Oct 28 recap: 18 signals with a
    * stop within 0.2% of price, 15 stopped out, -0.87R a signal). Never set on
@@ -1168,7 +1168,7 @@ function scanSymbol(input: SymbolInput, config: ScannerConfig, now: Date): Symbo
  * Gann's buying and selling point at the session's scale: a bar has closed
  * beyond yesterday's high (low) by one intraday point. Old tops crossed become
  * support, so the alert is invalidated if price falls back a point under the
- * crossed level (NSTD p. 20: a crossed top "should not react back 3 points
+ * crossed level (ref: SRC-004 p. 20: a crossed top "should not react back 3 points
  * under it"). Replaces the 15-minute opening-range break (2026-10-16).
  */
 function detectOldLevelCross(
@@ -1249,7 +1249,7 @@ function detectOldLevelCross(
  * How many intraday points (`SessionMetrics.point`) a stop rests past the
  * day's 50% point. Gann buys on crossing an old level and sets his stop 3
  * points beyond it (W006 pp.20-24, 46-47; `lib/gann/pointScale.ts`), and the
- * Master Course puts the average lost motion past a level that holds at
+ * ref: SRC-001 puts the average lost motion past a level that holds at
  * 1-7/8 points (Ch. 9, PDF p.268), so a stop exactly on the level is taken by
  * the noise of a level that is holding. One intraday point is a third of his
  * 3 points at this chart's scale (`intradayPoint`), so 3 is his full
@@ -1395,8 +1395,8 @@ function detectSpaceOverbalance(
     return null;
   }
   const against: Direction = ledger.trend === "bullish" ? "down" : "up";
-  // In points, as the ledger reads it (Gann's "a decline in points", Master
-  // Course Ch. 8, PDF 249; 2026-10-21). The alert is for the reaction in
+  // In points, as the ledger reads it (Gann's "a decline in points", ref: SRC-001
+  // Ch. 8, PDF 249; 2026-10-21). The alert is for the reaction in
   // progress, the session that made the difference: a completed reaction's
   // over-balance that still stands (`overbalance.standing`) was alerted on
   // the day it happened, so it does not alert again here.
@@ -1448,8 +1448,8 @@ function detectSpaceOverbalance(
 }
 
 /**
- * Gann's Overnight Chart turning on today's session (*Master Stock Market
- * Course* Ch. 3, pp. 68-71; Q29, owner 2026-10-16, "Switch all nine": the
+ * Gann's Overnight Chart turning on today's session (ref: SRC-001
+ * Ch. 3, pp. 68-71; Q29, owner 2026-10-16, "Switch all nine": the
  * volume-only alert this replaced had no Gann source). The chart is read on the
  * daily bars with today's session as the newest bar. A turn up is a higher
  * bottom after the line was down; a turn down is a low that breaks the prior
@@ -1506,8 +1506,8 @@ function detectOvernightTurn(
 }
 
 /**
- * The first change in trend on Gann's hourly chart (*Master Stock Market
- * Course* Ch. 13: in very active markets an hourly chart shows the first
+ * The first change in trend on Gann's hourly chart (ref: SRC-001
+ * Ch. 13: in very active markets an hourly chart shows the first
  * change in trend; Q29). Fires only on the hour the chart turned. The stop is
  * the session's 50% point, the intraday alerts' Gann invalidation.
  */
@@ -1550,11 +1550,11 @@ function detectHourlyTurn(input: SymbolInput, m: SessionMetrics, checks: AuditCh
  *
  * The rule, from Gann's text:
  * - Buy on the reaction back to the planned level (a crossed old top "nearly
- *   always" holds the first time, *Truth of the Stock Tape*; the reaction buy,
- *   *New Stock Trend Detector* p. 20), and act on a definite turn on a closed
- *   bar, never ahead of it ("don't try to get ahead of the market", *Master
- *   Stock Market Course* Ch. 8 p. 251). In very active markets the shortest
- *   chart shows the turn first (*Master Course* Ch. 13, the hourly chart).
+ *   always" holds the first time, ref: SRC-002; the reaction buy,
+ *   ref: SRC-004 p. 20), and act on a definite turn on a closed
+ *   bar, never ahead of it ("don't try to get ahead of the market", ref: SRC-001
+ *   Ch. 8 p. 251). In very active markets the shortest
+ *   chart shows the turn first (ref: SRC-001 Ch. 13, the hourly chart).
  *   So: price has traded into the plan's entry this session (within one
  *   intraday point), the session's 3-bar swing chart runs the plan's way, and
  *   the last bar closed back beyond the entry.
@@ -1569,13 +1569,13 @@ function detectHourlyTurn(input: SymbolInput, m: SessionMetrics, checks: AuditCh
  *   markets is made on the long swings and not by day to day trading"
  *   (*Annual Forecasts 1919-1922* p. 24).
  * - Missed it? The next higher bottom is the next buying point while the plan
- *   stands (re-buy on the reaction, *Tunnel Thru the Air* p. 198): the alert
+ *   stands (re-buy on the reaction, ref: SRC-006 p. 198): the alert
  *   fires again on a later higher bottom once the cooldown clears, with the
  *   daily plan's stop.
  * Not fired when the plan's stop broke this session (the plan is retired,
  * `lib/gann/stopBreach.ts`) or price is already at the plan's TP1.
  *
- * Three-question basis: 1. Gann, as cited (Tier A; the *Master Course* is read
+ * Three-question basis: 1. Gann, as cited (Tier A; the ref: SRC-001 is read
  * in `docs/memory-bank/sources/`). 2. No periodicity claim; Dewey does not
  * apply. 3. Correspondence: one plan read at two scales, the daily chart for
  * what and where, the session's chart for when. Law of Creation: daily plan ⊗
@@ -1599,9 +1599,9 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
   // session closed at or beyond the entry, and today traded back to it. A
   // crossing's entry is the reaction buy 1 point past the old top (bottom),
   // and the crossing is made by a daily close 3 points past it (W006 Rule
-  // 3(b)-(c), pp. 46-47; NSTD p. 20). With price still under the entry, the
+  // 3(b)-(c), pp. 46-47; ref: SRC-004 p. 20). With price still under the entry, the
   // crossing is not made, and Gann's buy is never the first intraday bar
-  // through it ("don't try to get ahead of the market", Master Course Ch. 8
+  // through it ("don't try to get ahead of the market", ref: SRC-001 Ch. 8
   // p. 251). Until 2026-10-22 the touch test passed all session on such a
   // plan, so the alert bought the first poke into resistance as a held level
   // (run 80 measured the signal losing,
@@ -1716,7 +1716,7 @@ function detectPlanLevelHeld(input: SymbolInput, m: SessionMetrics, checks: Audi
  * person sign in and open the plan before price gets there (owner,
  * 2026-10-28). No order rests at a fixed price: "never limit your orders or
  * fix a buying or selling price. Trade at the market" (never-failing rule 9,
- * *Commodities* pp. 43-45, p. 19). Once a closed bar trades into the plan's
+ * ref: SRC-007 pp. 43-45, p. 19). Once a closed bar trades into the plan's
  * buy zone, its entry goes at the market (`gannBuyZone`, `confirmEntry`); the
  * session only says how soon that is likely (`lib/scanner/entryApproach.ts`,
  * his angle: price covered per bar since the reaction's top).
@@ -1891,7 +1891,7 @@ function detectEntryApproach(input: SymbolInput, m: SessionMetrics, checks: Audi
  * Gann chose the stock from the daily chart the night before and knew the
  * level; in the session he watched for it to be crossed, and bought only after
  * the definite indication, a close 3 points past the old level, on the
- * reaction back to it (W006 p.20, Rules 3(b)-(c) pp.46-47; Master Course
+ * reaction back to it (W006 p.20, Rules 3(b)-(c) pp.46-47; ref: SRC-001
  * Ch. 13 for timing in the session). So the session's crossing is news, never
  * a buy: these are notices (`NOTICE_SIGNALS`) with no entry of their own,
  * never offered as a trade, never replayed.
@@ -2082,7 +2082,7 @@ function detectReversalRisk(
   now: Date,
 ): Alert | null {
   // Gann's false break: the session crossed yesterday's high (low) and has
-  // closed back a point inside it (NSTD p. 20). The move people entered on has
+  // closed back a point inside it (ref: SRC-004 p. 20). The move people entered on has
   // been given back.
   const levels = m.priorHigh !== null && m.priorLow !== null && m.point > 0;
   const failedUp = levels && m.high > m.priorHigh! && m.lastClose < m.priorHigh! - m.point;
@@ -2171,7 +2171,7 @@ function hourlyFactors(m: SessionMetrics, direction: Direction): ConfidenceFacto
 /**
  * The trend an intraday trade must go with: the weekly trend, and the
  * 3-Day Chart's only while the weekly chart has none yet. Never-failing rule
- * 5, "never buck the trend" (*Commodities* pp. 43-45; *45 Years* p. 15): the
+ * 5, "never buck the trend" (ref: SRC-007 pp. 43-45; ref: SRC-005 p. 15): the
  * trend a reaction runs against is the main one, so a 3-Day Chart turned down
  * inside a weekly uptrend is the reaction to buy at its end, not a short
  * (2026-10-29, Chuck). Null when neither chart reads.
@@ -2245,7 +2245,7 @@ function buildAlert(args: {
 }): Alert {
   const { now, input, metrics: m, type, direction, move, invalidation } = args;
   // Every trade alert is read against the weekly trend: "never buck the trend"
-  // (never-failing rule 5, *Commodities* pp. 43-45). A reversal-risk alert is a
+  // (never-failing rule 5, ref: SRC-007 pp. 43-45). A reversal-risk alert is a
   // warning to stand aside, not a trade, so it carries no such check.
   const factors = type === "reversal_risk" ? args.factors : [...args.factors, ...dailyTrendFactors(m, direction)];
 
@@ -2370,12 +2370,12 @@ export function scoreConfidence(factors: ConfidenceFactor[]): number {
  *
  * Three-question basis (AGENTS.md):
  * 1. Gann, Tier A. Sell at old tops and buy at old bottoms: they are where the
- *    market has turned before, and a crossed top becomes the floor (*New Stock
- *    Trend Detector*, p. 13: "old tops become bottoms"). Even figures attract
- *    orders, so markets turn just short of them (*How to Make Profits in
- *    Commodities* p. 19; `lib/gann/evenFigures.ts`, the same rule the daily
- *    plans use for equity targets). And "never fix a target price" (*Truth of
- *    the Stock Tape*, owner decision X4): where the market has no old top ahead
+ *    market has turned before, and a crossed top becomes the floor (ref: SRC-004,
+ *    p. 13: "old tops become bottoms"). Even figures attract
+ *    orders, so markets turn just short of them (ref: SRC-007
+ *    p. 19; `lib/gann/evenFigures.ts`, the same rule the daily
+ *    plans use for equity targets). And "never fix a target price" (ref: SRC-002,
+ *    owner decision X4): where the market has no old top ahead
  *    of it, the method names no target and the stop follows the move.
  * 2. Cycles: no periodicity claim, so Dewey's checklist does not apply.
  * 3. Hermetic: Polarity. A level is the place where buyers and sellers have
@@ -2396,8 +2396,8 @@ export function scoreConfidence(factors: ConfidenceFactor[]): number {
  * many alerts with no target where an old level did lie ahead.
  *
  * The target must pay more than the risk (2026-10-21, the daily plan's rule
- * carried to the session's scale): "profits must exceed losses" (*Wall Street
- * Stock Selector* Ch. II), never risk 3-5 points to make 3-5, and no trade
+ * carried to the session's scale): "profits must exceed losses" (ref: SRC-003
+ * Ch. II), never risk 3-5 points to make 3-5, and no trade
  * whose first target is no farther than its risk (M-K5). Given `risk`, the
  * target is the nearest candidate that pays more than it; with none, the
  * nearest stays and the plan says it does not pay (`targetPaysRisk`). Every
@@ -2405,7 +2405,7 @@ export function scoreConfidence(factors: ConfidenceFactor[]): number {
  * against 2.64 at 1:45 PM), because the nearest level was taken whatever it paid.
  *
  * Old levels within 1% of each other are one resistance point, averaged before
- * the target is read (M-P4, 2026-10-22; *Commodities*, "resistance points near
+ * the target is read (M-P4, 2026-10-22; ref: SRC-007, "resistance points near
  * same levels"; `lib/gann/nearbyLevels.ts`), the daily plan's rule: there the
  * S/R levels are averaged and the even figures kept apart, and so here. The
  * intraday replays call this function, so they read the same targets.
@@ -2454,7 +2454,7 @@ export function gannFirstTarget(input: {
  * "Include a mtp for intraday trades"). The daily plan's rule read at the
  * session's scale (`lib/strat/levels.ts`, "the next level beyond TP1, so the
  * two are not the same resistance"): Gann's next resistance after the first
- * (*Truth of the Stock Tape*; W006 pp.19-24, a level is resistance above price
+ * (ref: SRC-002; W006 pp.19-24, a level is resistance above price
  * and support below it). It is where the move is measured to, never an order:
  * nothing sells there (Q14, "never fix a target price"), so the trade still
  * exits on the session's stop, the hourly turn or the close, as the daily plan's
@@ -2502,7 +2502,7 @@ export function gannMasterTarget(input: {
 
 /**
  * Whether a first target pays more than the risk taken to reach it (M-K5;
- * *Wall Street Stock Selector* Ch. II, "profits must exceed losses"). Null when
+ * ref: SRC-003 Ch. II, "profits must exceed losses"). Null when
  * either is missing: no fixed target (the stop trails) or no stop to measure.
  */
 export function targetPaysRisk(entry: number, stop: number | null, target: number | null): boolean | null {

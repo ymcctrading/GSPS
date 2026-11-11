@@ -102,7 +102,7 @@ export function evaluateTrendPullback(inputs: TrendPullbackInputs): SignalVerdic
   // Where a pullback may be bought (or a rally sold). These were the 20/50
   // SMAs and an anchored VWAP until 2026-09-26 (alignment audit F2.5). They
   // are now Gann's own retracement levels of the latest execution swing, the
-  // first tier of Master Course Ch. 6 (owner 2026-10-16: Ch. 6 tiers; M-P1):
+  // first tier of ref: SRC-001 Ch. 6 (owner 2026-10-16: Ch. 6 tiers; M-P1):
   // 1/2, 1/4, 3/4 and the full range (`isFirstTierRetracement`). The same set
   // the earlier ranking's top four gave. The support/resistance zones are
   // kept as before.

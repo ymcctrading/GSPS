@@ -5,7 +5,7 @@ import { inceptionWindows, readWindowTurn } from "@/lib/gann/timeWindow";
 import type { Bar } from "@/lib/types";
 import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 
-// A-OTHER-08, Master Course Ch. 15A (PDF 401-402): "United States Steel"
+// A-OTHER-08, ref: SRC-001 Ch. 15A (PDF 401-402): "United States Steel"
 // has 17 letters, a Square of 289; its multiples strike the name's vibrations.
 describe("name chart", () => {
   it("counts the name as the course does, legal-form words and state tags dropped", () => {

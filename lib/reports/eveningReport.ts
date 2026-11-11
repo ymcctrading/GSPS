@@ -14,12 +14,12 @@
  *
  * Three-question basis (AGENTS.md):
  * 1. Gann: he chose his active stocks from the daily charts the night before
- *    and timed them in the session (Master Course Ch. 13), so the focus list
+ *    and timed them in the session (ref: SRC-001 Ch. 13), so the focus list
  *    goes out in the evening, after the daily scan has read the close. He
  *    measured moves in points, and a price-scaled point is how GSPS reads
  *    them (`pointScale.ts#pricePoint`), so the movers are ranked in Gann points
  *    beside dollars and percent. He judged his method by its trade record,
- *    losses included (the series-of-losses rule; *Tunnel* pp.198-199), so a
+ *    losses included (the series-of-losses rule; ref: SRC-006 pp.198-199), so a
  *    setup counts only when its own entry rule would have filled it (rule 9,
  *    `confirmationFromBars`, as placement reads it) and is judged on where
  *    price went after the fill, not on the day's direction.

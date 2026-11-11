@@ -15,7 +15,7 @@
  * Promotion reads the high-water drawdown from it (`paperDrawdownPct`).
  *
  * Three-question basis: 1. Gann: he kept a record of every trade and read his
- * capital rules back from it (*Tunnel Thru the Air* pp. 198-199, the profit
+ * capital rules back from it (ref: SRC-006 pp. 198-199, the profit
  * peak; the series of losses); this is that record for the account as a
  * whole. 2. Cycles: no periodicity claim; the session date is a bookkeeping
  * key. 3. Hermetic: Cause and Effect, a drawdown is read from what the

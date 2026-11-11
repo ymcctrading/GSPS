@@ -24,7 +24,7 @@ function zigzag(n: number, base = 40, amp = 6, period = 12): Bar[] {
   });
 }
 
-describe("C-LEVELS-04: angles from zero (Master Course Ch.4 PDF 132-135, Form #7)", () => {
+describe("C-LEVELS-04: angles from zero (ref: SRC-001 Ch.4 PDF 132-135, Form #7)", () => {
   it("from a 20 low, the 45 degree from zero reaches 20 in 20 periods", () => {
     const z = zeroAngle({ index: 10, price: 20 }, 1, 30, 1);
     expect(z.lineNow).toBe(20);
@@ -40,7 +40,7 @@ describe("C-LEVELS-04: angles from zero (Master Course Ch.4 PDF 132-135, Form #7
   });
 });
 
-describe("C-LEVELS-05: angles from each bottom of a double or triple bottom cross (Master Course Ch.4 PDF 132, Form #6)", () => {
+describe("C-LEVELS-05: angles from each bottom of a double or triple bottom cross (ref: SRC-001 Ch.4 PDF 132, Form #6)", () => {
   it("crosses the 45 degree from the first bottom with the 2x1 from the second", () => {
     // 1B at 40 on bar 0, 2B at 41 on bar 10, one point a bar: the 1x1 from 1B
     // and the 2x1 from 2B meet at bar 19, price 59.
@@ -57,7 +57,7 @@ describe("C-LEVELS-05: angles from each bottom of a double or triple bottom cros
   });
 });
 
-describe("C-LEVELS-09: the 1x1 ranks first, and the square of a range has its crossings (Master Course Ch.4 PDF 125, Ch.13 PDF 377-379, Ch.16 PDF 428)", () => {
+describe("C-LEVELS-09: the 1x1 ranks first, and the square of a range has its crossings (ref: SRC-001 Ch.4 PDF 125, Ch.13 PDF 377-379, Ch.16 PDF 428)", () => {
   it("ranks the 1x1 first and alone, then the 2x1s, then the 4x1s", () => {
     expect(angleRank("1x1")).toBe(1);
     expect(angleRank("2x1")).toBe(2);

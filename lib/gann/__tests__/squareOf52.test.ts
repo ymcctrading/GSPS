@@ -27,7 +27,7 @@ describe("SQUARE_OF_52_FRACTIONS", () => {
     expect(byLabel["3/4"].emphasis).toBe("very-important");
   });
 
-  it("flags exactly the disclosed fractions as disclosed:true (Master Course Ch.14 PDF 385, Ch.18 PDF 440; Commodities p.58)", () => {
+  it("flags exactly the disclosed fractions as disclosed:true (ref: SRC-001 Ch.14 PDF 385, Ch.18 PDF 440; ref: SRC-007 p.58)", () => {
     const disclosed = SQUARE_OF_52_FRACTIONS.filter((f) => f.disclosed).map((f) => f.label).sort();
     expect(disclosed).toEqual(["1/16", "1/8", "1/4", "1/3", "3/8", "1/2", "5/8", "2/3", "3/4", "7/8"].sort());
     const byLabel = Object.fromEntries(SQUARE_OF_52_FRACTIONS.map((f) => [f.label, f]));

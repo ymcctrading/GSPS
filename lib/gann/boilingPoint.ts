@@ -1,7 +1,7 @@
 /**
  * "Boiling point" blow-off duration heuristic.
  *
- * *Wall Street Stock Selector* (1930), Tier A public book
+ * ref: SRC-003 (1930), Tier A public book
  * (`docs/GANN_HISTORICAL_SOURCES.md` A4): a final blow-off advance or
  * decline in an active stock typically exhausts in 6-7 weeks, and rarely
  * runs past 10 — distinct from the multi-year "time square" bands already
@@ -19,11 +19,11 @@
  *
  * **Second anchor, added 2026-10-16 (M-T10): where the run began.** Gann
  * counts the 6-7 weeks from the start of the move, not from a volume climax:
- * "rapid moves culminate in the 6th or 7th week" (*Wall Street Stock
- * Selector* Ch. IV, pp. 41-59, the weekly time rule); "the final fast
+ * "rapid moves culminate in the 6th or 7th week" (ref: SRC-003
+ * Ch. IV, pp. 41-59, the weekly time rule); "the final fast
  * advance lasts 6-7 weeks, sometimes 10" (Ch. V); "most moves run out in 6-7
- * weeks" (Master Course Ch. 2 PDF 52, 1931); and "the last weeks of a run are
- * 6-7 weeks of a big advance" (*Commodities* p. 61). `computeRunBoilingPoint`
+ * weeks" (ref: SRC-001 Ch. 2 PDF 52, 1931); and "the last weeks of a run are
+ * 6-7 weeks of a big advance" (ref: SRC-007 p. 61). `computeRunBoilingPoint`
  * counts from the weekly swing chart's last swing bottom (for a run up) or
  * top (for a run down), Gann's own chart construction (`swingChart.ts`); the
  * climax anchor above is kept beside it, unchanged. Which pivot counts as
@@ -33,7 +33,7 @@
  * **Acting on the exit, 2026-10-22 (M-T10, the recheck of "every Gann method
  * acts").** Gann says what the 6-7 weeks are for: "wait to sell your stock
  * until it boils ... the final fast advance lasts 6-7 weeks (sometimes 10)",
- * with a 10-point trailing stop (*Wall Street Stock Selector* Ch. V; a 6-7
+ * with a 10-point trailing stop (ref: SRC-003 Ch. V; a 6-7
  * week panic ends a bear campaign, the mirror). So once the run a trade rides
  * has run 6 weeks, its stop trails his 10 points, read at his price, from the best price
  * (`exitRules.ts`, "boiling_point"), on the live exits and the replay alike.

@@ -393,7 +393,7 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
   const up = alert.direction === "up";
   const isRisk = isReversalRisk(alert);
   // A first target that pays no more than the risk is no trade (M-K5;
-  // "profits must exceed losses", *Wall Street Stock Selector* Ch. II).
+  // "profits must exceed losses", ref: SRC-003 Ch. II).
   const unpaid = alert.continuationPlan.paysRisk === false;
   // A signal held from trading (measured losing, against the weekly or main trend, or after its pullback over-balanced)
   // is shown for study, never offered.

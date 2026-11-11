@@ -6,8 +6,8 @@
  * **Gann did not day-trade, and said so.** "The big money in the markets is
  * made on the long swings and not by day to day trading" (W036); a scalper
  * pays 150 points a year in commissions against 6 for one trade a month
- * (*Commodities* pp. 4-7; W004 p. 6); "follow the main trend and the long
- * swings" (*Commodities* p. 55). He never closed a trade because a session
+ * (ref: SRC-007 pp. 4-7; W004 p. 6); "follow the main trend and the long
+ * swings" (ref: SRC-007 p. 55). He never closed a trade because a session
  * ended. So GSPS offers his two speeds of one method, not a day-trading
  * method he rejected:
  *
@@ -16,8 +16,8 @@
  *   beyond the old level (W006 pp. 20, 46-47), and the trade runs on his exit
  *   rules (`lib/gann/exitRules.ts`). Held for weeks.
  * - **Fast**, his fast-market method: the daily chart "in fast markets"
- *   (*Commodities* p. 31; Master Course PDF 255; W011), the hourly chart for
- *   "the first change in trend" in very active markets (Master Course Ch.
+ *   (ref: SRC-007 p. 31; ref: SRC-001 PDF 255; W011), the hourly chart for
+ *   "the first change in trend" in very active markets (ref: SRC-001 Ch.
  *   13). The entry and the initial stop are the swing plan's (Rule 3, W006
  *   pp. 46-47: "old top 50, a close at 53 crosses it, buy 51 down to 48, stop
  *   47"): the entry rule and the stop are not changed by the speed. Once
@@ -25,9 +25,9 @@
  *   each day's high, short), from the fill's own session (W006 Rule 2, p. 46:
  *   in fast moves "1 to 3 points under the day's low", "a 3-points stop loss
  *   order is the safest"; the 1940-41 soybean trade's stops 1 cent under each
- *   day's low, W001 pp. 134-137; *Truth of the Stock Tape*, "buy on the second
+ *   day's low, W001 pp. 134-137; ref: SRC-002, "buy on the second
  *   day's reaction and stop three points", anchored on the day bought;
- *   *Commodities* Selling Point 9: fast declines "run 10 to 30 days without
+ *   ref: SRC-007 Selling Point 9: fast declines "run 10 to 30 days without
  *   crossing the high of the previous day"). Held for days, until a day's low
  *   breaks. The trail is `readGannExit`'s "day_low" (`lib/gann/dayStop.ts`),
  *   read by the live and paper exit managers and the replay alike.
@@ -69,7 +69,7 @@
  * (`lib/gann/intradayExit.ts`): no sale at the first target (Gann's "never
  * fix a target price"), the stop one
  * intraday point under each completed 15-minute bottom, out when the hourly
- * chart gives the first change in trend (Master Course Ch. 13). What is left
+ * chart gives the first change in trend (ref: SRC-001 Ch. 13). What is left
  * closes at the session's end unless the trader chose to hold it overnight
  * (`orders.hold_overnight`): the owner's choice, not Gann's, who never closed
  * a trade because a session ended. No measured record yet: the intraday
@@ -131,7 +131,7 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
     stopRule: "Just beyond the old top or bottom the entry crossed",
     trailRule: "The exit rules on the daily swings",
     expectedHold: "Weeks; often more than ten sessions",
-    // Sources (internal only, never shipped as a string): W006 pp. 20, 46-47; Commodities p. 55
+    // Sources (internal only, never shipped as a string): W006 pp. 20, 46-47; ref: SRC-007 p. 55
   },
   fast: {
     style: "fast",
@@ -142,7 +142,7 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
     stopRule: "Just beyond the old top or bottom the entry crossed, the same as Swing",
     trailRule: "Trails just under each completed day's low from the day filled (over each day's high, short), and is never lowered",
     expectedHold: "Days, until a day's low breaks",
-    // Sources (internal only, never shipped as a string): W006 Rule 2 p. 46; Truth of the Stock Tape; Commodities p. 31 and Selling Point 9; Master Course Ch. 13
+    // Sources (internal only, never shipped as a string): W006 Rule 2 p. 46; ref: SRC-002; ref: SRC-007 p. 31 and Selling Point 9; ref: SRC-001 Ch. 13
   },
   intraday: {
     style: "intraday",
@@ -153,7 +153,7 @@ export const TRADE_STYLES: Record<TradeStyle, TradeStyleProfile> = {
     stopRule: "The alert's own stop: the session's 50% point, or just beyond the old level it crossed",
     trailRule: "Nothing is sold at the first target; the whole position runs while the stop moves just under each completed 15-minute bottom (over each top, short); out when the hourly trend turns against the trade",
     expectedHold: "Minutes to hours; closed by the session's end unless you choose to hold it",
-    // Sources (internal only, never shipped as a string): Master Course Ch. 3 (1-point stops) and Ch. 13 (the hourly chart); the session close is GSPS's own default, not from the source
+    // Sources (internal only, never shipped as a string): ref: SRC-001 Ch. 3 (1-point stops) and Ch. 13 (the hourly chart); the session close is GSPS's own default, not from the source
   },
 };
 

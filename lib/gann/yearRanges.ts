@@ -1,7 +1,7 @@
 /**
  * A-TIME-20, the part Gann discloses: the ranges of January 2-7 and January
  * 15-21 set the year's trend, and July 3-7 and July 20-27 are read the same
- * way for the second half (Master Course Ch.7 PDF 221-223, November 1935;
+ * way for the second half (ref: SRC-001 Ch.7 PDF 221-223, November 1935;
  * confirmed in the W023 reading notes, 2026-10-16). Context only: nothing
  * here moves a score, gate, plan or order.
  *

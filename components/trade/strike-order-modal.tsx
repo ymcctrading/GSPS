@@ -52,7 +52,7 @@ export function StrikeOrderModal({
    * Protocol levels for the underlying. The structural stop distance, read
    * with the contract's delta, gives the information line below: what the
    * premium would lose if the underlying reached its stop. The premium paid is
-   * still the stop and the risk (Master Course Ch. 19A, R-006).
+   * still the stop and the risk (ref: SRC-001 Ch. 19A, R-006).
    */
   levels?: TradeLevels | null;
   onClose: () => void;

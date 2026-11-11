@@ -7,7 +7,7 @@ import { inSwingEighth, readSwingEighths } from "@/lib/gann/swingEighths";
 import { readDisclosedRules, describeDisclosedRules } from "@/lib/gann/disclosedRules";
 import type { Bar } from "@/lib/types";
 
-// A-TIME-17: the dates marked X (W036 p.13), ranked by Master Course Ch. 14
+// A-TIME-17: the dates marked X (W036 p.13), ranked by ref: SRC-001 Ch. 14
 // (PDF 389-390): anniversaries, then 1/2, then 3/4 (1/4 beside it, Ch. 18
 // TP-1), then 1/3 and 2/3, then the eighths.
 describe("the rank order of change dates", () => {

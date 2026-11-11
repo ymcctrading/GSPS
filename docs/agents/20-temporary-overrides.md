@@ -17,8 +17,15 @@ the deadline; the earlier lists stand"). `scanDeadlines()` in
 `RENDER_SCAN_DEADLINE_SCALE` (5) when `hostPlatform()` is `"render"`. Vercel
 and Cloud Run keep the 60-second product budget exactly as before.
 
+The nightly engine cards (`/api/cards/edge`) got the same treatment the same
+evening: `edgeComputeDeadlineMs()` (`lib/cards/edgeCard.ts`) gives each part
+225 s on Render instead of 48 s, since on 2026-11-11 the 48 s parts computed
+only 127 of 832 stocks at about 3.5 s a stock. 225 s ends each part before
+the next one starts 4 minutes later. Nobody waits on that job.
+
 **Revert trigger:** the app serves from Vercel again. Remove the scale (or set
-it to 1) and this entry in the same PR. Don't extend it to any other host
+it to 1), the Render branch of `edgeComputeDeadlineMs()`, and this entry in the
+same PR. Don't extend it to any other host
 without the owner.
 
 ### Equity data delay and notification freshness (2026-10-28, until real-time data is bought)
@@ -74,7 +81,7 @@ not a reason to silently re-widen `EXECUTION_TIMEFRAME` again — that was tried
 **Closed, not merely reverted.** The threshold half of this stopgap (`EXECUTE_SCORE_THRESHOLD`
 6, `WATCH_SCORE_THRESHOLD` 3.5, `lib/scoring/weights.ts`) was a deliberate, temporary loosening
 from the protocol's original 7/4 pair, made 2026-09-14 after all nine scored criteria were
-replaced with specific, individually rare Gann technical events and the old bar admitted 0/1061
+replaced with specific, individually rare method events and the old bar admitted 0/1061
 Execute trades on the committed run and 0 in production. Its own stated revert trigger — the next
 fresh, committed backtest run with a non-trivial Execute bucket (n≥30) — fired 2026-09-23 on
 `docs/replay-runs/2026-09-23-15Min-2R-within-all-12sym.json` (12-symbol universe, 615
@@ -100,7 +107,7 @@ for the first time since the ATR-normalization fix). See `lib/gann/volumeClimax.
 
 **Settled 2026-10-28: the `stopRoom` question.** The open item this run raised (quarantined for
 saturating 98–99% on the 2026-09-14 runs, in range on the 2026-09-23 run) is moot. `stopRoom` was
-retired on 2026-10-16 (owner Q23) and replaced by Gann's own test, the stop 3 points beyond an old
+retired on 2026-10-16 (owner Q23) and replaced by the method's own test, the stop 3 points beyond an old
 top or bottom (`stopBehindOldLevel`, W006 pp.20-24, 46-47). That test is a check under the nine
 pillars, scoring nothing alone. Its registry entry (`criteria-registry.ts`) records it as unmeasured.
 
@@ -141,8 +148,8 @@ something outside the repo overrides it. Known override surfaces as of 2026-09-1
 - `lib/risk/policy.ts` — `getRiskPolicy(supabase)` / `setRiskPolicyValue()` resolve risk policy
   from the database over `DEFAULT_RISK_POLICY_VALUES`. A row may only tighten a limit (Q13). Production
   held no `policy_values` row on 2026-10-28.
-- Environment variables — the confluence modules read `GSPS_DISABLE_GANN_CONFLUENCE` /
-  `GSPS_DISABLE_SARA_CONFLUENCE` (`lib/signals/confluence/flags.ts`), and `MARKET_DATA_REALTIME`
+- Environment variables — the two confluence modules read their `GSPS_DISABLE_*_CONFLUENCE`
+  flags (`lib/signals/confluence/flags.ts`), and `MARKET_DATA_REALTIME`
   carries a mandatory revert trigger above. Checked 2026-10-28 against the Vercel project's env list:
   none of the three is set in any environment, so both confluence modules run and the feed reads as
   delayed, as the code defaults intend. `learning_models` held no `live` row the same day.

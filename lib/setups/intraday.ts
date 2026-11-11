@@ -71,7 +71,7 @@ type OfferFields = {
  * draws it and the ticket takes it. Not a reversal risk or a notice, not held
  * from trading (`tradeHold`: study only), a stop and a first target priced, and
  * the target paying more than the risk (M-K5, "profits must exceed losses",
- * *Wall Street Stock Selector* Ch. II).
+ * ref: SRC-003 Ch. II).
  */
 export function offersTrade(
   a: OfferFields,

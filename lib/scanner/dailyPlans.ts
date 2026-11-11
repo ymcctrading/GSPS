@@ -22,7 +22,7 @@ import type { DailyPlanLevels } from "@/lib/scanner/intraday";
  * `daily_scans` keeps a row per scan date, so a plan an older day listed and
  * the latest scan dropped is no longer the symbol's plan. In Gann's method a
  * new reading of the swing structure replaces the old plan; it is never
- * resumed from older levels (NSTD Rule 6; AGENTS.md, F3.7).
+ * resumed from older levels (ref: SRC-004 Rule 6; AGENTS.md, F3.7).
  *
  * The overnight sweep (`universe_sweep`, the night the caller passes as
  * `sweepBasis`, from `chooseSweepBasis`) is a third source for the intraday

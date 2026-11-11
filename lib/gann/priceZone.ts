@@ -19,10 +19,10 @@
  * - C-LEVELS-01 (W003 p.16, class C): squares of whole numbers and the points
  *   halfway between, "not tradable alone". Card only; never a target or a
  *   support and resistance level.
- * - A-PRICE-05 (W046 p.1, class A; the Master Course's 1 point a month for a
+ * - A-PRICE-05 (W046 p.1, class A; the ref: SRC-001's 1 point a month for a
  *   45-degree line): a line from a low at a fixed number of points per
  *   calendar month. `pointsPerMonth` is a labelled per-instrument input; the
- *   card uses the Master Course's 1 a month for stocks, in Gann points
+ *   card uses the ref: SRC-001's 1 a month for stocks, in Gann points
  *   (`pointForBars`, $1 at $42.50), the scale the fans read a daily bar
  *   since Q27 (2026-10-16). Raw dollars until review 24.
  *
@@ -118,7 +118,7 @@ export function integerSquareLevels(price: number): [number, number, number] {
   return [lower, (lower + upper) / 2, upper];
 }
 
-/** The Master Course's 45-degree rate for stocks: 1 point a calendar month. */
+/** The ref: SRC-001's 45-degree rate for stocks: 1 point a calendar month. */
 export const STOCK_POINTS_PER_MONTH = 1;
 
 /** A line from `low` in month `lowMonth` ("YYYY-MM") at `pointsPerMonth`, read at `asOfMonth` (A-PRICE-05). */

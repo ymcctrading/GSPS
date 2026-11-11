@@ -16,15 +16,15 @@
  *   (Gann's Square of Nine plate; `seasonalCounts.ts`). The quarters, eighths
  *   and thirds already act through `FIXED_CALENDAR_WINDOWS` and the Sun's 15°
  *   points, so only the sixteenths are read here.
- * - C-TIME-05: the Winter-quarter dates counted from December 22 (Master
- *   Course Ch.5 PDF 161; `seasonalCounts.ts`).
+ * - C-TIME-05: the Winter-quarter dates counted from December 22 (ref: SRC-001
+ *   Ch.5 PDF 161; `seasonalCounts.ts`).
  * - C-TIME-06: the Ch.5 wheel counts 30, 60, 150, 210, 300 and 330 days
  *   (Ch.5 PDF 162; `timeCounts.ts`).
  * - C-TIME-08, M-T11: the week counts 20, 42-45, 45½ and 78-80 weeks
- *   (*Commodities* p.311, Ch.14 PDF 385, Ch.2 PDF 58; `timeCounts.ts`).
+ *   (ref: SRC-007 p.311, Ch.14 PDF 385, Ch.2 PDF 58; `timeCounts.ts`).
  * - M-T16, C-TIME-13: the Square of 52's disclosed week counts over its
  *   104-week span (Ch.14 PDF 385; `squareOf52.ts`).
- * - M-T11: time balance, top to top and bottom to bottom (*Commodities*
+ * - M-T11: time balance, top to top and bottom to bottom (ref: SRC-007
  *   pp.311-312; `timeCounts.ts`), and the open leg lasting as long as the
  *   matching prior leg (`campaignLedger.ts#timeBalanceDates`).
  * - C-TIME-07: market days at multiples of 11¼ from the extreme high and low

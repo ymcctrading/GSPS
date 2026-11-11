@@ -30,8 +30,8 @@
  * total cell count (`__tests__/masterTwelve.test.ts` asserts this chain and
  * the 81/9² identity directly).
  *
- * Note (2026-10-16, item 9): this spiral is GSPS's reconstruction. The Master
- * Course's own "Master 12" chart is a 12×12 grid whose squares end at 144,
+ * Note (2026-10-16, item 9): this spiral is GSPS's reconstruction. The ref: SRC-001
+ * 's own "Master 12" chart is a 12×12 grid whose squares end at 144,
  * 288, 432 and 576; it is built below as `masterTwelveCell` (M-T16, review B,
  * 2026-10-16), and the spiral is labelled a GSPS construction wherever it is
  * shown. The Square of 144's readings are `masterCalculator.ts`'s.
@@ -105,7 +105,7 @@ export function squareMonthsFromPriceRange(lowCents: number, highCents: number):
 // ---------------------------------------------------------------------------
 // Gann's Master 12 chart: the 12x12 grid (M-T16)
 //
-// Master Course Ch. 13 (pp. 62-64) and Ch. 15A ("Master Charts"), Tier A;
+// ref: SRC-001 Ch. 13 (pp. 62-64) and Ch. 15A ("Master Charts"), Tier A;
 // source note `docs/memory-bank/sources/A2_1_master_stock_market_course.md`.
 // 12 x 12 = 144, and the squares end at 144, 288, 432 and 576. The numbers
 // run up columns of 12: the bottom of each column is 1, 13, 25 ... 133, the
@@ -240,7 +240,7 @@ export function nearestMasterTwelveLevel(
 }
 
 /**
- * C-TIME-17 (class A; Master Course Ch.13 PDF 375, 379): the halving chain
+ * C-TIME-17 (class A; ref: SRC-001 Ch.13 PDF 375, 379): the halving chain
  * read as calendar days from a pivot. Gann gives 20,736 as "the great cycle"
  * in days, "fractions to 81 days", and the same count in weeks (2,962 weeks
  * 2 days), months (681 months 23 days) and years (56 years 9 months 23 days,

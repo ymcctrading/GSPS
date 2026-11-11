@@ -57,7 +57,7 @@ describe("even figures", () => {
   });
 });
 
-// A-LEVELS-08 (Stock Selector Ch. V; Tunnel PDF 151/166): above 200 expect
+// A-LEVELS-08 (ref: SRC-003 Ch. V; ref: SRC-006 PDF 151/166): above 200 expect
 // 202-203 and a break back; buy the third time through, for 210 or 225.
 describe("the third time through a round number", () => {
   /** Daily closes; each bar spans close ± 0.5. */

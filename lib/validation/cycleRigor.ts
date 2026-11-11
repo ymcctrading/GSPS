@@ -6,7 +6,7 @@
  * "Dewey's own cycle-validation checklist (dominance, regularity, repetition
  * count, constancy of period, phase-resumption, cross-series synchrony)" as the
  * bar a cycle hypothesis must clear before it can be trusted as more than a
- * confluence-only hypothesis. Source: Edward R. Dewey, "The Case for Cycles"
+ * confluence-only hypothesis. Source: ref: SRC-021
  * (Cycles, July 1967) — see `docs/GANN_HISTORICAL_SOURCES.md` C6 for the full
  * 18-point original (10 single-series criteria, 8 comparative). Before this
  * file, that citation had no code behind it anywhere in this codebase —

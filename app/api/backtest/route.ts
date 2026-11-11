@@ -283,7 +283,7 @@ export async function GET(req: NextRequest) {
     // (lib/signals), parallel to the Gann/STRAT score's own replay above —
     // see lib/backtest/replaySignals.ts's header for why it reports tier
     // frequency rather than a simulated P&L.
-    // Gann's Overnight method (Master Course Ch. 3) on daily bars, stop and
+    // Gann's Overnight method (ref: SRC-001 Ch. 3) on daily bars, stop and
     // reverse included; `halfway=1` adds the worked log's half-way-point
     // entries. Measurement only. See lib/backtest/replayOvernight.ts.
     if (wantOvernight) {

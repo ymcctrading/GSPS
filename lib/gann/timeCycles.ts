@@ -12,7 +12,7 @@
  *
  * **Fixed annual calendar cycle** (added 2026-09-16, per
  * `docs/GANN_PLATFORM_AUDIT.md` Part 4 item 4 / AGENTS.md's "WD Gann
- * precedence" principle): `Wall Street Stock Selector` (1930,
+ * precedence" principle): `ref: SRC-003` (1930,
  * `docs/GANN_HISTORICAL_SOURCES.md` A4) discloses a *separate*, non-anchored
  * cycle — eight dated windows he called "a permanent cycle which does not
  * change," independent of any symbol's own pivots. This is
@@ -28,7 +28,7 @@
  * **Dates corrected 2026-09-27 (project-owner go-ahead).** Until then this
  * used the 5th of each named month, from a second-hand reading of A4 as
  * "early February/March/…". The primary text (the 1929 Annual Stock
- * Forecast reprinted in the Stock Selector's back matter) gives specific
+ * Forecast reprinted in the ref: SRC-003's back matter) gives specific
  * day ranges, and four of the eight are late-month windows, so the old
  * anchor fired 16-19 days early for March, June, September and December.
  * Right rule, wrong anchor: the `harmonicProximity` failure shape. See
@@ -43,7 +43,7 @@
  *
  * Three-question basis:
  * 1. Gann: A4 (1930, Tier A), back matter. The same anchors recur in A9's
- *    (1949) seasonal change windows, and two of Face Facts America!'s (A7,
+ *    (1949) seasonal change windows, and two of ref: SRC-009's (A7,
  *    1940) dated windows sit on them.
  * 2. Dewey: an annual, eight-phase periodicity claim. Regularity of timing
  *    and constancy of period hold by construction (it is the solar year).
@@ -65,7 +65,7 @@ import { findPivots, majorPivots } from "@/lib/analysis/pivots";
 import { MIN_REPETITIONS } from "@/lib/gann/spectralCycle";
 
 /**
- * Fractions of the 360-day year counted from a pivot (Master Course Ch. 13-14:
+ * Fractions of the 360-day year counted from a pivot (ref: SRC-001 Ch. 13-14:
  * the year and the circle divided into eighths and thirds). ⅔ (240) and the
  * odd eighths (135, 225, 315) were added 2026-09-27 (parity roadmap A6, owner
  * direction to implement Gann's method throughout); the earlier list stopped
@@ -74,8 +74,8 @@ import { MIN_REPETITIONS } from "@/lib/gann/spectralCycle";
 export const WHEEL_COUNTS: readonly number[] = [45, 90, 120, 135, 180, 225, 240, 270, 315, 360];
 
 /**
- * Gann's day-count bands from any important high or low (*45 Years in Wall
- * Street*, 1949, Rule 8). A band is a range, not a date: the window is open
+ * Gann's day-count bands from any important high or low (ref: SRC-005,
+ * 1949, Rule 8). A band is a range, not a date: the window is open
  * for every day inside it. Added 2026-09-27 (parity roadmap A3).
  */
 export const DAY_COUNT_BANDS: readonly [number, number][] = [
@@ -135,7 +135,7 @@ export const FEW_REPETITION_CYCLE_YEARS: readonly number[] = MAJOR_CYCLE_YEARS.f
 
 /*
  * **Which lesson `MAJOR_CYCLE_YEARS` is (labelled 2026-10-16, M-T3).** It is
- * the November 1935 lesson's list, word for word: Master Course Ch.7 PDF
+ * the November 1935 lesson's list, word for word: ref: SRC-001 Ch.7 PDF
  * 224-225, "each stock's 1, 2, 3, 5, 7, 10, 15, 20, 30, 50 and 60-year
  * cycles". Gann's lessons give different lists in different years, so each is
  * named by lesson and year (AGENTS.md: cite the lesson and year). The two
@@ -145,7 +145,7 @@ export const FEW_REPETITION_CYCLE_YEARS: readonly number[] = MAJOR_CYCLE_YEARS.f
  */
 
 /**
- * The January 1955 lesson's yearly cycles (Master Course Ch.14 PDF 387, the
+ * The January 1955 lesson's yearly cycles (ref: SRC-001 Ch.14 PDF 387, the
  * Master Calculator for Weekly Time Periods): "1, 2, 3, 5, 7, 9, 10, 12, 14,
  * 15, 18, 20, 21, 22½, 24, 25, 27, 28, 30, 40, 45, 49, 56, 60, 84 and 90
  * which is the Great Cycle" (C-TIME-20). Context only.
@@ -153,7 +153,7 @@ export const FEW_REPETITION_CYCLE_YEARS: readonly number[] = MAJOR_CYCLE_YEARS.f
 export const CYCLE_YEARS_1955: readonly number[] = [1, 2, 3, 5, 7, 9, 10, 12, 14, 15, 18, 20, 21, 22.5, 24, 25, 27, 28, 30, 40, 45, 49, 56, 60, 84, 90];
 
 /**
- * The January 1931 lesson's minor cycles (Master Course Ch.2 PDF 50: "minor
+ * The January 1931 lesson's minor cycles (ref: SRC-001 Ch.2 PDF 50: "minor
  * cycles of 3 and 6 years"; C-TIME-26). The 1935 lesson reads "3 years and 6
  * [2?] years" (Ch.7 PDF 219, the editor's query) and the 1939 lesson "minor 3
  * and 2 years" (Ch.10A PDF 283), so the 6-year cycle is labelled 1931. The
@@ -213,7 +213,7 @@ export const FIXED_CALENDAR_WINDOWS: readonly { month: number; startDay: number;
   { month: 3, startDay: 21, endDay: 23 },
   { month: 5, startDay: 3, endDay: 7 },
   { month: 6, startDay: 20, endDay: 24 },
-  // ⅓ of the seasonal year from March 21 (Master Course; seasonalCounts.ts).
+  // ⅓ of the seasonal year from March 21 (ref: SRC-001; seasonalCounts.ts).
   { month: 7, startDay: 22, endDay: 24 },
   { month: 8, startDay: 3, endDay: 8 },
   { month: 9, startDay: 21, endDay: 24 },
@@ -385,11 +385,11 @@ export function yearCycleConvergence(monthlyBars: Bar[], asOf: Date = new Date()
  * Why: James Flanagan's reading of the Master Time Factor (a secondary source
  * the owner sent) adds 9-, 13-, 14-, 40-, 100-, 120- and 150-year cycles to the
  * ones GSPS reads. Checked against Gann's own text the same day: 9, 14 and 40
- * are in his January 1955 list (Master Course Ch. 14, PDF 387; the 14-year
+ * are in his January 1955 list (ref: SRC-001 Ch. 14, PDF 387; the 14-year
  * "always very important because it is 2 seven-year periods", the 1953 Square
  * of 144 lesson, Ch. 13), so they are his. 13 years is not: his 13 is the
  * square of 13 in months, 169, beside the 14-year cycle, so the 13-year cycle
- * is Flanagan's and is not built. 100 years is his (*Commodities* p. 224); 120
+ * is Flanagan's and is not built. 100 years is his (ref: SRC-007 p. 224); 120
  * and 150 are not. 84, 90 and 100 reach past any stock's record and are read
  * on the market's (`eightyFourYear.ts#marketCountHits`). The whole of the 1955
  * and 1931 lists joins with them, since each is Gann's own list and the
@@ -455,8 +455,8 @@ export function yearCycleHits(monthlyBars: Bar[], asOf: Date = new Date()): Year
  * opportunities come at the end of great time cycles" (W001 pp. 7, 11, 13-14).
  * The booklet names the cycles without their lengths; Gann's lessons give
  * them, each in its own year (cite the lesson and year, AGENTS.md):
- * - 20 years, the master time period of the January 1931 lesson (Master
- *   Course Ch. 2, PDF 50);
+ * - 20 years, the master time period of the January 1931 lesson (ref: SRC-001
+ *   Ch. 2, PDF 50);
  * - 60 years, the 1935 lesson's greatest cycle (Ch. 7, PDF 218);
  * - 20,736 days (the Square of 144 in days, 56 years 9 months 23 days), the
  *   1953 Master Calculator's great cycle (Ch. 13, PDF 375);

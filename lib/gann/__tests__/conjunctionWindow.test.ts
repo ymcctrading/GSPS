@@ -1,5 +1,5 @@
 /**
- * C-TIME-35 (class C, not from the method's own books; Awodele 2013 p. 44):
+ * C-TIME-35 (class C, not from the method's own books; ref: SRC-037 2013 p. 44):
  * run the cycle analysis only on bars between two heliocentric Jupiter-Saturn
  * conjunctions. Research only: nothing here is read by a score, gate, plan or
  * the setup's context.

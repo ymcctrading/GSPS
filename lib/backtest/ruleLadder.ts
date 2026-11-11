@@ -6,7 +6,7 @@
  * Plan, budget and the pre-registered keep rule: `docs/RULE_LADDER.md`.
  *
  * Why an ordered ladder and not a search. Gann gave the order he checked a
- * trade in: his pre-trade checklist, "How to Trade" (Master Course Ch. 7, Nov
+ * trade in: his pre-trade checklist, "How to Trade" (ref: SRC-001 Ch. 7, Nov
  * 1935, PDF 234-238; restated Ch. 10A, Aug 1939, PDF 293-294; numbered C1-C15
  * in `gann-feature-map/review/score-pillars-research.md`). Fixing the order
  * before any run means each rung is one test, not the best of many tries, so
