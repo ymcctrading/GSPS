@@ -58,7 +58,7 @@ export interface Prepared {
   levelSets: { at: number; levels: Level[] }[];
 }
 
-function atr(bars: Bar[], t: number, n = 14): number {
+export function atr(bars: Bar[], t: number, n = 14): number {
   if (t < 1) return bars[0] ? bars[0].h - bars[0].l : 0;
   let s = 0;
   let k = 0;
