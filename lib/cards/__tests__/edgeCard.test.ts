@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { edgeCardFor, edgePart, openEdgeCard, shownTargets, EDGE_CARD_CONFIG, EDGE_PARTS, EDGE_WARMUP_BARS } from "@/lib/cards/edgeCard";
+import { edgeCardFor, edgePart, rotateForDate, openEdgeCard, shownTargets, EDGE_CARD_CONFIG, EDGE_PARTS, EDGE_WARMUP_BARS } from "@/lib/cards/edgeCard";
 import { prepare, ptsAt } from "@/lib/edgeEngine/pts";
 import { nearestLevelAbove } from "@/lib/edgeEngine/trade";
 import { cardLevels } from "@/lib/edgeEngine/card";
@@ -97,5 +97,20 @@ describe("edgePart", () => {
     const parts = Array.from({ length: EDGE_PARTS }, (_, k) => edgePart(syms, k));
     expect(parts.flat().sort()).toEqual([...syms].sort());
     expect(Math.max(...parts.map((p) => p.length)) - Math.min(...parts.map((p) => p.length))).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("rotateForDate", () => {
+  const syms = Array.from({ length: 70 }, (_, i) => `S${i}`);
+  it("starts two dates at different symbols and keeps every symbol once", () => {
+    const a = rotateForDate(syms, "2026-11-11");
+    const b = rotateForDate(syms, "2026-11-12");
+    expect(a[0]).not.toBe(b[0]);
+    expect([...a].sort()).toEqual([...syms].sort());
+    expect([...b].sort()).toEqual([...syms].sort());
+  });
+  it("is the same for the same date, and empty for no symbols", () => {
+    expect(rotateForDate(syms, "2026-11-11")).toEqual(rotateForDate(syms, "2026-11-11"));
+    expect(rotateForDate([], "2026-11-11")).toEqual([]);
   });
 });

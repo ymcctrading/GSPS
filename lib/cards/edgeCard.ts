@@ -62,6 +62,22 @@ export function edgePart(symbols: readonly string[], k: number, n = EDGE_PARTS):
   return symbols.filter((_, i) => i % n === k);
 }
 
+/**
+ * Pure. `symbols` rotated to start at an offset anchored to the session date
+ * (days since 1970-01-01, modulo the count), wrapping round. The job stops
+ * computing at its deadline, so on a slow night the stocks left unread are a
+ * different run each night rather than the same tail every night. Anchored
+ * to the clock, not a stored counter, so a missed night resumes in phase
+ * (lib/scan/universe-rotation.ts; Rhythm). Engineering choice.
+ */
+export function rotateForDate<T>(symbols: readonly T[], dateKey: string): T[] {
+  const n = symbols.length;
+  if (n === 0) return [];
+  const day = Math.floor(Date.parse(`${dateKey}T00:00:00Z`) / 86_400_000);
+  const off = Number.isFinite(day) ? ((day % n) + n) % n : 0;
+  return [...symbols.slice(off), ...symbols.slice(0, off)];
+}
+
 /** Bars before the first event the replay considers (the scoring started 6 months into its data). Engineering choice. */
 export const EDGE_WARMUP_BARS = 120;
 

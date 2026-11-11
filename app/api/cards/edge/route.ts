@@ -23,7 +23,7 @@ import { getMarketDataProvider } from "@/lib/data/provider";
 import { MARKET_DATA_UNAVAILABLE, syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { equitySession, etDateKey } from "@/lib/market/session";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
-import { edgeCardFor, edgePart, shownTargets, EDGE_HISTORY_START, EDGE_PARTS } from "@/lib/cards/edgeCard";
+import { edgeCardFor, edgePart, rotateForDate, shownTargets, EDGE_HISTORY_START, EDGE_PARTS } from "@/lib/cards/edgeCard";
 import { cardKindShown } from "@/lib/setups/cardRecords";
 
 export const maxDuration = 60;
@@ -78,7 +78,9 @@ export async function GET(req: NextRequest) {
   let computed = 0;
   let skipped = 0;
   let failed = 0;
-  for (const [symbol, bars] of done) {
+  // Read from a date-anchored start, so a deadline skips a different run of stocks each night.
+  for (const symbol of rotateForDate([...done.keys()].sort(), basisDate)) {
+    const bars = done.get(symbol)!;
     if (Date.now() - startedAt > COMPUTE_DEADLINE_MS) {
       skipped++;
       continue;
