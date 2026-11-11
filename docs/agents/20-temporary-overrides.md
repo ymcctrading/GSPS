@@ -17,8 +17,15 @@ the deadline; the earlier lists stand"). `scanDeadlines()` in
 `RENDER_SCAN_DEADLINE_SCALE` (5) when `hostPlatform()` is `"render"`. Vercel
 and Cloud Run keep the 60-second product budget exactly as before.
 
+The nightly engine cards (`/api/cards/edge`) got the same treatment the same
+evening: `edgeComputeDeadlineMs()` (`lib/cards/edgeCard.ts`) gives each part
+225 s on Render instead of 48 s, since on 2026-11-11 the 48 s parts computed
+only 127 of 832 stocks at about 3.5 s a stock. 225 s ends each part before
+the next one starts 4 minutes later. Nobody waits on that job.
+
 **Revert trigger:** the app serves from Vercel again. Remove the scale (or set
-it to 1) and this entry in the same PR. Don't extend it to any other host
+it to 1), the Render branch of `edgeComputeDeadlineMs()`, and this entry in the
+same PR. Don't extend it to any other host
 without the owner.
 
 ### Equity data delay and notification freshness (2026-10-28, until real-time data is bought)

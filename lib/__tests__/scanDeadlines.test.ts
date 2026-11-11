@@ -17,3 +17,17 @@ describe("scanDeadlines", () => {
     expect(d.continuation).toBeLessThan(d.continuationFetch);
   });
 });
+
+describe("edgeComputeDeadlineMs", () => {
+  it("keeps 48 s inside the 60-second budget off Render", async () => {
+    const { edgeComputeDeadlineMs } = await import("@/lib/cards/edgeCard");
+    expect(edgeComputeDeadlineMs("vercel")).toBe(48_000);
+    expect(edgeComputeDeadlineMs("cloud_run")).toBe(48_000);
+  });
+
+  it("ends a Render part before the next part starts 4 minutes later", async () => {
+    const { edgeComputeDeadlineMs } = await import("@/lib/cards/edgeCard");
+    expect(edgeComputeDeadlineMs("render")).toBeGreaterThan(48_000);
+    expect(edgeComputeDeadlineMs("render")).toBeLessThan(4 * 60_000);
+  });
+});

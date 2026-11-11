@@ -39,6 +39,7 @@
  *    creation at TP2 (+0.106R over random days with the same distances).
  */
 
+import { hostPlatform, type HostPlatform } from "@/lib/ops/usageLimits";
 import type { Bar } from "@/lib/types";
 import firstTrades from "@/lib/gann/firstTradeDates.json";
 import { DEFAULT_CONFIG, type EngineConfig } from "@/lib/edgeEngine/config";
@@ -56,6 +57,21 @@ export const EDGE_HISTORY_START = "2018-01-02";
 
 /** Parts the universe is read in, one scheduled call each (/api/cards/edge, migration 0150). Engineering choice sized to the 60-second budget. */
 export const EDGE_PARTS = 12;
+
+/**
+ * How long one part keeps computing cards, in ms from its start. 48 s on
+ * Vercel and Cloud Run, inside the 60-second budget. On Render (the temporary
+ * host while Vercel is paused, until 2026-11-30; about 0.1 CPU) a stock took
+ * about 3.5 s on 2026-11-11, so a 48 s part computed only 3 to 15 of its ~70
+ * stocks (127 of 832 in all). The parts are scheduled 4 minutes apart
+ * (migration 0150), so on Render a part runs up to 225 s and ends before the
+ * next starts: they never share the one small CPU. Nobody waits on this job.
+ * An engineering figure. Remove the Render branch once the app is back on
+ * Vercel (`docs/agents/20-temporary-overrides.md`).
+ */
+export function edgeComputeDeadlineMs(host: HostPlatform = hostPlatform()): number {
+  return host === "render" ? 225_000 : 48_000;
+}
 
 /** Pure. The symbols of part `k` of `n`: every n-th symbol, so each part mixes the list evenly. */
 export function edgePart(symbols: readonly string[], k: number, n = EDGE_PARTS): string[] {

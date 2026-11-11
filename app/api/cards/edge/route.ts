@@ -8,8 +8,10 @@
  * a stock, measured 2026-11-11 on 1,575-bar histories; a part of 104 stocks
  * took 16 s to read and 22 s to compute), so the 832-stock universe is split
  * into `EDGE_PARTS` (12) parts, one scheduled call each (migration 0150),
- * each about 25 to 30 s, inside the 60-second budget. Off every user's path:
- * nobody waits on it.
+ * each about 25 to 30 s on Vercel, inside the 60-second budget. On the
+ * temporary Render host a part runs up to 225 s (`edgeComputeDeadlineMs`),
+ * still ending before the next part starts. Off every user's path: nobody
+ * waits on it.
  *
  * Cycles as architecture: each night's run rebuilds every card from the
  * charts, so a missed part is simply not issued that night and the next
@@ -23,13 +25,11 @@ import { getMarketDataProvider } from "@/lib/data/provider";
 import { MARKET_DATA_UNAVAILABLE, syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { equitySession, etDateKey } from "@/lib/market/session";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
-import { edgeCardFor, edgePart, rotateForDate, shownTargets, EDGE_HISTORY_START, EDGE_PARTS } from "@/lib/cards/edgeCard";
+import { edgeCardFor, edgeComputeDeadlineMs, edgePart, rotateForDate, shownTargets, EDGE_HISTORY_START, EDGE_PARTS } from "@/lib/cards/edgeCard";
 import { cardKindShown } from "@/lib/setups/cardRecords";
 
 export const maxDuration = 60;
 
-/** Stop computing new cards after this long; the rest of the part waits for the next night. */
-const COMPUTE_DEADLINE_MS = 48_000;
 
 export async function GET(req: NextRequest) {
   if (!isCronAuthorized(req.headers.get("authorization"))) {
@@ -40,6 +40,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `part must be 0..${EDGE_PARTS - 1}` }, { status: 400 });
   }
   const startedAt = Date.now();
+  // Stop computing new cards after this long; the rest of the part waits for the next night.
+  const COMPUTE_DEADLINE_MS = edgeComputeDeadlineMs();
   const now = new Date();
   const provider = getMarketDataProvider();
   if (syntheticDataRefusal("build the engine cards", provider)) {
