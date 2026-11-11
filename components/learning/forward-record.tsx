@@ -104,6 +104,7 @@ export function ForwardRecord() {
             {data.currentVersion}.
           </p>
         )}
+        {t && <GoodCallLine g={t.goodCalls} />}
         {data && data.record.length === 0 && <p className="text-sm text-muted">No calls in this window.</p>}
         {data && data.record.length > 0 && (
           <div className="overflow-x-auto">
@@ -131,6 +132,34 @@ export function ForwardRecord() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+const CALL_LABEL = { good: "good call", bad: "bad call", open: "call open", unresolved: "neither level reached", no_fill: "no fill" } as const;
+
+/**
+ * The owner's scoring (2026-11-10): from the fill, TP1 before the stop is a
+ * good call, the stop first a bad one; no-fills apart. Shown beside the rate
+ * the cards need to break even, so a high rate on close targets can't pass
+ * for a profitable one.
+ */
+function GoodCallLine({ g }: { g: ShadowTotals["goodCalls"] }) {
+  if (g.calls === 0) return <p className="text-sm text-muted">No card has a first target recorded in this window yet.</p>;
+  const pct = (x: number | null) => (x == null ? "—" : `${(x * 100).toFixed(0)}%`);
+  const ahead = g.goodRate != null && g.breakEven != null ? g.goodRate - g.breakEven : null;
+  return (
+    <p className="text-sm">
+      Calls: {g.good} good, {g.bad} bad, {g.open} still open, {g.unresolved} with neither level reached, {g.noFill} never filled. Good-call rate {pct(g.goodRate)} against{" "}
+      {pct(g.breakEven)} needed to break even
+      {ahead != null && (
+        <span className={tone(ahead)}>
+          {" "}
+          ({ahead >= 0 ? "+" : ""}
+          {(ahead * 100).toFixed(0)} points)
+        </span>
+      )}
+      , <span className={tone(g.expectancyR)}>{rText(g.expectancyR)}</span> a decided call to TP1 or the stop.
+    </p>
   );
 }
 
@@ -162,12 +191,14 @@ function DayRows({ day, open, toggle }: { day: ShadowDay; open: boolean; toggle:
             </TD>
             <TD className="text-right tabular-nums" colSpan={2}>
               entry {price(c.entry)} · stop {price(c.stop)}
+              {c.tp1 != null && ` · TP1 ${price(c.tp1)}`}
             </TD>
             <TD className="text-right tabular-nums" colSpan={2}>
               fill {price(c.fill)}
             </TD>
             <TD className="text-right" colSpan={2}>
               {STATE_LABEL[c.state]}
+              {c.call != null && ` · ${CALL_LABEL[c.call]}`}
               {c.sessionsHeld != null && ` · ${c.sessionsHeld} session${c.sessionsHeld === 1 ? "" : "s"}`}
             </TD>
             <TD className="text-right">{c.version}</TD>

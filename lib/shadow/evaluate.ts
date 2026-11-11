@@ -49,6 +49,7 @@ import { isStopBreachedByBar } from "@/lib/gann/stopBreach";
 import type { AssetClass } from "@/lib/types";
 import { regularSessionBars } from "@/lib/gann/intradayExit";
 import { shadowSessionComplete, shadowTradeSession } from "@/lib/shadow/session";
+import { GOOD_CALL_MAX_SESSIONS, walkGoodCall, type CallOutcome } from "@/lib/shadow/goodCall";
 
 /**
  * Sessions a filled shadow trade is held before being marked out at the last
@@ -86,6 +87,14 @@ export interface ShadowOutcome {
   fillPrice: number | null;
   /** A `pending` trade that has filled (its price may not be known yet). */
   filled?: boolean;
+  /**
+   * The card's call (`lib/shadow/goodCall.ts`, owner 2026-11-10): from the
+   * fill, TP1 before the stop is `good`, the stop first `bad`; `no_fill` when
+   * the plan never filled; `open` while neither is touched. Read on its own
+   * horizon (`GOOD_CALL_MAX_SESSIONS`), so it can stay open after Gann's exit
+   * has closed the trade. Absent when the row has no TP1 to read.
+   */
+  call?: CallOutcome | "no_fill" | "unresolved";
 }
 
 const PENDING: ShadowOutcome = { outcome: "pending", rMultiple: null, barsHeld: null, fillPrice: null };
@@ -107,10 +116,48 @@ export interface ShadowWalkInput {
   assetClass?: AssetClass;
   /** The delay the fill waits out; the feed's contract for `assetClass` when absent (`replayFeedDelayMs`). */
   feedDelayMs?: number;
+  /** The card's first target, for its good or bad call; no call is read without it. */
+  tp1?: number | null;
 }
 
 /** Pure: production's entry and exit over the bars after one shadow signal. */
 export function walkShadowTrade(input: ShadowWalkInput): ShadowOutcome {
+  const result = walkShadowEntryAndExit(input);
+  return withCall(input, result);
+}
+
+/**
+ * The card's call over the same fill. A plan that never filled (`expired`,
+ * `retired`) is `no_fill`; a fill whose price is not in yet is `open`.
+ */
+function withCall(input: ShadowWalkInput, result: ShadowOutcome & { fromIndex?: number }): ShadowOutcome {
+  const { fromIndex, ...out } = result;
+  const tp1 = input.tp1;
+  if (tp1 == null || !Number.isFinite(tp1)) return out;
+  if (out.outcome === "expired" || out.outcome === "retired") return { ...out, call: "no_fill" };
+  if (fromIndex == null || out.fillPrice == null) return out.filled || out.outcome !== "pending" ? { ...out, call: "open" } : out;
+  // A fill already at or past TP1, or at or past the stop, never offered the
+  // card's trade: counted with the no-fills, as the nightly cards count a
+  // buy stop that gaps beyond either level (lib/cards/cardCalls.ts).
+  const long = input.direction === "bullish";
+  const fill = out.fillPrice;
+  if (long ? !(fill < tp1 && fill > input.stopLoss) : !(fill > tp1 && fill < input.stopLoss)) return { ...out, call: "no_fill" };
+  const sessionDate = input.sessionBars[0].t.slice(0, 10);
+  const allLater = input.dailyBars.filter((d) => d.t.slice(0, 10) > sessionDate);
+  // A fill at the next session's open puts the fill session among the later
+  // bars: read one more, so every path walks the fill session and the
+  // GOOD_CALL_MAX_SESSIONS sessions after it.
+  const horizon = GOOD_CALL_MAX_SESSIONS + (fromIndex >= input.sessionBars.length ? 1 : 0);
+  const later = allLater.slice(0, horizon);
+  const bars = [...input.sessionBars, ...later].slice(fromIndex);
+  const call = walkGoodCall({ long: input.direction === "bullish", fill: out.fillPrice, stop: input.stopLoss, tp1, bars });
+  // Neither level within the horizon (the fill's session and the
+  // GOOD_CALL_MAX_SESSIONS sessions after it, the same reach as the cards'
+  // walk): settled as unresolved, counted apart, never re-read.
+  return { ...out, call: call === "open" && allLater.length >= horizon ? "unresolved" : call };
+}
+
+function walkShadowEntryAndExit(input: ShadowWalkInput): ShadowOutcome & { fromIndex?: number } {
   const { direction, entry, stopLoss, sessionBars, sessionComplete, dailyBars, monthly = [] } = input;
   const maxHoldDays = input.maxHoldDays ?? SHADOW_MAX_HOLD_DAYS;
   const long = direction === "bullish";
@@ -170,7 +217,7 @@ export function walkShadowTrade(input: ShadowWalkInput): ShadowOutcome {
     isStock: input.sharesOutstanding != null,
   });
   // Ran out of bars before an exit or the limit: still open, and filled.
-  if (walked.reason === "open_at_end") return { ...PENDING, fillPrice: fill, filled: true };
+  if (walked.reason === "open_at_end") return { ...PENDING, fillPrice: fill, filled: true, fromIndex: from };
 
   const rMultiple = ((long ? 1 : -1) * (walked.exit - fill)) / risk;
   const sessions = new Set(bars.slice(from, from + walked.barsHeld).map((b) => b.t.slice(0, 10))).size;
@@ -179,6 +226,7 @@ export function walkShadowTrade(input: ShadowWalkInput): ShadowOutcome {
     rMultiple,
     barsHeld: sessions,
     fillPrice: fill,
+    fromIndex: from,
   };
 }
 
@@ -191,6 +239,12 @@ export interface PendingShadowRow {
   scanned_at: string;
   session_date: string | null;
   fill_price: number | null;
+  /** The card's first target; null on rows recorded before it was kept (migration 0147). */
+  tp1?: number | string | null;
+  /** The card's call so far (migration 0147). */
+  call_outcome?: string | null;
+  /** The trade's recorded outcome; set on a row re-read only for its call. */
+  outcome?: string | null;
 }
 
 /**
@@ -212,7 +266,7 @@ export async function evaluatePendingShadowSignals(
   const today = etDateKey(now);
   const { data, error } = await supabase
     .from("shadow_signals")
-    .select("id, symbol, direction, entry, stop_loss, scanned_at, session_date, fill_price")
+    .select(SHADOW_ROW_COLUMNS)
     .is("outcome", null)
     .or(`session_date.lt.${today},and(session_date.is.null,scanned_at.lte."${cutoff}")`)
     .order("checked_at", { ascending: true, nullsFirst: true })
@@ -224,15 +278,39 @@ export async function evaluatePendingShadowSignals(
     return { evaluated: 0, stillPending: 0, failed: 0 };
   }
 
-  const walked = await walkShadowRows(supabase, (data ?? []) as PendingShadowRow[], now);
+  // Calls still open after Gann's exit closed the trade: read again, least
+  // recently checked first, in the room the pending rows left.
+  let openCalls: PendingShadowRow[] = [];
+  const room = SHADOW_EVALUATIONS_PER_PASS - (data ?? []).length;
+  if (room > 0) {
+    const { data: open, error: openError } = await supabase
+      .from("shadow_signals")
+      .select(SHADOW_ROW_COLUMNS)
+      .not("outcome", "is", null)
+      .eq("call_outcome", "open")
+      .order("checked_at", { ascending: true, nullsFirst: true })
+      .limit(room);
+    if (openError) console.error(`shadow: open-call read failed — ${openError.message}`);
+    else openCalls = (open ?? []) as PendingShadowRow[];
+  }
+
+  const pendingRows = (data ?? []) as PendingShadowRow[];
+  const walked = await walkShadowRows(supabase, [...pendingRows, ...openCalls], now);
+  // The tally is of the trades read; a decided trade re-read for its call is not counted again.
   const tally = { evaluated: 0, stillPending: 0, failed: 0 };
-  for (const result of walked.values()) {
+  for (const row of pendingRows) {
+    if (!walked.has(row.id)) continue;
+    const result = walked.get(row.id);
+    if (result === undefined) continue;
     if (result === null) tally.failed++;
     else if (result.outcome === "pending") tally.stillPending++;
     else tally.evaluated++;
   }
   return tally;
 }
+
+/** The columns a pass reads (`PendingShadowRow`). */
+export const SHADOW_ROW_COLUMNS = "id, symbol, direction, entry, stop_loss, scanned_at, session_date, fill_price, tp1, call_outcome, outcome";
 
 /** Calendar days a missing session is waited on before it is read as never filled. Engineering-chosen. */
 export const FEED_GAP_RETRY_DAYS = 7;
@@ -332,13 +410,29 @@ export async function walkShadowRows(
         monthly,
         sharesOutstanding: ref?.sharesOutstanding ?? null,
         assetClass: crypto ? "crypto" : "us_equity",
+        tp1: row.tp1 == null ? null : Number(row.tp1),
       });
+      const callWrite = result.call ? { call_outcome: result.call } : {};
+      // A trade already decided is re-read only for its call: its recorded
+      // outcome stands (the daily window the exit reads slides over time, so
+      // walking it again weeks later could rewrite a recorded result).
+      if (row.outcome != null) {
+        const { error: callError } = await supabase
+          .from("shadow_signals")
+          .update({ checked_at: now.toISOString(), ...callWrite })
+          .eq("id", row.id);
+        if (callError) {
+          console.error(`shadow: call write failed for ${row.symbol} — ${callError.message}`);
+          return null;
+        }
+        return result;
+      }
       if (result.outcome === "pending") {
         // Checked now, so the next pass turns to rows not yet read; a fill is
         // kept so the recorder knows the trade is on (lib/shadow/record.ts).
         const { error: checkError } = await supabase
           .from("shadow_signals")
-          .update({ checked_at: now.toISOString(), fill_price: result.fillPrice ?? row.fill_price ?? null })
+          .update({ checked_at: now.toISOString(), fill_price: result.fillPrice ?? row.fill_price ?? null, ...callWrite })
           .eq("id", row.id);
         if (checkError) console.error(`shadow: check write failed for ${row.symbol} — ${checkError.message}`);
         return result;
@@ -353,6 +447,7 @@ export async function walkShadowRows(
           fill_price: result.fillPrice,
           evaluated_at: now.toISOString(),
           checked_at: now.toISOString(),
+          ...callWrite,
         })
         .eq("id", row.id);
       if (writeError) {

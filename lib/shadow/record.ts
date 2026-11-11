@@ -39,6 +39,8 @@ export interface ShadowSignalInsert {
   entry: number;
   stopLoss: number;
   target: number;
+  /** The card's first target, for its good or bad call (`lib/shadow/goodCall.ts`). */
+  tp1: number | null;
   score: number;
   source: string;
   scannedAt: string;
@@ -68,6 +70,7 @@ export function buildShadowSignal(result: ScanResult, source: string): ShadowSig
     // The master target, kept for reference only: the walk exits on Gann's
     // rules with no fixed target (lib/shadow/evaluate.ts, R-032).
     target: result.levels.masterProfit,
+    tp1: Number.isFinite(result.levels.takeProfit1) ? result.levels.takeProfit1 : null,
     score: result.decision.score,
     source,
     scannedAt: result.scannedAt,
@@ -104,6 +107,7 @@ export async function recordShadowSignals(
       entry: r.entry,
       stop_loss: r.stopLoss,
       target: r.target,
+      tp1: r.tp1,
       score: r.score,
       source: r.source,
       scanned_at: r.scannedAt,
@@ -128,7 +132,7 @@ export async function recordShadowSignals(
   try {
     const { data } = await supabase
       .from("shadow_signals")
-      .select("id, symbol, direction, entry, stop_loss, scanned_at, session_date, fill_price, checked_at")
+      .select("id, symbol, direction, entry, stop_loss, scanned_at, session_date, fill_price, tp1, call_outcome, checked_at")
       .eq("strategy_version", STRATEGY_VERSION)
       .is("outcome", null)
       .in("symbol", [...new Set(rows.map((r) => r.symbol))]);

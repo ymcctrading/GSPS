@@ -56,7 +56,7 @@ describe("Dashboard sections", () => {
 
   it("moves a section one place and leaves the ends alone", () => {
     const order = [...DASHBOARD_SECTION_IDS];
-    expect(moveDashboardSection(order, "school", -1).slice(0, 2)).toEqual(["school", "summary"]);
+    expect(moveDashboardSection(order, "cards", -1).slice(0, 2)).toEqual(["cards", "summary"]);
     expect(moveDashboardSection(order, "summary", -1)).toEqual(order);
     expect(moveDashboardSection(order, "calendar", 1)).toEqual(order);
     expect(order).toEqual([...DASHBOARD_SECTION_IDS]);
