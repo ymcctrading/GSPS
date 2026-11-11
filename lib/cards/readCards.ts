@@ -11,10 +11,9 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { STRATEGY_MODE_LABELS } from "@/lib/strategies/types";
-import { CARD_RECORDS, cardKindShown, type CardKind, type CardRecord } from "@/lib/setups/cardRecords";
+import { CARD_KIND_LABELS, CARD_KIND_MODE, CARD_RECORDS, cardKindShown, type CardKind, type CardRecord } from "@/lib/setups/cardRecords";
 import { tallyGoodCalls, type GoodCallTally } from "@/lib/shadow/goodCall";
-import { CARD_MODES } from "@/lib/cards/cardCalls";
+import { CARD_KINDS } from "@/lib/cards/cardCalls";
 import { isStrategyModeAllowedForPolicy } from "@/lib/strategies/access";
 import type { EntitlementPolicy } from "@/lib/entitlements/policy";
 import { etDateKey, mostRecentClose } from "@/lib/market/session";
@@ -65,7 +64,17 @@ export interface TradeCardViewer {
 
 /** The kinds a member is shown, in the modes' order. */
 export function publishedKinds(): CardKind[] {
-  return CARD_MODES.filter((k) => cardKindShown(k));
+  return CARD_KINDS.filter((k) => cardKindShown(k));
+}
+
+/**
+ * Pure. Where a stock has both an RSI reversal card and the same card on a
+ * turn date ("rsiReversalTimed", same levels), the member is shown the one
+ * card, under the kind with the stronger held-out record.
+ */
+export function withoutDuplicateCards(cards: TradeCard[]): TradeCard[] {
+  const timed = new Set(cards.filter((c) => c.kind === "rsiReversalTimed").map((c) => c.symbol));
+  return cards.filter((c) => !(c.kind === "rsiReversal" && timed.has(c.symbol)));
 }
 
 /** Most forward rows read for a kind's tally; an engineering bound for one request. */
@@ -105,7 +114,7 @@ export async function getTradeCards(
   const { data: latest } = await service
     .from("card_calls")
     .select("signal_date")
-    .in("kind", [...CARD_MODES])
+    .in("kind", [...CARD_KINDS])
     .order("signal_date", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -124,14 +133,15 @@ export async function getTradeCards(
       .in("kind", kinds)
       .order("symbol");
     cards = ((data ?? []) as { kind: CardKind; symbol: string; entry: number | string; stop: number | string; tp1: number | string }[]).map(
-      (r) => ({ kind: r.kind, label: STRATEGY_MODE_LABELS[r.kind], symbol: r.symbol, entry: Number(r.entry), stop: Number(r.stop), tp1: Number(r.tp1) }),
+      (r) => ({ kind: r.kind, label: CARD_KIND_LABELS[r.kind], symbol: r.symbol, entry: Number(r.entry), stop: Number(r.stop), tp1: Number(r.tp1) }),
     );
+    cards = withoutDuplicateCards(cards);
     const all = cards.length;
-    const allowed = viewer ? cards.filter((c) => isStrategyModeAllowedForPolicy(viewer.policy, c.kind)) : [];
-    cards = allowed.filter((c) => c.kind === viewer?.mode);
+    const allowed = viewer ? cards.filter((c) => isStrategyModeAllowedForPolicy(viewer.policy, CARD_KIND_MODE[c.kind])) : [];
+    cards = allowed.filter((c) => CARD_KIND_MODE[c.kind] === viewer?.mode);
     heldBack = all - cards.length;
     for (const c of allowed) {
-      if (c.kind === viewer?.mode) continue;
+      if (CARD_KIND_MODE[c.kind] === viewer?.mode) continue;
       const row = unchosen.find((u) => u.label === c.label);
       if (row) row.count++;
       else unchosen.push({ label: c.label, count: 1 });
@@ -167,7 +177,7 @@ export async function getTradeCards(
         tp1: Number(r.tp1),
       })),
     );
-    return { kind, label: STRATEGY_MODE_LABELS[kind], heldOut, forward, since: rows.length ? rows[rows.length - 1].signal_date : null };
+    return { kind, label: CARD_KIND_LABELS[kind], heldOut, forward, since: rows.length ? rows[rows.length - 1].signal_date : null };
   };
   const records = (await Promise.all(kinds.map(readKind))).filter((r): r is TradeCardKindRecord => r != null);
   return { signalDate, cards, heldBack, unchosen, kinds: records };

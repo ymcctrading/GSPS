@@ -6,7 +6,9 @@
  * scan universe's daily bars in batched requests, arms each daily strategy
  * mode's long cards on the last completed bar, and records them, marking as
  * published only the kinds whose held-out record passed
- * (lib/setups/cardRecords.ts). Then walks every card still pending or open
+ * (lib/setups/cardRecords.ts); for the stocks with an RSI reversal card it
+ * also reads the long daily history Rule 10 needs (the "rsiReversalTimed"
+ * kind, `timedCards`). Then walks every card still pending or open
  * over the same bars: no fill, good call or bad call, losses kept. Off every
  * user's path: nobody waits on it.
  *
@@ -22,7 +24,7 @@ import { getMarketDataProvider } from "@/lib/data/provider";
 import { MARKET_DATA_UNAVAILABLE, syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { equitySession, etDateKey } from "@/lib/market/session";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
-import { buildCards, walkCardCall, CARD_WINDOW_BARS } from "@/lib/cards/cardCalls";
+import { buildCards, timedCards, walkCardCall, CARD_WINDOW_BARS, TIMED_HISTORY_START, type CardCall } from "@/lib/cards/cardCalls";
 import { cardKindShown } from "@/lib/setups/cardRecords";
 import type { Bar } from "@/lib/types";
 
@@ -84,23 +86,45 @@ export async function GET(req: NextRequest) {
 
   // 1. Tonight's cards: stocks that traded the basis day, with a full window.
   const service = createServiceClient();
-  const rows = [];
+  const built: CardCall[] = [];
   for (const [symbol, daily] of bars) {
     if (daily.length < CARD_WINDOW_BARS) continue;
     if (etDateKey(new Date(daily[daily.length - 1].t)) !== basisDate) continue;
-    for (const c of buildCards(symbol, daily)) {
-      rows.push({
-        kind: c.kind,
-        symbol: c.symbol,
-        signal_date: c.signalDate,
-        entry: c.entry,
-        stop: c.stop,
-        tp1: c.tp1,
-        signal_close: c.signalClose,
-        published: cardKindShown(c.kind),
-      });
+    built.push(...buildCards(symbol, daily));
+  }
+
+  // 1b. The RSI reversal cards on a Rule 10 day ("rsiReversalTimed"). The
+  // rule reads each stock's bars from the research data's first session
+  // (lib/gann/changeInTrend.ts), so only the stocks with an RSI card tonight
+  // are read that far back: a few a night, one batched request.
+  const timedStarted = Date.now();
+  const rsiSymbols = [...new Set(built.filter((c) => c.kind === "rsiReversal").map((c) => c.symbol))];
+  let timedError: string | null = null;
+  if (rsiSymbols.length > 0) {
+    try {
+      const long = await provider.fetchBarsBatch(rsiSymbols, "1Day", new Date(`${TIMED_HISTORY_START}T00:00:00Z`), end, "us_equity");
+      for (const [symbol, all] of long) {
+        const done = sessionOpen ? all.filter((b) => etDateKey(new Date(b.t)) < today) : all;
+        built.push(...timedCards(built.filter((c) => c.symbol === symbol.toUpperCase()), done));
+      }
+    } catch (err) {
+      // The plain cards still go out; the timed kind is simply not issued tonight.
+      timedError = String(err);
+      console.error(`[cards/nightly] long history not read: ${timedError}`);
     }
   }
+  const timedMs = Date.now() - timedStarted;
+
+  const rows = built.map((c) => ({
+    kind: c.kind,
+    symbol: c.symbol,
+    signal_date: c.signalDate,
+    entry: c.entry,
+    stop: c.stop,
+    tp1: c.tp1,
+    signal_close: c.signalClose,
+    published: cardKindShown(c.kind),
+  }));
   if (rows.length > 0) {
     // A rerun the same night keeps the first record of each card untouched.
     const { error } = await service.from("card_calls").upsert(rows, { onConflict: "kind,symbol,signal_date", ignoreDuplicates: true });
@@ -182,6 +206,7 @@ export async function GET(req: NextRequest) {
     read: bars.size,
     issued: rows.length,
     published: rows.filter((r) => r.published).length,
+    timed: { read: rsiSymbols.length, issued: built.filter((c) => c.kind === "rsiReversalTimed").length, ms: timedMs, error: timedError },
     walked: tally,
     writeFailures,
     ms: Date.now() - startedAt,

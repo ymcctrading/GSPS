@@ -38,10 +38,27 @@
  *    term), otherwise a mixture. The member is shown which, in the summary.
  */
 
-import type { StrategyModeId } from "@/lib/strategies/types";
+import { STRATEGY_MODE_LABELS, type StrategyModeId } from "@/lib/strategies/types";
 
-/** A kind of setup card: the platform's own plan ("gsps") or a strategy mode's. */
-export type CardKind = StrategyModeId;
+/**
+ * A kind of setup card: the platform's own plan ("gsps"), a strategy mode's,
+ * or a mode's card read only on the days a dated turn condition also holds
+ * ("rsiReversalTimed": the RSI reversal card's own levels, on such a day;
+ * internal record RESULT-GC2.md, lib/gann/changeInTrend.ts).
+ */
+export type CardKind = StrategyModeId | "rsiReversalTimed";
+
+/** The strategy mode a card kind belongs to: who may see it (tier) and who chose it. */
+export const CARD_KIND_MODE: Record<CardKind, StrategyModeId> = {
+  ...(Object.fromEntries((Object.keys(STRATEGY_MODE_LABELS) as StrategyModeId[]).map((m) => [m, m])) as Record<StrategyModeId, StrategyModeId>),
+  rsiReversalTimed: "rsiReversal",
+};
+
+/** What a member reads as the card's kind. */
+export const CARD_KIND_LABELS: Record<CardKind, string> = {
+  ...STRATEGY_MODE_LABELS,
+  rsiReversalTimed: `${STRATEGY_MODE_LABELS.rsiReversal}, on a turn date`,
+};
 
 export interface CardRecord {
   /** Filled cards scored on the held-out read. */
@@ -65,8 +82,9 @@ export interface CardRecord {
 /**
  * The held-out record of each kind of card. `null` until a pre-registered
  * read has been made for it. Filled from
- * private-research/card-goodcall/RESULT-GC1.md (internal); a test holds each
- * entry to that run's figures.
+ * private-research/card-goodcall/RESULT-GC1.md (internal), and
+ * "rsiReversalTimed" from RESULT-GC2.md (internal; it passed all six of its
+ * pre-registered conditions); a test holds each entry to its run's figures.
  */
 export const CARD_RECORDS: Record<CardKind, CardRecord | null> = {
   gsps: null,
@@ -150,6 +168,16 @@ export const CARD_RECORDS: Record<CardKind, CardRecord | null> = {
     period: "2018-2026",
     passed: false,
     summary: "On 25,344 filled cards on large-cap stocks it was never tuned on (2018-2026), 43.3% reached their first target before their stop, against 34.0% needed to break even; +0.27R a call, short of the same levels on a random day (+0.48R).",
+  },
+  rsiReversalTimed: {
+    fills: 1307,
+    goodRate: 0.5362,
+    breakEven: 0.4439,
+    expectancyR: 0.2235,
+    randomExpectancyR: -0.0177,
+    period: "2018-2026",
+    passed: true,
+    summary: "On 1,307 filled cards on large-cap stocks it was never tuned on (2018-2026), 53.6% reached their first target before their stop, against 44.4% needed to break even; +0.22R a call, beating the same levels on a random day (-0.02R).",
   },
   elliottWave: {
     fills: 5911,
