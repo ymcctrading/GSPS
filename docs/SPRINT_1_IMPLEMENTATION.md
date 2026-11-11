@@ -48,7 +48,7 @@
     - Profit factor, total return %
     - Sharpe ratio (placeholder), max drawdown (placeholder)
   - `get_pnl_by_period(user_id, period, start_date)` — daily/weekly/monthly P&L breakdown
-  - `get_performance_by_pattern(user_id, start_date)` — win rate and P&L by pattern type (Gann fan, structural reversion, etc.)
+  - `get_performance_by_pattern(user_id, start_date)` — win rate and P&L by pattern type (the method fan, structural reversion, etc.)
   - `get_equity_curve(user_id, starting_capital)` — running equity from inception (for drawdown visualization)
 
 **API Route:**

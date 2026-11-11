@@ -1,4 +1,4 @@
-# NOTES: where GSPS computes each Gann element (step 1, read-only exploration)
+# NOTES: where GSPS computes each the method element (step 1, read-only exploration)
 
 Written 2026-10-15 on branch `claude/gann-feature-map-01fckp`, from `main` at `06d1124` (#305).
 No code was changed. This file, `gann_features.json` and `PLAN.md` are the only additions.
@@ -16,14 +16,14 @@ Commands: `npm test` (vitest), `npx tsc --noEmit`, `npm run lint`, `npm run chec
 
 ## Where the rules came from
 
-The Gann rules were taken from the reading output in the project's shared folder,
+The method rules were taken from the reading output in the project's shared folder,
 `/mnt/project-files/literature-reading-output/` (read-only here; the reading thread owns it).
 Four read-only subagents each covered one source cluster:
 
 | Cluster | Works | Rules extracted |
 |---|---|---|
-| Gann's own text (tier A) and press reports (tier B) | W006, W022, W036, W046, W001, W030; W010 | 178 |
-| Secondary and vendor work on Gann (tier C) | W003/W034, W007, W009, W011, W013, W023, W027–W029, W031–W035, W048–W050 | 121 |
+| The method's own text (tier A) and press reports (tier B) | W006, W022, W036, W046, W001, W030; W010 | 178 |
+| Secondary and vendor work on the method (tier C) | W003/W034, W007, W009, W011, W013, W023, W027–W029, W031–W035, W048–W050 | 121 |
 | Cycle science | W039–W045 | 52 |
 | GSPS code and the parity roadmap | `lib/`, `docs/memory-bank/GANN_PARITY_ROADMAP.md` | 73 matrix rows mapped |
 
@@ -33,12 +33,12 @@ Rules are cited by work ID and page, as the reading notes cite them (PDF pages u
 
 | Class | Meaning |
 |---|---|
-| `A` | Gann's own text, read in the current reading output |
-| `B` | Press or publisher report about Gann, read |
-| `C` | Secondary or vendor work attributing the rule to Gann, read |
-| `CYCLE` | Cycle-science validation standard (Dewey, Halberg, Tomes), read |
+| `A` | The method's own text, read in the current reading output |
+| `B` | Press or publisher report about the method, read |
+| `C` | Secondary or vendor work attributing the rule to the method, read |
+| `CYCLE` | Cycle-science validation standard (SRC-032, SRC-041, SRC-033), read |
 | `UNVERIFIABLE` | Rests on a source not readable in the current reading (the nine blocked books, or a book not in the collection). Recorded per step 10, not inferred |
-| `UNDISCLOSED` | Gann names the technique but never explains it. Cannot be built without inventing it |
+| `UNDISCLOSED` | The method names the technique but never explains it. Cannot be built without inventing it |
 
 Status vocabulary for `passes`: `false` until a test that asserts the rule as written has been run and shown passing, and a fresh reviewer has checked it. Only `passes` may change.
 
@@ -48,21 +48,21 @@ The repo's memory bank (`/mnt/project-files/private-research/sources/`, 2026-09-
 
 | Repo code | Work | Readable now? |
 |---|---|---|
-| A03 *Tunnel Thru the Air* | W022 | yes |
-| A05 *New Stock Trend Detector* | W006 | yes |
-| A10 *The Magic Word* | W030 | yes |
-| A11 *Economic Forecaster* | W001 | yes |
+| A03 SRC-006 | W022 | yes |
+| A05 SRC-004 | W006 | yes |
+| A10 SRC-008 | W030 | yes |
+| A11 SRC-012 | W001 | yes |
 | A2.2 *Annual Forecasts 1919–22* | W036 | yes |
 | A2.3 Coffee letter 1954 | W046 | yes |
-| A02 *Truth of the Stock Tape* | W015 | **no** (blocked) |
-| A08 *How to Make Profits in Commodities* | W008 / W019 | **no** (blocked) |
-| A09 *45 Years in Wall Street* | W005 | **no** (blocked) |
-| A2.1 *Master Stock Market Course* | W037 | **no** (blocked) |
+| A02 SRC-002 | W015 | **no** (blocked) |
+| A08 SRC-007 | W008 / W019 | **no** (blocked) |
+| A09 SRC-005 | W005 | **no** (blocked) |
+| A2.1 SRC-001 | W037 | **no** (blocked) |
 | B04 Reddy, *Trading Methodologies* | W014 | **no** (blocked) |
-| B05 Mikula, *Scientific Methods Unveiled* Vol. 2 | W004 | **no** (blocked) |
-| A04 *Wall Street Stock Selector*, A01 1909 *Ticker* interview, A07 *Face Facts America!* | not in the collection (A01 is quoted second-hand in W027–W029 and W001) | **no** |
+| B05 SRC-035, *Scientific Methods Unveiled* Vol. 2 | W004 | **no** (blocked) |
+| A04 SRC-003, A01 1909 *Ticker* interview, A07 SRC-009 | not in the collection (A01 is quoted second-hand in W027–W029 and W001) | **no** |
 
-**The main finding of this step:** most of the parity roadmap's "Aligned" rows cite A02, A04, A08, A09 or A2.1. None of those can be checked against the current reading. Where a rule also appears in a readable Gann work (mostly W006), it is entered under that work. Where it does not, it is entered as `UNVERIFIABLE` with an `M-` id and stays so until Chuck's reading of the nine books lands.
+**The main finding of this step:** most of the parity roadmap's "Aligned" rows cite A02, A04, A08, A09 or A2.1. None of those can be checked against the current reading. Where a rule also appears in a readable the method work (mostly W006), it is entered under that work. Where it does not, it is entered as `UNVERIFIABLE` with an `M-` id and stays so until Chuck's reading of the nine books lands.
 
 ## Element map (code, surfaces, tests)
 
@@ -78,8 +78,8 @@ Surfaces: LIVE = `lib/scanTicker.ts` / `lib/marketScan.ts`; REPLAY = `lib/backte
 | Entry confirmation (buffer 0.3%) | `lib/lifecycle/entryConfirmation.ts`, `confirmNow.ts` | plans, replay, every order path | `entryConfirmation.test.ts`, `confirmNow.test.ts` |
 | Breakaway from a range | `lib/gann/breakaway.ts`, `applyBreakawayHold` | LIVE, REPLAY | `breakaway.test.ts` (5) |
 | Stop breach, failed-break reclaim | `lib/gann/stopBreach.ts`, `lib/lifecycle/retire.ts` | LIVE, REPLAY | `stopBreach.test.ts` (21), `retire.test.ts` (11) |
-| Gann's 3 points, price-scaled | `lib/gann/pointScale.ts` | exits, stop breach, intraday replay | `pointScale.test.ts` (3) |
-| Gann exits | `lib/gann/exitRules.ts` `readGannExit` | EXITS (live), REPLAY | `exitRules.test.ts` (12), `protocol-exit.test.ts` (26) |
+| The method's 3 points, price-scaled | `lib/gann/pointScale.ts` | exits, stop breach, intraday replay | `pointScale.test.ts` (3) |
+| The method exits | `lib/gann/exitRules.ts` `readGannExit` | EXITS (live), REPLAY | `exitRules.test.ts` (12), `protocol-exit.test.ts` (26) |
 | Pyramiding | `lib/gann/pyramid.ts` | REPLAY, suggestion route; not automated | `pyramid.test.ts` (3) |
 | Rule of Three | `lib/gann/ruleOfThree.ts` | score, LIVE, REPLAY | `ruleOfThree.test.ts` (7) |
 | Angles, fans | `normalizedSlope.ts`, `fans.ts` | score, LIVE, REPLAY, CARD | `normalizedSlope.test.ts`; fans only in `lib/__tests__/gann.test.ts` |
@@ -103,21 +103,21 @@ Scored criteria (`lib/scoring/weights.ts:68`, 9 points, Execute 6 / Watch 3.5) a
 ## Mismatches found (recorded, not fixed)
 
 1. **Entry side still uses a fixed 0.3% buffer.** `DEFAULT_CONFIRMATION_BUFFER_PCT` (`lib/lifecycle/entryConfirmation.ts:80`) and `LOST_MOTION_BUFFER_PCT` (`entryTrigger.ts`) are 0.3%. Exits and stop breach moved to price-scaled 3 points (`pointScale.ts`) on 2026-09-28. W006 pp.20–24 states the 3-point rule for entries as well. Nothing records whether the difference is intended.
-2. **The intraday scanner and the intraday replay read different Gann primitives.** `lib/scanner/intraday.ts` imports only `evenFigures`; `replayIntraday.ts` uses `swingChart`, `pointScale` and `stopBreach`.
+2. **The intraday scanner and the intraday replay read different the method primitives.** `lib/scanner/intraday.ts` imports only `evenFigures`; `replayIntraday.ts` uses `swingChart`, `pointScale` and `stopBreach`.
 3. **`readTrend` has no test**, though every macro trend read goes through it. `timeCycles.ts`, `fans.ts` and `squareOf9.ts` have no dedicated test file.
 4. **The roadmap's swing-chart row reads Aligned, but `swingChartTrend` was quarantined 2026-09-30** (inverted on six-year runs 12, 22, 23).
 5. **`macroCycle.ts` is on `main`**, though AGENTS.md and roadmap row H5 say it is on an unmerged branch. It has no measured record shown with its dated windows, which the forward-claims rule requires.
 6. **Nine context-only modules never act** on a verdict, plan or exit. Under the owner's 2026-09-28 rule they are Aligned only in the measuring sense.
 7. **Cycle squares and the spectral cycle are card-only**, never measured against outcomes.
-8. **`lib/risk/position-limits.ts` and `config.ts` carry no Gann citation** (last changed 2026-08-31).
+8. **`lib/risk/position-limits.ts` and `config.ts` carry no the method citation** (last changed 2026-08-31).
 9. **Stale roadmap text:** "Next step" cells on built rows (T6, T7, P2, P6, R2–R6, R11, E9); T5 says 8 calendar windows, the code has 10.
 10. **Cycle code (from the cycle cluster):**
     - no test runs `detectSpectralCycle` on white noise or a random walk (Yule–Slutsky / null case);
     - its hold-out runs only after `active` is decided on the full window, so the hold-out data helps decide whether the hold-out happens;
     - the cosinor p-value is computed after the period was picked from the same data;
     - `timeCycles`, `yearCycleConvergence`, `macroCycle` and `decadeCycle` have no base rate;
-    - exact whole-unit periods everywhere (`macroCycle.ts` `yearsElapsed % n === 0`), against Tomes' average-vs-specific distinction (W045) and Benner's drift (W039 p.14);
-    - Dewey #5, #8 and #9 are not built anywhere.
+    - exact whole-unit periods everywhere (`macroCycle.ts` `yearsElapsed % n === 0`), against SRC-033' average-vs-specific distinction (W045) and Benner's drift (W039 p.14);
+    - SRC-032 #5, #8 and #9 are not built anywhere.
 
 ## Coffee letter repo note differs from the scan (record only)
 
@@ -128,7 +128,7 @@ Scored criteria (`lib/scoring/weights.ts:68`, 9 points, Execute 6 / Watch 3.5) a
 4. repeats "50 pts/month" without noting only 30 reproduces 8715;
 5. lists scales "1, 12, 30, 45, 46, 50 pts per degree"; no 46 is in the letter, and the 50 is per month.
 
-It also repeats three of Gann's own slips unflagged (8663 = "28° Aries", Jupiter "20°35′", 30 × 210 + 300 "= 5600"). Not corrected; this is an owner decision (unresolved-items §6 q.3).
+It also repeats three of the method's own slips unflagged (8663 = "28° Aries", Jupiter "20°35′", 30 × 210 + 300 "= 5600"). Not corrected; this is an owner decision (unresolved-items §6 q.3).
 
 ## Conflicts between sources (affect how a rule is written)
 
@@ -137,9 +137,9 @@ It also repeats three of Gann's own slips unflagged (8663 = "28° Aries", Jupite
 - W006 Rule 5 vs W022: equal pyramid lots halved after the 4th–5th vs largest lot first. W006's pyramid steps cover only $20–50 and $80–200.
 - W006 p.13: bear markets "no more than 43 months", while listing one of 53.
 - W022 p.371 vs p.372: a "time" is 360 units vs 20 years.
-- Pivot counts (W006, W022, W046) vs fixed calendar dates (W036); never reconciled by Gann.
+- Pivot counts (W006, W022, W046) vs fixed calendar dates (W036); never reconciled by the method.
 - W036 p.22 "trade the dates regardless of price" vs GSPS keeping calendar windows as context only.
-- Secondary: 3-point penetration (W003, W006) vs 1 point (Jensen W049); W031 vs W033 angle-to-fraction pairing; W034 41 vs W003 46 weeks (46 is right).
+- Secondary: 3-point penetration (W003, W006) vs 1 point (SRC-031 W049); W031 vs W033 angle-to-fraction pairing; W034 41 vs W003 46 weeks (46 is right).
 - W006's transcription truncates Ch. VII Rule 1 and omits the Chrysler record, so rules depending on those passages are partly unverifiable.
 
 ## Not entered as features

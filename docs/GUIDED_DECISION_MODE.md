@@ -67,7 +67,7 @@ an order that dies at the broker after they have already committed.
 way, so a sell *credits* the account (`executeFill`). Sizing a short against
 buying power would be arithmetic on a number that grows as the position grows,
 so the buying-power ceiling simply does not apply to it. That leaves the
-**Gann's capital rule as the ceiling bounding a short's exposure**: it holds
+**The method's capital rule as the ceiling bounding a short's exposure**: it holds
 capital behind every share, long or short.
 
 **It reads differently.** The reason line is written per side rather than
@@ -102,11 +102,11 @@ recording the outcome in its per-symbol audit trail.
 `lib/guided/sizing.ts`. Pressing Buy or Sell never sets a quantity. Four
 ceilings apply and the smallest wins:
 
-1. **Per-trade risk cap** — 1% of Gann's trading unit by default, divided by
+1. **Per-trade risk cap** — 1% of the method's trading unit by default, divided by
    the entry-to-stop distance, measured in the trade's own direction.
-2. **Gann's capital rule** (A-RISK-01, `lib/risk/gannCapital.ts`) — 30 points
+2. **The method's capital rule** (A-RISK-01, `lib/risk/gannCapital.ts`) — 30 points
    of capital behind every share held, his "$3,000 for every 100 shares"
-   price-scaled by the Gann point. Every open share counts, and cards rendered
+   price-scaled by the method point. Every open share counts, and cards rendered
    together are sized against each other. It bounds a short as well as a long.
 3. **Buying power** — the simulated account is cash-only; no margin is modelled.
    Longs only: a short credits cash rather than spending it.
@@ -120,7 +120,7 @@ all meet them.
 
 **Retired 2026-10-16 (owner, "Switch all nine", Q12):** the trade-count caps
 (3 a day, 10 a week), the 25% deployed-capital cap and the $250 per-trade
-budget. Gann sets no daily trade count (Q8); his capital rules replace them.
+budget. The method sets no daily trade count (Q8); his capital rules replace them.
 Stored values for those keys in `settings.prefs.guided` are ignored.
 
 The reward figure is computed from the staged exit `planProtocolExit` will

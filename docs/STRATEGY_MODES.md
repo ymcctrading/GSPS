@@ -9,13 +9,13 @@ plugin system" below.
 
 Strategy Modes is an opt-in, non-default system that generates entry, stop
 loss, first target (TP1), and master target (MTP) from a named, real,
-non-Gann trading technique — for a user who is actively trading that
+non-method trading technique — for a user who is actively trading that
 technique and wants GSPS to price levels the way that technique would,
-instead of (or alongside) GSPS's own Gann-grounded verdict.
+instead of (or alongside) GSPS's own method-grounded verdict.
 
-See AGENTS.md's "Strategy Modes — scoped exception to the non-Gann boundary"
+See AGENTS.md's "Strategy Modes — scoped exception to the non-method boundary"
 section for why this is allowed to exist at all: it is a deliberate,
-narrow, project-owner-authorized exception to the "no non-Gann indicator may
+narrow, project-owner-authorized exception to the "no non-method indicator may
 feed an entry/stop/target" boundary that otherwise governs this codebase.
 Read that section before touching anything under `lib/strategies/`.
 
@@ -31,10 +31,10 @@ Strategy Modes section for his full wording. The paragraphs below that say a
 technique only explains, or that no level reaches the ticket, describe the
 2026-10-16 to 2026-10-22 rule.
 
-**Explain-only since 2026-10-16 (project owner).** Gann's method sets the
+**Explain-only since 2026-10-16 (project owner).** the method sets the
 entry, stop and targets; a chosen mode or custom script only explains the
 setup in that technique's terms. The order ticket shows its reading next to
-Gann's plan (whether it agrees with the plan's direction, and its own levels
+The method's plan (whether it agrees with the plan's direction, and its own levels
 marked "for comparison only") and no longer has a "Use these levels" button
 that copies them into the manual stop and target. See AGENTS.md's Strategy
 Modes section for the owner's wording. Everything below that describes a mode
@@ -64,13 +64,13 @@ AGENTS.md's Strategy Modes note. VWAP is session-anchored
 
 ## Hard rules (do not relax without new project-owner direction)
 
-1. **Gann is always the default.** Every scan, the scorecard, `SignalGates`,
+1. **The method is always the default.** Every scan, the scorecard, `SignalGates`,
    the Automated Portfolio Manager, and plan-scoped Automation read only the
-   existing Gann pipeline (`lib/gann/entryTrigger.ts`, `lib/strat/levels.ts`)
+   existing the method pipeline (`lib/gann/entryTrigger.ts`, `lib/strat/levels.ts`)
    unless a human explicitly picks a Strategy Mode for that one
    chart/ticket.
 2. **One mode at a time.** Never combined, averaged, or silently persisted
-   as an account-wide override of the Gann verdict.
+   as an account-wide override of the method verdict.
 3. **Never touches the scored criteria or `ScanResult.levels`.** A Strategy
    Mode result is a parallel, separately-labeled suggestion — the same kind
    of thing as a human typing a manual stop/target into the order ticket.
@@ -79,7 +79,7 @@ AGENTS.md's Strategy Modes note. VWAP is session-anchored
    plan. Strategy Modes compute their own copies of shared formulas
    (`lib/strategies/math.ts`) so that guarantee stays literally true.
 5. **Always labeled.** Every place a Strategy Mode result is shown states
-   which mode produced it, so it can never be mistaken for the Gann trade
+   which mode produced it, so it can never be mistaken for the method trade
    plan.
 6. **Tier-gated, server-resolved only.** Which modes an account may even
    select is an entitlement (`lib/entitlements/policy.ts#allowedStrategyModes`),
@@ -121,7 +121,7 @@ convention `lib/gann/entryTrigger.ts` uses.
 ## The modes and why each was picked
 
 Every mode below is designed through AGENTS.md's three-question mandate
-(Gann sourcing, Dewey's cycle checklist, Hermetic framing) in its own module
+(the method sourcing, SRC-032's cycle checklist, design-principle framing) in its own module
 header — summarized here, read the module for the full reasoning:
 
 | Mode | Style | Entry | Stop | Targets |
@@ -145,15 +145,15 @@ it is the existing pipeline, not a new one.
 
 | Tier | Access |
 |---|---|
-| Novice (PRACTICE) | None — no selector shown, only the structural/Gann plan |
+| Novice (PRACTICE) | None — no selector shown, only the structural/the method plan |
 | Pro (STANDARD) | `macdMomentum`, `rsiReversal`, `maCrossover`, `vwap` only |
 | Expert (INVESTOR_MODE) | All ten |
 | Wall Street (SYSTEM_MASTERY) | All ten |
 
 This is a pure access-control decision, not a claim about any technique, so
-AGENTS.md's Three-question mandate questions 1 (Gann sourcing) and 2 (Dewey's
+AGENTS.md's Three-question mandate questions 1 (the method sourcing) and 2 (SRC-032's
 cycle checklist) don't apply to the gating itself — each *mode* still answers
-them individually in its own module header. Question 3 (Hermetic principle)
+them individually in its own module header. Question 3 (design principle)
 does apply: this reads as **Polarity**, the same framing AGENTS.md's mandate
 section gives the novice/expert interface-design goal — a four-tier ladder
 that widens what each tier is trusted to touch, rather than either exposing
@@ -193,9 +193,9 @@ indicator built first — now `lib/strategies/math.ts#stochastic`/`#donchian`).
 One candidate remains deliberately not built:
 
 - **Volume-climax exhaustion reversal off PSAR/Supertrend** — combining a
-  non-Gann trend overlay with `lib/gann/volumeClimax.ts` would blur the
-  Gann/non-Gann line this document exists to keep clean; if wanted, it
-  should compute its own volume-climax read rather than importing the Gann
+  non-method trend overlay with `lib/gann/volumeClimax.ts` would blur the
+  the method/non-method line this document exists to keep clean; if wanted, it
+  should compute its own volume-climax read rather than importing the method
   one.
 
 ## Elliott Wave (2026-10-28, owner: "GSPS should compute Elliott Wave")
@@ -243,7 +243,7 @@ ticket — that combination is exactly what a sandbox exists to contain.
 **Three-question framing, applied to the system itself rather than one
 technique:**
 
-1. *Gann grounding:* none, by design — this is explicitly the "bring your
+1. *the method grounding:* none, by design — this is explicitly the "bring your
    own method" system, the same carve-out the Q2 "Expanded indicator
    library" item already made for charting indicators, extended to
    full custom logic.
@@ -251,10 +251,10 @@ technique:**
    answer `lib/gann/entryTrigger.ts` and this document's nine modes give for
    a mechanism that claims no periodicity of its own. Applies per-script, if
    and when a specific script makes a periodicity claim.
-3. *Hermetic principle: Polarity.* The novice/expert interface-design
+3. *design principle: Polarity.* The novice/expert interface-design
    Polarity example in AGENTS.md's Three-question mandate section applies
    directly here — a script author is the "expert" pole of the same
-   platform a novice trades on with Gann's default, and the two must
+   platform a novice trades on with the method's default, and the two must
    coexist without either diluting the other. A custom script must never
    become visible as, or confusable with, GSPS's own verdict — the same
    labeling rule this document's nine built-in modes already follow.
@@ -317,7 +317,7 @@ EMA9/SMA20 crossover logic. `tsc --noEmit`, lint, and
 (2026-09-23), reasoned through the Three-question mandate rather than
 engineering preference alone — full reasoning in AGENTS.md's "Custom-
 script/plugin system" entry:
-- **A textual grammar, not a JSON-only AST**, for Hermetic Correspondence —
+- **A textual grammar, not a JSON-only AST**, for design-principle Correspondence —
   the text an author writes is a direct, legible mirror of the AST the
   interpreter walks, not an opaque encoding an author would have to hand-
   construct.
@@ -391,7 +391,7 @@ script/plugin system" entry:
   evaluate route, and a result the human must explicitly click to load into
   the manual stop/target fields — this document's six hard rules hold the
   same way the built-in modes' own flow already does (opt-in, one-at-a-time,
-  never touching the Gann verdict, own math, always labeled by the script's
+  never touching the method verdict, own math, always labeled by the script's
   rationale, tier-gated and server-resolved via the plugin's private-to-
   author scoping).
 
@@ -406,7 +406,7 @@ routes compiled), `check-banned-terms.mjs` clean.
   forward over a symbol/timeframe's available history, re-evaluating it
   against every closed-history window (`bars.slice(0, i + 1)`), the same
   growing-window shape `replaySignals.ts#replaySignalEngine` uses (parallel
-  infrastructure to the Gann walk-forward replay, per AGENTS.md's orphan-
+  infrastructure to the method walk-forward replay, per AGENTS.md's orphan-
   module audit outcome 6/8, reused rather than a third backtest engine).
   Records an event only where the script actually armed. Deliberately
   **evidence-gathering, not trade simulation** — no fill/stop/target-touch

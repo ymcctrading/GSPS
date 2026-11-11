@@ -76,7 +76,7 @@ Required server-derived states are `WATCH`, `EXECUTE`, `INVALIDATED`, `NO_SETUP`
 
 A user may receive a notification on a confirmed `WATCH → EXECUTE` transition, and on a tracked setup breaking (`WATCH`/`EXECUTE` → `INVALIDATED`) — see "Correction (2026-09-02)" below. `NO_SETUP` and `EXPIRED` never notify: neither means the setup broke, only that a later scan didn't reconfirm it. The system must persist monitor state, transitions, idempotency information, and delivery records. It must not re-alert an already executed setup unless the setup first leaves `EXECUTE`, returns to `WATCH`, and then reconfirms `EXECUTE`.
 
-An alert payload must include: ticker, asset type, ET timestamp, source/timeframe, direction, confirmation price, Gann Root (3, 6, or 9), entry, TP1, master target, stop/invalidation, and a deep link to the user-authorized trade plan.
+An alert payload must include: ticker, asset type, ET timestamp, source/timeframe, direction, confirmation price, the method Root (3, 6, or 9), entry, TP1, master target, stop/invalidation, and a deep link to the user-authorized trade plan.
 
 ## Required server flow
 

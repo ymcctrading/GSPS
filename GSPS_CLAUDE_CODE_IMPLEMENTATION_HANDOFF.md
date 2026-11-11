@@ -15,7 +15,7 @@ This is a machine-oriented handoff for Claude Code. The user-provided Phase 0, P
 | GitHub repository | `ymcctrading/GSPS` |
 | Default branch | `main` @ `df5c45b7119d082ac48f05f13561fc0c72d5526d` |
 | Supabase production | `vebhpmmzxixlhujlptue` (ACTIVE_HEALTHY, PostgreSQL 17) |
-| Vercel production project | `gsps`, Gann Protocol team |
+| Vercel production project | `gsps`, the method Protocol team |
 | Non-production reference | Do not redirect production to `vlbsrhxghghfkjbttqha` |
 | Do not recreate | Historical migration 0003 is intentionally absent |
 

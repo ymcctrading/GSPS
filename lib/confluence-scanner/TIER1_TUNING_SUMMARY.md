@@ -195,7 +195,7 @@ A setup with ADX 44:
 ### The Problem
 
 You mentioned:
-> "If price is far away from next Gann Fan/Fibonacci sequence, users should be alerted that there's an opportunity to capitalize on momentum... but only if the move has been caught in its infancy."
+> "If price is far away from next the method Fan/Fibonacci sequence, users should be alerted that there's an opportunity to capitalize on momentum... but only if the move has been caught in its infancy."
 
 This was **not scored at all** in the original checklist. You were missing a whole category of trades.
 
@@ -204,7 +204,7 @@ This was **not scored at all** in the original checklist. You were missing a who
 **New factor: `early_stage_momentum_opportunity`** (6 points max)
 
 **Criteria (all must pass):**
-1. **Distance to next target:** 1.5–4.0% away from Gann/Fibonacci
+1. **Distance to next target:** 1.5–4.0% away from the method/Fibonacci
    - Too close (< 1.5%): move is nearly complete
    - Too far (> 4.0%): might be a false move, not a real impulse
 2. **RSI not extreme:** 25 < RSI < 75

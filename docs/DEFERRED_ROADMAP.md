@@ -31,7 +31,7 @@ This document explicitly defers non-core features to avoid scope creep while mai
 **Why Defer**:
 - Adds significant data-integration complexity
 - Requires low-latency news API (cost + rate limits)
-- Not required for core Gann/Sara signal logic
+- Not required for core the method/Sara signal logic
 - Can bias traders into reactive trading
 
 **Future Hook**:
@@ -62,7 +62,7 @@ This document explicitly defers non-core features to avoid scope creep while mai
 
 **Why Defer**:
 - Valuable for fundamental filters
-- Orthogonal to current price-action/Gann geometry focus
+- Orthogonal to current price-action/the method geometry focus
 - Can be implemented as pre-trade validation layer
 
 **Future Hook**:
@@ -95,7 +95,7 @@ This document explicitly defers non-core features to avoid scope creep while mai
 **Why Defer**:
 - Macro regime modeling is a separate layer
 - Adds complexity to feature engineering
-- Current priority: micro (instrument-level) Gann/Sara execution
+- Current priority: micro (instrument-level) the method/Sara execution
 - Useful for conditioned learning, not baseline signals
 
 **Future Hook**:

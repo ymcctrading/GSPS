@@ -7,7 +7,7 @@ This forward-only migration removes `anon` and `authenticated` execution rights 
 ## Production topology
 
 - GitHub repository: `ymcctrading/GSPS`
-- Vercel project: `gsps` in the Gann Protocol team
+- Vercel project: `gsps` in the method Protocol team
 - Production Supabase project: `vebhpmmzxixlhujlptue`
 
 Do not redirect production configuration to `vlbsrhxghghfkjbttqha`; that project is not the production database.
