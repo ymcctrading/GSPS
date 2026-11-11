@@ -39,6 +39,8 @@ import type { Bar } from "@/lib/types";
 import { evaluateStrategyMode, NON_GANN_STRATEGY_EVALUATORS, type NonGannStrategyModeId } from "@/lib/strategies/registry";
 import { etDateKey } from "@/lib/market/session";
 import { walkGoodCall, GOOD_CALL_MAX_SESSIONS, type CallOutcome } from "@/lib/shadow/goodCall";
+import { changeInTrend, CHANGE_IN_TREND_FIRST_SESSION } from "@/lib/gann/changeInTrend";
+import type { CardKind } from "@/lib/setups/cardRecords";
 
 /** Daily bars a mode reads, as the held-out read ran it (`--window 250`). */
 export const CARD_WINDOW_BARS = 250;
@@ -48,8 +50,17 @@ export const CARD_MODES: readonly NonGannStrategyModeId[] = (Object.keys(NON_GAN
   (m) => m !== "vwap",
 );
 
+/**
+ * Every kind recorded each night: the modes' own cards, and the RSI reversal
+ * card on a day Gann's Rule 10 also holds (`timedCards`).
+ */
+export const CARD_KINDS: readonly CardKind[] = [...CARD_MODES, "rsiReversalTimed"];
+
+/** Where the long history `timedCards` reads begins (the research data's first session). */
+export const TIMED_HISTORY_START = CHANGE_IN_TREND_FIRST_SESSION;
+
 export interface CardCall {
-  kind: NonGannStrategyModeId;
+  kind: CardKind;
   symbol: string;
   /** The completed daily bar the card was read on (YYYY-MM-DD). */
   signalDate: string;
@@ -87,6 +98,48 @@ export function buildCards(symbol: string, completedDaily: readonly Bar[], modes
     cards.push({ kind, symbol, signalDate, entry, stop, tp1, signalClose });
   }
   return cards;
+}
+
+/**
+ * Pure. The "rsiReversalTimed" cards: each RSI reversal card whose signal bar
+ * is also a Rule 10 change-in-trend day (lib/gann/changeInTrend.ts), with the
+ * RSI card's own entry, stop and TP1. That pairing is what the held-out read
+ * measured (internal: private-research/card-goodcall/PREREG-GC2.md,
+ * RESULT-GC2.md: 1,307 fills, 53.6% good calls against 44.4% to break even,
+ * +0.22R a call; the RSI cards outside it +0.05R).
+ *
+ * Recorded beside that: from mid-2021 on the pair is still positive and beats
+ * random days (+0.13 to +0.14R), but its gain over the plain RSI card is
+ * only +0.03 to +0.05R and not significant (RESULT-GC2.md Addendum B); the
+ * forward record is the test of it.
+ *
+ * `history` is the symbol's completed daily bars from `TIMED_HISTORY_START`
+ * through the signal bar, as the research read them (the rule's charts and
+ * "all time" extremes depend on where the bars begin). The live feed's daily
+ * history starts 2020-07-27, so live bars begin there: measured on 249
+ * held-out stocks, 96% of 2025-26 bars read alike from either start, every
+ * difference in the anniversary part. A history that does not end on the
+ * card's signal bar gives no card: the rule is never read on a different
+ * day's bars.
+ *
+ * Three-question basis: 1. Gann, 45 Years in Wall Street (1949) ch. II
+ * p. 13, Rule 10 (internal citation). 2. Cycles: his dated periods, fixed in
+ * advance (Dewey's criterion 7) and measured out of sample. 3. Hermetic:
+ * Gender, the card's active price trigger joined to the receptive time
+ * window. Law of Creation: price x time, a creation (+0.17R over the RSI
+ * card without it).
+ */
+export function timedCards(cards: readonly CardCall[], history: readonly Bar[]): CardCall[] {
+  const rsi = cards.filter((c) => c.kind === "rsiReversal");
+  if (rsi.length === 0 || history.length < 2) return [];
+  const bars = history.map((b) => ({ date: dateOf(b), h: b.h, l: b.l }));
+  const last = bars[bars.length - 1].date;
+  const out: CardCall[] = [];
+  for (const c of rsi) {
+    if (c.signalDate !== last) continue;
+    if (changeInTrend(bars).fired) out.push({ ...c, kind: "rsiReversalTimed" });
+  }
+  return out;
 }
 
 export interface CardCallResult {

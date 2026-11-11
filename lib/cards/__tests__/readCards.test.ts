@@ -96,6 +96,23 @@ describe("getTradeCards", () => {
     expect(await getTradeCards(svc, null, tuesdayEvening)).toMatchObject({ cards: [], heldBack: 1 });
   });
 
+  it("shows the timed RSI card to the RSI reversal mode, once per stock, under its own label", async () => {
+    const svc = fakeService([
+      card("rsiReversal", "AAA", "2026-11-10", true),
+      card("rsiReversalTimed", "AAA", "2026-11-10", true),
+      card("rsiReversal", "BBB", "2026-11-10", true),
+    ]);
+    const t = await getTradeCards(svc, { policy: proPolicy, mode: "rsiReversal" }, tuesdayEvening);
+    expect(t.cards.map((c) => [c.symbol, c.kind])).toEqual([
+      ["AAA", "rsiReversalTimed"],
+      ["BBB", "rsiReversal"],
+    ]);
+    expect(t.cards[0].label).toMatch(/turn date/);
+    const other = await getTradeCards(svc, { policy: proPolicy, mode: "macdMomentum" }, tuesdayEvening);
+    expect(other.cards).toEqual([]);
+    expect(other.heldBack).toBe(2);
+  });
+
   it("keeps the forward record, losses and no-fills included", async () => {
     const svc = fakeService([
       card("rsiReversal", "AAA", "2026-11-02", true, "good"),
