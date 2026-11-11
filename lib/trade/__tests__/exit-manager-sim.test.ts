@@ -351,7 +351,8 @@ describe("manageSimulatedExits — Protect profits (2026-11-11)", () => {
   it("sells the whole position at the MTP once a bar since the fill touched it, logged as the master target and never reversed", async () => {
     quotePrice.mockResolvedValue(715);
     readLiveBestSinceFill.mockResolvedValue(726);
-    const { client, inserts } = stubSupabase(runner(), "auto-plan", { gannRules: { protectProfits: true } });
+    // On since before the fill: every price since the fill counts.
+    const { client, inserts } = stubSupabase(runner(), "auto-plan", { gannRules: { protectProfits: true, protectProfitsSince: "2026-09-01T00:00:00.000Z" } });
 
     const run = await manageSimulatedExits(client, "user-1");
 
@@ -378,12 +379,43 @@ describe("manageSimulatedExits — Protect profits (2026-11-11)", () => {
   it("raises the stop to the entry once TP1 is reached", async () => {
     quotePrice.mockResolvedValue(640);
     readLiveBestSinceFill.mockResolvedValue(655);
-    const { client, updates } = stubSupabase(runner({ high_water: 640 }), null, { gannRules: { protectProfits: true } });
+    const { client, updates } = stubSupabase(runner({ high_water: 640 }), null, { gannRules: { protectProfits: true, protectProfitsSince: "2026-09-01T00:00:00.000Z" } });
 
     const run = await manageSimulatedExits(client, "user-1");
 
     expect(run.closed).toBe(0);
     expect(updates).toContainEqual(expect.objectContaining({ applied_stop_reason: "break_even" }));
     expect(updates.find((u) => u.applied_stop_reason === "break_even")?.applied_stop).toBe(476.08);
+  });
+
+  it("never acts on a touch from before the switch was turned on (review B2)", async () => {
+    // The trade touched 726 (past the MTP) and 655 (past TP1) weeks ago; the
+    // switch was turned on today, and since then the best is the 470 quote.
+    quotePrice.mockResolvedValue(470);
+    readLiveBestSinceFill.mockImplementation(async (arg: unknown) =>
+      (arg as { openedAt: string }).openedAt === "2026-09-05T15:15:00.000Z" ? 726 : null,
+    );
+    const { client, updates } = stubSupabase(runner({ high_water: 726 }), "auto-plan", { gannRules: { protectProfits: true, protectProfitsSince: "2026-11-11T14:00:00.000Z" } });
+
+    const run = await manageSimulatedExits(client, "user-1");
+
+    expect(run.closed).toBe(0);
+    expect(executeFill).not.toHaveBeenCalled();
+    expect(updates.some((u) => u.applied_stop_reason === "break_even")).toBe(false);
+    expect(readLiveBestSinceFill).toHaveBeenCalledWith(expect.objectContaining({ openedAt: "2026-11-11T14:00:00.000Z" }));
+  });
+
+  it("counts a touch after the switch was turned on, on a trade opened before it", async () => {
+    quotePrice.mockResolvedValue(700);
+    readLiveBestSinceFill.mockImplementation(async (arg: unknown) =>
+      (arg as { openedAt: string }).openedAt === "2026-11-11T14:00:00.000Z" ? 725.5 : 726,
+    );
+    const { client, inserts } = stubSupabase(runner(), "auto-plan", { gannRules: { protectProfits: true, protectProfitsSince: "2026-11-11T14:00:00.000Z" } });
+
+    const run = await manageSimulatedExits(client, "user-1");
+
+    expect(run.closed).toBe(1);
+    const log = inserts.find((i) => i.table === "trade_logs")?.row as Record<string, unknown>;
+    expect(log).toMatchObject({ exit_condition: "master_target", exit_price: 725 });
   });
 });

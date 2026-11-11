@@ -14,7 +14,7 @@ import {
   type ExitState,
 } from "@/lib/trade/protocol-exit";
 import { walkGannExit } from "@/lib/backtest/replay";
-import { DEFAULT_GANN_RULE_PREFS, resolveGannRulePrefs } from "@/lib/gann/traderPrefs";
+import { DEFAULT_GANN_RULE_PREFS, protectProfitsSinceAfter, resolveGannRulePrefs } from "@/lib/gann/traderPrefs";
 import { exitSentence } from "@/lib/guided/copy";
 
 const levels = { stopLoss: 90, takeProfit1: 120, masterProfit: 140 };
@@ -73,9 +73,9 @@ describe("planProtocolExit with Protect profits", () => {
 });
 
 describe("planStopAdjustment with Protect profits", () => {
-  it("closes the whole position at the MTP once the best price touches it, before any other exit", () => {
+  it("on paper, closes the whole position at the MTP once the best price touches it, before any other exit", () => {
     const action = planStopAdjustment(
-      state({ highWater: 141, lastPrice: 136, gann: { stop: 120, stopReason: "last_reaction", exit: { reason: "trend_change", note: "turned" } } }),
+      state({ highWater: 141, lastPrice: 136, mtpFillsOnTouch: true, gann: { stop: 120, stopReason: "last_reaction", exit: { reason: "trend_change", note: "turned" } } }),
     );
     expect(action.kind).toBe("close_all");
     if (action.kind !== "close_all") return;
@@ -85,7 +85,7 @@ describe("planStopAdjustment with Protect profits", () => {
   });
 
   it("closes a short at its MTP", () => {
-    const action = planStopAdjustment(state({ side: "short", levels: shortLevels, highWater: 59, lastPrice: 62, appliedStop: 110 }));
+    const action = planStopAdjustment(state({ side: "short", levels: shortLevels, highWater: 59, lastPrice: 62, appliedStop: 110, mtpFillsOnTouch: true }));
     expect(action.kind === "close_all" && action.fillAt).toBe(60);
   });
 
@@ -121,6 +121,20 @@ describe("planStopAdjustment with Protect profits", () => {
     const action = planStopAdjustment(state({ highWater: 119, lastPrice: 118 }));
     expect(action.kind).toBe("none");
     expect(action.stop).toBe(90);
+  });
+
+  it("reads only the best price since the switch applied, never an older touch (review B2)", () => {
+    // Touched 141 a week ago (highWater), switch on today, best since then 98.
+    const action = planStopAdjustment(state({ highWater: 141, lastPrice: 98, protectBest: 98 }));
+    expect(action.kind).toBe("none");
+    expect(action.stop).toBe(90);
+  });
+
+  it("at a broker, closes on a poll only while the price is at or through the MTP", () => {
+    const fell = planStopAdjustment(state({ highWater: 141, lastPrice: 130, protectBest: 141, mtpFillsOnTouch: false }));
+    expect(fell.kind === "close_all" && fell.fillAt != null).toBe(false);
+    const at = planStopAdjustment(state({ highWater: 141, lastPrice: 140.5, protectBest: 141, mtpFillsOnTouch: false }));
+    expect(at.kind === "close_all" && at.fillAt).toBe(140);
   });
 
   it("is the live rule unchanged when off: no entry lock at TP1, no MTP exit", () => {
@@ -167,6 +181,17 @@ describe("the member's setting", () => {
     expect(resolveGannRulePrefs(null).protectProfits).toBe(false);
     expect(resolveGannRulePrefs({ gannRules: { protectProfits: true } }).protectProfits).toBe(true);
     expect(resolveGannRulePrefs({ gannRules: { protectProfits: "yes" } }).protectProfits).toBe(false);
+    expect(resolveGannRulePrefs(null).protectProfitsSince).toBeNull();
+  });
+
+  it("records when it was turned on, keeps that while on, and clears it when off", () => {
+    const now = new Date("2026-11-11T15:00:00.000Z");
+    const off = { ...DEFAULT_GANN_RULE_PREFS };
+    expect(protectProfitsSinceAfter(off, true, now)).toBe("2026-11-11T15:00:00.000Z");
+    const on = { ...off, protectProfits: true, protectProfitsSince: "2026-11-10T12:00:00.000Z" };
+    expect(protectProfitsSinceAfter(on, true, now)).toBe("2026-11-10T12:00:00.000Z");
+    expect(protectProfitsSinceAfter(on, false, now)).toBeNull();
+    expect(protectProfitsSinceAfter({ ...off, protectProfits: true }, true, now)).toBe("2026-11-11T15:00:00.000Z");
   });
 
   it("is stated in Guided Mode's exit sentence", () => {

@@ -15,6 +15,7 @@ import {
   resolveGannRulePrefs,
   restReminderDue,
   REST_REMINDER_COPY,
+  protectProfitsSinceAfter,
   withStyleChange,
 } from "@/lib/gann/traderPrefs";
 
@@ -70,6 +71,9 @@ export async function PUT(req: NextRequest) {
   // The style's history is the server's (a trade is managed in the style that
   // stood at its fill, lib/trade/exit-style.ts); the client never writes it.
   if (parsed.data.tradeStyle) next.tradeStyleHistory = withStyleChange(current, parsed.data.tradeStyle, new Date());
+  // When Protect profits counts from is the server's too: the exit managers
+  // read prices only from then on (lib/trade/protocol-exit.ts, `protectBest`).
+  next.protectProfitsSince = protectProfitsSinceAfter(current, next.protectProfits, new Date());
   const { error } = await supabase
     .from("settings")
     .upsert({ user_id: user.id, prefs: { ...prefs, gannRules: next }, updated_at: new Date().toISOString() }, { onConflict: "user_id" });

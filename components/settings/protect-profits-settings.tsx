@@ -24,10 +24,10 @@ export function ProtectProfitsSettings() {
             <p className="text-sm font-medium">Protect profits</p>
             <p className="text-xs text-muted">
               Sell the whole position automatically at the MTP (master take profit), and once price
-              reaches TP1, keep the stop at or above your entry so the trade can no longer end at a
-              loss. When off, the position stays in past the MTP with the stop moved up behind it,
+              reaches TP1, keep the stop at or above your entry so the trade is protected at your entry
+              price. When off, the position stays in past the MTP with the stop moved up behind it,
               until the stop is hit or the trend turns. Applies to paper and live trades, including
-              ones already open. Turning it off doesn&apos;t cancel an MTP order already resting at your
+              ones already open, counting only price moves from when you turn it on. Turning it off doesn&apos;t cancel an MTP order already resting at your
               broker for an open live trade.
             </p>
           </div>

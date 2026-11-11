@@ -32,9 +32,18 @@ import { isCryptoSymbol } from "@/lib/data/alpaca";
 export async function traderExitPrefs(
   supabase: SupabaseClient,
   userId: string,
-): Promise<{ styleHistory: TradeStyleChange[]; protectProfits: boolean }> {
+): Promise<{ styleHistory: TradeStyleChange[]; protectProfits: boolean; protectProfitsSince: string | null }> {
   const prefs = await readGannRulePrefs(supabase, userId);
-  return { styleHistory: prefs?.tradeStyleHistory ?? [], protectProfits: prefs?.protectProfits === true };
+  const on = prefs?.protectProfits === true;
+  // On with no recorded time (saved before the field existed) counts from now:
+  // a price from before this pass never acts.
+  const since = on ? (prefs?.protectProfitsSince ?? new Date().toISOString()) : null;
+  return { styleHistory: prefs?.tradeStyleHistory ?? [], protectProfits: on, protectProfitsSince: since };
+}
+
+/** The later of two ISO times. */
+export function laterOf(a: string, b: string): string {
+  return Date.parse(b) > Date.parse(a) ? b : a;
 }
 
 /**

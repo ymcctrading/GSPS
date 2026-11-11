@@ -35,7 +35,7 @@ import { handleAutomatedStopOut, reversalOffer } from "@/lib/automation/stop-out
 import type { ReversalCause } from "@/lib/gann/reverse";
 import { readLiveBadNews, readLiveBestSinceFill, readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
 import { badNewsOffer } from "@/lib/gann/badNews";
-import { positionExitStyle, traderExitPrefs } from "@/lib/trade/exit-style";
+import { laterOf, positionExitStyle, traderExitPrefs } from "@/lib/trade/exit-style";
 import type { TradeStyleChange } from "@/lib/gann/traderPrefs";
 import { rebuyOffer } from "@/lib/gann/rebuy";
 import { coverNote, coverReached, readRebuyCover } from "@/lib/automation/rebuy-cover";
@@ -127,10 +127,10 @@ export async function manageSimulatedExits(supabase: Supabase, userId: string): 
   if (plans.length === 0) return idle();
 
   const run: SimManageRun = { ...idle(), managed: plans.length };
-  const { styleHistory, protectProfits } = await traderExitPrefs(supabase, userId);
+  const { styleHistory, protectProfits, protectProfitsSince } = await traderExitPrefs(supabase, userId);
   for (const plan of plans) {
     try {
-      await advance(supabase, userId, plan, run, styleHistory, protectProfits);
+      await advance(supabase, userId, plan, run, styleHistory, protectProfits, protectProfitsSince);
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       console.error(`exit-manager-sim: ${plan.symbol} plan ${plan.id} — ${detail}`);
@@ -239,6 +239,8 @@ async function advance(
   styleHistory: readonly TradeStyleChange[] = [],
   /** The member's Protect profits switch (`protocol-exit.ts`): MTP exit and the entry locked at TP1. */
   protectProfits = false,
+  /** When the switch was turned on (ISO): prices before it never act. */
+  protectProfitsSince: string | null = null,
 ): Promise<void> {
   const price = await quotePrice(plan.symbol, assetClassOf(plan.symbol));
   if (price == null) return; // no data this pass; try again next poll
@@ -286,6 +288,17 @@ async function advance(
             ...(await positionExitStyle(supabase, styleHistory, plan.created_at, plan.entry_order_id, "id", plan.symbol)),
           })
         : null;
+    // Protect profits reads only prices since the switch applied to this
+    // trade (the later of the fill and the switch): a touch from before never
+    // fills at the MTP or locks the entry (merge-queue review B2).
+    let protectBest: number | null | undefined;
+    if (protectProfits && protectProfitsSince) {
+      const from = laterOf(plan.created_at, protectProfitsSince);
+      protectBest =
+        from === plan.created_at
+          ? highWater
+          : extendHighWater(plan.side, price, await readLiveBestSinceFill({ symbol: plan.symbol, side: plan.side, openedAt: from }));
+    }
     stopAction = planStopAdjustment({
       side: plan.side,
       entryPrice: plan.entry_price,
@@ -294,7 +307,11 @@ async function advance(
       lastPrice: price,
       appliedStop: plan.applied_stop,
       gann,
-      protectProfits,
+      protectProfits: protectProfits && protectBest !== undefined,
+      protectBest,
+      // Nothing rests on paper: a touch since the switch fills at the MTP, as
+      // the master tranche fills at its level.
+      mtpFillsOnTouch: true,
     });
     // `planStopAdjustment` answers "none" once the stop it would place is the
     // one already applied. For a real broker that's right: the stop rests there

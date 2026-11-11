@@ -66,11 +66,15 @@
  * of the live rule, never in place of its stop:
  *   - **MTP exit.** The whole position leaves at the master take profit. At the
  *     broker the runner rests as an OCO (MTP limit plus the moving stop), so it
- *     works while the app is closed; a poll that sees the MTP already reached
- *     closes what is left (`masterTakeProfitReached`).
+ *     works while the app is closed; a poll closes what is left while the
+ *     price is at or through the MTP (`masterTakeProfitReached`). Paper,
+ *     which rests nothing, fills a touch at the MTP (`mtpFillsOnTouch`).
  *   - **TP1 locks the entry.** Once the best price has reached TP1 the stop is
  *     never below the entry (above it, short), even when the 3-point
  *     break-even below has not fired yet.
+ * Both read only prices since the switch applied to the trade, the later of
+ * the fill and the moment it was turned on (`protectBest`), so turning it on
+ * never acts on a touch from before (merge-queue review B2).
  * Default off. Gann's own rule stays the platform default: "never fix a
  * target price" (*Truth of the Stock Tape*; A02 in the memory bank) and wait
  * "for a change in trend before closing" (*New Stock Trend Detector* p. 8).
@@ -353,6 +357,22 @@ export interface ExitState {
    * been reached. Read under the Gann rules; "bracket" already does both.
    */
   protectProfits?: boolean;
+  /**
+   * Protect profits: the best price since the switch applied to this trade,
+   * the later of the fill and the moment the member turned it on
+   * (`protectProfitsSince`). A touch from before the switch never arms the
+   * MTP exit or the TP1 lock (merge-queue review B2, 2026-11-11). Undefined
+   * falls back to `highWater ?? lastPrice`.
+   */
+  protectBest?: number | null;
+  /**
+   * Protect profits: true where a touch of the MTP since the switch is a fill
+   * at the MTP, as a resting limit's would be (the paper simulator, which
+   * fills its master tranche the same way). False at a broker: a resting OCO
+   * there fills on its own, so a poll closes only while the price is at or
+   * through the MTP, never at a market that has fallen back from it.
+   */
+  mtpFillsOnTouch?: boolean;
 }
 
 export type ExitAction =
@@ -465,7 +485,8 @@ export function planStopAdjustment(state: ExitState): ExitAction {
     // Protect profits: TP1 reached means the trade has proved itself, so the
     // stop never sits on the losing side of the entry again.
     let lockedAtTp1 = false;
-    if (state.protectProfits && best != null && entryPrice > 0 && (long ? best >= levels.takeProfit1 : best <= levels.takeProfit1)) {
+    const pBest = state.protectBest === undefined ? best : state.protectBest;
+    if (state.protectProfits && pBest != null && entryPrice > 0 && (long ? pBest >= levels.takeProfit1 : pBest <= levels.takeProfit1)) {
       const before = stop;
       adopt(entryPrice, "break_even");
       if (stop !== before) {
@@ -479,13 +500,17 @@ export function planStopAdjustment(state: ExitState): ExitAction {
     if (appliedStop != null && isTighter(appliedStop, stop)) stop = appliedStop;
     // The MTP binds before any other exit: a resting limit there fills on the
     // first touch, which came before anything read now.
-    if (state.protectProfits && masterTakeProfitReached(state.side, best, levels)) {
+    if (
+      state.protectProfits &&
+      masterTakeProfitReached(state.side, pBest, levels) &&
+      (state.mtpFillsOnTouch === true || masterTakeProfitReached(state.side, lastPrice, levels))
+    ) {
       const mtp = validMasterTakeProfit(levels, state.side)!;
       return {
         kind: "close_all",
         stop,
         reason: "master_reversal",
-        explanation: `The MTP (master take profit) at ${usdOf(mtp)} was reached, so the position is closed with the profit banked.`,
+        explanation: `The MTP (master take profit) at ${usdOf(mtp)} was reached, so the position is closed.`,
         atMarket: true,
         fillAt: mtp,
       };
@@ -496,7 +521,7 @@ export function planStopAdjustment(state: ExitState): ExitAction {
     const unchangedG = appliedStop != null && Math.abs(appliedStop - stop) < tick / 2;
     if (unchangedG) return { kind: "none", stop, reason };
     const explanationG = lockedAtTp1
-      ? `TP1 was reached, so the stop moves to your entry (${usdOf(stop)}). The trade can no longer end at a loss.`
+      ? `TP1 was reached, so the stop moves to your entry (${usdOf(stop)}). The trade is now protected at your entry price.`
       : explainGann(gannReason, stop);
     if (lastPrice != null && (long ? lastPrice <= stop : lastPrice >= stop)) {
       return { kind: "close_all", stop, reason, explanation: explanationG };
