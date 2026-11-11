@@ -51,10 +51,11 @@ export const CARD_MODES: readonly NonGannStrategyModeId[] = (Object.keys(NON_GAN
 );
 
 /**
- * Every kind recorded each night: the modes' own cards, and the RSI reversal
- * card on a day Gann's Rule 10 also holds (`timedCards`).
+ * Every kind recorded each night: the modes' own cards, the RSI reversal
+ * card on a day Gann's Rule 10 also holds (`timedCards`), and the engine's
+ * own card (lib/cards/edgeCard.ts, written by /api/cards/edge).
  */
-export const CARD_KINDS: readonly CardKind[] = [...CARD_MODES, "rsiReversalTimed"];
+export const CARD_KINDS: readonly CardKind[] = [...CARD_MODES, "rsiReversalTimed", "edgeBottom"];
 
 /** Where the long history `timedCards` reads begins (the research data's first session). */
 export const TIMED_HISTORY_START = CHANGE_IN_TREND_FIRST_SESSION;
@@ -67,6 +68,9 @@ export interface CardCall {
   entry: number;
   stop: number;
   tp1: number;
+  /** Second target (the strongest level) and master take profit, where the kind has them (owner, 2026-11-11). TP1 alone decides the call. */
+  tp2?: number | null;
+  mtp?: number | null;
   /** The signal bar's close as read that night, so a later stock split can be scaled out (`walkCardCall`). */
   signalClose: number;
 }

@@ -1,6 +1,6 @@
 /**
  * The engine's setup card: entry, stop, TP1, TP2 and MTP for a long setup, as of
- * the close of one bar (RESEARCH ONLY; nothing user-facing imports this yet).
+ * the close of one bar. Read live by lib/cards/edgeCard.ts (server only).
  *
  * Owner direction (2026-11-11): TP1 is the closest level, so the trade goes
  * positive; TP2 is the strongest level, to take profit; MTP is the largest

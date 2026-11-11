@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Walk-forward study of the price-time square engine (lib/research/edgeEngine).
+ * Walk-forward study of the price-time square engine (lib/edgeEngine).
  * RESEARCH ONLY: reads a folder of daily CSVs (date,o,h,l,c,v), never the
  * database, and writes JSON results. Nothing here reaches a member.
  *
@@ -26,7 +26,7 @@ const TEST = { from: "2022-07-01", to: "2026-10-30" };
 async function engine() {
   const { createJiti } = await import(path.join(ROOT, "node_modules/jiti/lib/jiti.mjs"));
   const jiti = createJiti(import.meta.url, { alias: { "@": ROOT } });
-  return jiti.import(path.join(ROOT, "lib/research/edgeEngine/index.ts"));
+  return jiti.import(path.join(ROOT, "lib/edgeEngine/index.ts"));
 }
 
 function loadCsv(file) {

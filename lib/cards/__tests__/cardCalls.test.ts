@@ -70,7 +70,7 @@ describe("timedCards (the RSI card on a Rule 10 day)", () => {
   });
 
   it("is recorded every night beside the modes' kinds", () => {
-    expect(CARD_KINDS).toEqual([...CARD_MODES, "rsiReversalTimed"]);
+    expect(CARD_KINDS).toEqual([...CARD_MODES, "rsiReversalTimed", "edgeBottom"]);
   });
 });
 

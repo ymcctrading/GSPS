@@ -67,6 +67,8 @@ export function TradeCards({ data }: { data: TradeCardsData }) {
                   </span>
                   <span className="tabular-nums">
                     Buy stop {priceUsd(c.entry)} · Stop {priceUsd(c.stop)} · First target {priceUsd(c.tp1)}
+                    {c.tp2 != null && <> · Second target {priceUsd(c.tp2)}</>}
+                    {c.mtp != null && <> · MTP {priceUsd(c.mtp)}</>}
                   </span>
                 </li>
               ))}

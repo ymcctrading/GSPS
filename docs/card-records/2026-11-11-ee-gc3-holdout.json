@@ -1,0 +1,24 @@
+{
+ "_source": "Held-out read of 2026-11-11 (internal records RESULT-EE1-GC.md, RESULT-EE1-GC3.md), 249 large caps, 2018-07..2026-10; figures only.",
+ "edgeBottom": {
+  "fills": 14088,
+  "nofill": 1559,
+  "good": 12562,
+  "bad": 1523,
+  "rate": 0.8918707845225418,
+  "breakeven": 0.8550079430022081,
+  "expR": 0.04458568785704671,
+  "t": 14.183377306407985,
+  "random_expR_mean": -0.006944322659106363,
+  "PASS": true,
+  "tp2": {
+   "cards": 14070,
+   "good": 8951,
+   "bad": 5103,
+   "rate": 0.6369005265404867,
+   "breakeven": 0.5709472498382602,
+   "expR": 0.141262107818098,
+   "randomExpR": 0.03539372904570542
+  }
+ }
+}

@@ -44,20 +44,25 @@ import { STRATEGY_MODE_LABELS, type StrategyModeId } from "@/lib/strategies/type
  * A kind of setup card: the platform's own plan ("gsps"), a strategy mode's,
  * or a mode's card read only on the days a dated turn condition also holds
  * ("rsiReversalTimed": the RSI reversal card's own levels, on such a day;
- * internal record RESULT-GC2.md, lib/gann/changeInTrend.ts).
+ * internal record RESULT-GC2.md, lib/gann/changeInTrend.ts), or the
+ * platform's own engine card ("edgeBottom": a buy stop over a swing bottom,
+ * with three targets; internal record RESULT-EE1-GC3.md, lib/cards/edgeCard.ts).
  */
-export type CardKind = StrategyModeId | "rsiReversalTimed";
+export type CardKind = StrategyModeId | "rsiReversalTimed" | "edgeBottom";
 
 /** The strategy mode a card kind belongs to: who may see it (tier) and who chose it. */
 export const CARD_KIND_MODE: Record<CardKind, StrategyModeId> = {
   ...(Object.fromEntries((Object.keys(STRATEGY_MODE_LABELS) as StrategyModeId[]).map((m) => [m, m])) as Record<StrategyModeId, StrategyModeId>),
   rsiReversalTimed: "rsiReversal",
+  // The platform's own plan, not an opt-in mode: shown to every member (readCards.ts).
+  edgeBottom: "gsps",
 };
 
 /** What a member reads as the card's kind. */
 export const CARD_KIND_LABELS: Record<CardKind, string> = {
   ...STRATEGY_MODE_LABELS,
   rsiReversalTimed: `${STRATEGY_MODE_LABELS.rsiReversal}, on a turn date`,
+  edgeBottom: "Swing-low breakout, three targets",
 };
 
 export interface CardRecord {
@@ -168,6 +173,16 @@ export const CARD_RECORDS: Record<CardKind, CardRecord | null> = {
     period: "2018-2026",
     passed: false,
     summary: "On 25,344 filled cards on large-cap stocks it was never tuned on (2018-2026), 43.3% reached their first target before their stop, against 34.0% needed to break even; +0.27R a call, short of the same levels on a random day (+0.48R).",
+  },
+  edgeBottom: {
+    fills: 14088,
+    goodRate: 0.8919,
+    breakEven: 0.855,
+    expectancyR: 0.0446,
+    randomExpectancyR: -0.0069,
+    period: "2018-2026",
+    passed: true,
+    summary: "On 14,088 filled cards on large-cap stocks it was never tuned on (2018-2026), 89.2% reached their first target before their stop, against 85.5% needed to break even; +0.04R a call, beating the same levels on a random day (-0.01R). The second target came first 63.7% of the time against 57.1% needed (+0.14R a call).",
   },
   rsiReversalTimed: {
     fills: 1307,

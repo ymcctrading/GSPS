@@ -111,6 +111,20 @@ describe("getTradeCards", () => {
     const other = await getTradeCards(svc, { policy: proPolicy, mode: "macdMomentum" }, tuesdayEvening);
     expect(other.cards).toEqual([]);
     expect(other.heldBack).toBe(2);
+    expect(other.unchosen).toEqual([{ label: expect.stringMatching(/^RSI 14 reversal \(overbought\/oversold\)$/), count: 2 }]);
+  });
+
+  it("shows the platform's engine card, with its second target and MTP, to every member with a session", async () => {
+    const svc = fakeService([{ ...card("edgeBottom", "EEE", "2026-11-10", true), tp2: 110, mtp: 118 }, card("rsiReversal", "AAA", "2026-11-10", true)]);
+    for (const mode of [null, "gsps", "macdMomentum"]) {
+      const t = await getTradeCards(svc, { policy: proPolicy, mode }, tuesdayEvening);
+      expect(t.cards).toEqual([expect.objectContaining({ kind: "edgeBottom", symbol: "EEE", tp1: 106, tp2: 110, mtp: 118 })]);
+    }
+    const novice = await getTradeCards(svc, { policy: { allowedStrategyModes: [] } as never, mode: null }, tuesdayEvening);
+    expect(novice.cards.map((c) => c.symbol)).toEqual(["EEE"]);
+    expect((await getTradeCards(svc, null, tuesdayEvening)).cards).toEqual([]);
+    const rsi = await getTradeCards(svc, pro, tuesdayEvening);
+    expect(rsi.cards.map((c) => [c.symbol, c.tp2])).toEqual([["EEE", 110], ["AAA", null]]);
   });
 
   it("keeps the forward record, losses and no-fills included", async () => {
