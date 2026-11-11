@@ -25,6 +25,22 @@
  *    - A turn (weekly swing chart top or bottom) in that span hits when its
  *      extreme is within 3 points of the line on its date.
  *    - Null: the same lines shifted by 1..359 degrees of travel.
+ *      Corrected 2026-11-08 at the project's direction, after the run, so
+ *      post hoc. Only the null changed; the rule (frame, scale, span, hit
+ *      distance) is as fixed on 2026-10-16. Recorded here and in the notes:
+ *      that shift moved every line 30+ points from the low, where almost no
+ *      price is, so any line starting at the low beat it (a flat line at the
+ *      low caught 17.7% of turns; the large-cap run gave Saturn 0.64% against
+ *      the shift's 0.006%). The null is now Saturn's travel over the same
+ *      elapsed days from a random other start date, so every null line starts
+ *      at the low too and only Saturn's timing differs (999 seeded draws).
+ *      The start date is a low drawn at random from all cases' lows (its
+ *      own included), so the null keeps the era and the market-wide
+ *      clustering of major lows. A start drawn uniformly from 1990-2026
+ *      instead gives 0.57% and p 0.001 on the same run, because the 18,232
+ *      cases sit on only 1,329 low dates (356 on 2025-04-07 alone), so
+ *      Saturn's phase on a few market lows is counted hundreds of times as
+ *      if independent. With one case per low date the result is p 0.89.
  * 3. A month of many aspects (A-ASTRO-06, W046 p.2: "the month of April is
  *    very important ... wide swings"). Geocentric Sun, Mars, Jupiter, Saturn,
  *    Uranus and Neptune (the bodies of the letter's April calendar); every
@@ -170,7 +186,34 @@ export interface SaturnCase {
   /** Distance from the line in points at each turn, for travel `travel` (degrees) since the low. */
   low: number;
   unit: number;
-  turns: { travel: number; price: number }[];
+  /** The low's date (epoch ms), so the null can use it as another case's start. */
+  start: number;
+  /** Calendar days from the low to each turn, so the null can read another start date's travel. */
+  turns: { travel: number; price: number; days: number }[];
+}
+
+/** The span of start dates the cumulative table covers (lows outside it are not used in the null). */
+export const SATURN_NULL_FROM = Date.parse("1990-01-01T00:00:00Z");
+export const SATURN_NULL_START_DAYS = 365 * 40;
+export const SATURN_NULL_DRAWS = 999;
+
+let saturnCum: Float64Array | null = null;
+/** Saturn's geocentric travel (loops netted) from SATURN_NULL_FROM, by day, computed once. */
+function saturnCumulative(): Float64Array {
+  if (saturnCum) return saturnCum;
+  const n = SATURN_NULL_START_DAYS + SATURN_SPAN_DAYS + 1;
+  const cum = new Float64Array(n);
+  let prev = saturnGeo(SATURN_NULL_FROM);
+  for (let d = 1; d < n; d++) {
+    const cur = saturnGeo(SATURN_NULL_FROM + d * DAY);
+    let step = cur - prev;
+    if (step > 180) step -= 360;
+    if (step < -180) step += 360;
+    cum[d] = cum[d - 1] + step;
+    prev = cur;
+  }
+  saturnCum = cum;
+  return cum;
 }
 
 export function saturnCases(daily: Bar[]): SaturnCase[] {
@@ -199,35 +242,50 @@ export function saturnCases(daily: Bar[]): SaturnCase[] {
     out.push({
       low: low.bar.l,
       unit,
-      turns: inSpan.map((p) => ({ travel: byDay[Math.round((Date.parse(daily[p.index].t) - t0) / DAY)], price: p.price })),
+      start: t0,
+      turns: inSpan.map((p) => {
+        const days = Math.round((Date.parse(daily[p.index].t) - t0) / DAY);
+        return { travel: byDay[days], price: p.price, days };
+      }),
     });
   }
   return out;
 }
 
-function saturnShare(cases: SaturnCase[], shiftDeg: number): number {
-  let hits = 0;
+function onLine(c: SaturnCase, travel: number, price: number): boolean {
+  const line = c.low + SATURN_POINTS_PER_DEGREE * travel * c.unit;
+  return Math.abs(price - line) <= SATURN_HIT_POINTS * c.unit;
+}
+
+export function testSaturnTravel(cases: SaturnCase[], seed = 1954): TestResult {
   let n = 0;
+  let hits = 0;
   for (const c of cases) {
     for (const t of c.turns) {
       n++;
-      const line = c.low + SATURN_POINTS_PER_DEGREE * (t.travel + shiftDeg) * c.unit;
-      if (Math.abs(t.price - line) <= SATURN_HIT_POINTS * c.unit) hits++;
+      if (onLine(c, t.travel, t.price)) hits++;
     }
   }
-  return n ? hits / n : 0;
-}
-
-export function testSaturnTravel(cases: SaturnCase[]): TestResult {
-  const observed = saturnShare(cases, 0);
+  const observed = n ? hits / n : 0;
+  const cum = saturnCumulative();
+  const starts = cases
+    .map((c) => Math.round((c.start - SATURN_NULL_FROM) / DAY))
+    .filter((d) => d >= 0 && d < SATURN_NULL_START_DAYS);
+  if (starts.length === 0) return { observed, nullMean: Number.NaN, p: 1, n };
+  const rand = seeded(seed);
   let ge = 0;
   let sum = 0;
-  for (let s = 1; s <= 359; s++) {
-    const v = saturnShare(cases, s);
+  for (let k = 0; k < SATURN_NULL_DRAWS; k++) {
+    let h = 0;
+    for (const c of cases) {
+      const s0 = starts[Math.floor(rand() * starts.length)];
+      for (const t of c.turns) if (onLine(c, cum[s0 + t.days] - cum[s0], t.price)) h++;
+    }
+    const v = n ? h / n : 0;
     sum += v;
     if (v >= observed) ge++;
   }
-  return { observed, nullMean: sum / 359, p: (ge + 1) / 360, n: cases.reduce((a, c) => a + c.turns.length, 0) };
+  return { observed, nullMean: sum / SATURN_NULL_DRAWS, p: (ge + 1) / (SATURN_NULL_DRAWS + 1), n };
 }
 
 // ---- 3. A month of many aspects ----
