@@ -81,6 +81,19 @@ the same change. With request-based billing, work a route defers with
 `after()` (the evaluation ledger, the function meter) gets CPU only while some
 request is in flight, so it may finish late.
 
+**Render (added 2026-11-11).** Google Cloud asked the owner for a $30
+prepayment before Cloud Run would start, which he declined, so the site runs on
+Render's free web service until Vercel's pause lifts. Free plan: 512 MB, 0.1
+CPU, 750 instance hours a month per workspace, no card, and the service sleeps
+after 15 idle minutes (up to a minute to wake). `.github/workflows/deploy-render.yml`
+writes the environment from GitHub's secrets and deploys each push to `main`;
+pg_cron pings `/api/health` every 10 minutes (`gsps-keep-awake`, migration
+0149) so it never sleeps, which is 720 to 744 hours a month, inside the 750.
+Render sets `RENDER=true`, so `hostPlatform()` reads "render" and the Vercel
+and Cloud Run meters read "not in use" there. Instance hours are not metered
+here (Render's API has no usage endpoint on the free plan); read them on its
+dashboard. If memory runs past 512 MB, Render restarts the instance.
+
 Not metered, because no API reachable here exposes them on a free plan
 (read them on the dashboards): Supabase egress (5 GB a month) and Vercel's
 100 GB of fast data transfer a month (dominated by page views, which the app

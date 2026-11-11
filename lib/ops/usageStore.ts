@@ -279,7 +279,7 @@ export async function meterStatus(service: Service, id: UsageMeterId, now: Date)
   // A function meter for the other host is not read at all (Cloud Run's
   // reading needs its metadata server); it reports what the site uses now.
   if (!meterOnHost(id, hostPlatform())) {
-    return { meter: id, label: meter.label, used: 0, limit: meter.limit, unit: meter.unit, percent: 0, hold: { hold: false, reason: offHostReason(id) }, error: null, billed: false, projected: null };
+    return { meter: id, label: meter.label, used: 0, limit: meter.limit, unit: meter.unit, percent: 0, hold: { hold: false, reason: offHostReason(id, hostPlatform()) }, error: null, billed: false, projected: null };
   }
   try {
     const used = await readUsed(service, meter, now);

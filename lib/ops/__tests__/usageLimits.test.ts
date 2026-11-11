@@ -159,6 +159,14 @@ describe("hosting platform", () => {
     expect(hostPlatform({ K_SERVICE: "gsps" })).toBe("cloud_run");
     expect(hostPlatform({})).toBe("vercel");
   });
+  it("reads Render from RENDER=true, and keeps Vercel's and Cloud Run's meters off there", () => {
+    expect(hostPlatform({ RENDER: "true" })).toBe("render");
+    expect(hostPlatform({ RENDER: "" })).toBe("vercel");
+    expect(meterOnHost("vercel_cpu", "render")).toBe(false);
+    expect(meterOnHost("vercel_invocations", "render")).toBe(false);
+    expect(meterOnHost("cloud_run_seconds", "render")).toBe(false);
+    expect(meterOnHost("email_daily", "render")).toBe(true);
+  });
   it("applies each host's function limits only on that host", () => {
     expect(meterOnHost("vercel_cpu", "vercel")).toBe(true);
     expect(meterOnHost("vercel_cpu", "cloud_run")).toBe(false);

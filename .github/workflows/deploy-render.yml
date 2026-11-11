@@ -1,0 +1,157 @@
+name: Deploy to Render
+
+# Production on Render's free plan (owner, 2026-11-11). Vercel paused the
+# Hobby account on 2026-10-31 until 2026-11-30, and Google Cloud asked for a
+# $30 prepayment the owner declined ("I am not interested in paying"). Render's
+# free web service needs no card: 512 MB, 0.1 CPU, 750 instance hours a month,
+# and it sleeps after 15 idle minutes, so pg_cron pings /api/health every 10
+# minutes (migration 0149) to keep it awake within those 750 hours.
+#
+# Does nothing until the RENDER_API_KEY secret and the RENDER_SERVICE_ID
+# variable exist. Render builds the repository's Dockerfile itself; this job
+# turns Render's own auto-deploy off (so a push builds once), writes the
+# service's whole environment from GitHub's secrets (GitHub stays the one place
+# a value is changed, as with deploy-cloud-run.yml), starts a deploy of this
+# commit and waits for it to go live. Render passes the environment to
+# `docker build` as build args, so the NEXT_PUBLIC_* values reach the bundle.
+#
+# Actions minutes: free while the repository is public; otherwise about 1
+# minute unconfigured and up to about 15 while it waits on Render's build
+# (metered by the usage steps below).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-render
+  cancel-in-progress: false
+
+env:
+  # Public by design: they ship in the browser bundle. Marked so the secret
+  # scan skips them.
+  NEXT_PUBLIC_SUPABASE_URL: https://vebhpmmzxixlhujlptue.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_8nnzrTBNtRAHFBLbWL6dIQ_Hto4UspW # gitleaks:allow
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: BD9xctwOw3QARuzzW1knN4MJIjZeJA_4lxVXhvw_UBZFPrJ9OxVLLiKwn34QVbb77Ef4g6c-LxLfcL3TgWETIlc # gitleaks:allow
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    timeout-minutes: 30
+    steps:
+      # Free-tier usage meter (AGENTS.md, "Usage limits"). Fails open.
+      - name: Usage gate
+        env:
+          USAGE_URL: ${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/ops/usage
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          echo "USAGE_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+          if [ -z "$CRON_SECRET" ]; then echo "::notice::Usage meter not configured (no CRON_SECRET), job not gated."; exit 0; fi
+          reply=$(curl -sS -m 10 -H "Authorization: Bearer $CRON_SECRET" "$USAGE_URL?gate=github_actions" || true)
+          hold=$(echo "$reply" | jq -r 'if type == "object" and has("hold") then (.hold | tostring) else "" end' 2>/dev/null || true)
+          reason=$(echo "$reply" | jq -r '.reason // ""' 2>/dev/null || true)
+          if [ -z "$hold" ] || [ "${reason#Unread:}" != "$reason" ]; then
+            echo "::warning::Usage meter unreadable, job not gated."
+            exit 0
+          fi
+          if [ "$hold" = "true" ]; then
+            echo "::error::$reason"
+            exit 1
+          fi
+
+      - name: Check Render is set up
+        id: ready
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+        run: |
+          if [ -z "$RENDER_API_KEY" ] || [ -z "$RENDER_SERVICE_ID" ]; then
+            echo "::notice::RENDER_API_KEY secret or RENDER_SERVICE_ID variable not set; nothing deployed."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write the service's environment
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+          OANDA_API_KEY: ${{ secrets.OANDA_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          GIT_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          export VAPID_SUBJECT=https://gsps.world
+          export RESEND_FROM='GSPS <c.coleman@gsps.world>'
+          export VERCEL_GIT_REPO_OWNER=ymcctrading
+          export VERCEL_GIT_REPO_SLUG=gsps
+          # The free instance has 512 MB; keep Node's heap under it.
+          export NODE_OPTIONS=--max-old-space-size=400
+          # Only the names below, and only those with a value, so a secret not
+          # yet added leaves its feature off instead of set to "". The PUT
+          # replaces the service's whole environment.
+          python3 - <<'PY' > "$RUNNER_TEMP/env.json"
+          import json, os, sys
+          names = """NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_VAPID_PUBLIC_KEY
+          VAPID_SUBJECT RESEND_FROM VERCEL_GIT_REPO_OWNER VERCEL_GIT_REPO_SLUG CRON_SECRET SUPABASE_SECRET_KEY
+          ALPACA_API_KEY ALPACA_API_SECRET RESEND_API_KEY VAPID_PRIVATE_KEY SEC_USER_AGENT FINNHUB_API_KEY
+          TWELVE_DATA_API_KEY OANDA_API_KEY SENTRY_DSN NEXT_PUBLIC_SENTRY_DSN NODE_OPTIONS GIT_COMMIT_SHA""".split()
+          env = [{"key": n, "value": os.environ[n]} for n in names if os.environ.get(n)]
+          json.dump(env, sys.stdout)
+          print("Set:", ", ".join(sorted(e["key"] for e in env)), file=sys.stderr)
+          print("Not set:", ", ".join(n for n in names if not os.environ.get(n)) or "none", file=sys.stderr)
+          PY
+          api="https://api.render.com/v1/services/$RENDER_SERVICE_ID"
+          auth="Authorization: Bearer $RENDER_API_KEY"
+          curl -fsS -m 30 -X PATCH -H "$auth" -H 'content-type: application/json' -d '{"autoDeploy":"no"}' "$api" >/dev/null
+          curl -fsS -m 30 -X PUT -H "$auth" -H 'content-type: application/json' --data-binary "@$RUNNER_TEMP/env.json" "$api/env-vars" >/dev/null
+          rm -f "$RUNNER_TEMP/env.json"
+
+      - name: Deploy this commit and wait for it to go live
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+        run: |
+          api="https://api.render.com/v1/services/$RENDER_SERVICE_ID"
+          auth="Authorization: Bearer $RENDER_API_KEY"
+          deploy=$(curl -fsS -m 30 -X POST -H "$auth" -H 'content-type: application/json' \
+            -d "{\"clearCache\":\"do_not_clear\",\"commitId\":\"${{ github.sha }}\"}" "$api/deploys" | jq -r '.id')
+          echo "Render deploy $deploy"
+          for i in $(seq 1 100); do
+            sleep 15
+            status=$(curl -fsS -m 30 -H "$auth" "$api/deploys/$deploy" | jq -r '.status' || echo unknown)
+            echo "$(date -u +%H:%M:%S) $status"
+            case "$status" in
+              live) url=$(curl -fsS -m 30 -H "$auth" "$api" | jq -r '.serviceDetails.url'); echo "::notice::Live at $url"; exit 0 ;;
+              build_failed|update_failed|canceled|deactivated|pre_deploy_failed) echo "::error::Render deploy $deploy ended $status"; exit 1 ;;
+            esac
+          done
+          echo "::error::Render deploy $deploy not live after 25 minutes"; exit 1
+
+      - name: Usage report
+        if: always()
+        env:
+          USAGE_URL: ${{ vars.PRODUCTION_URL || 'https://gsps.vercel.app' }}/api/ops/usage
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          [ -n "$CRON_SECRET" ] || exit 0
+          start=${USAGE_JOB_START:-$(date +%s)}
+          minutes=$(( ($(date +%s) - start + 30 + 59) / 60 )); [ "$minutes" -ge 1 ] || minutes=1
+          curl -sS -m 10 -X POST -H "Authorization: Bearer $CRON_SECRET" -H 'content-type: application/json' \
+            -d "{\"meter\":\"github_actions\",\"units\":$minutes,\"key\":\"job-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}\",\"detail\":{\"workflow\":\"${{ github.workflow }}\",\"event\":\"${{ github.event_name }}\"}}" "$USAGE_URL" || true
