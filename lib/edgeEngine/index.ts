@@ -1,4 +1,4 @@
-/** Price-time square engine (research only): see `config.ts` for what it is and is not. */
+/** Price-time square engine: see `config.ts` for what it is and is not (one live consumer, lib/cards/edgeCard.ts). */
 export * from "./config";
 export * from "./calendar";
 export * from "./sky";

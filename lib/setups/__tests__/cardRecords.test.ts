@@ -6,7 +6,7 @@ import { CARD_KIND_LABELS, CARD_KIND_MODE, CARD_RECORDS, cardKindShown, type Car
 // The held-out reads the records come from (private-research/card-goodcall/RESULT-GC1.md, RESULT-GC2.md).
 type Run = Record<string, { fills: number; rate: number; breakeven: number; expR: number; random_expR_mean: number; PASS: boolean }>;
 const read = (f: string) => JSON.parse(readFileSync(path.join(process.cwd(), "docs/card-records", f), "utf8")) as Run;
-const RUN: Run = { ...read("2026-11-10-gc1-holdout.json"), ...read("2026-11-11-gc2-holdout.json") };
+const RUN: Run = { ...read("2026-11-10-gc1-holdout.json"), ...read("2026-11-11-gc2-holdout.json"), ...read("2026-11-11-ee-gc3-holdout.json") };
 
 describe("CARD_RECORDS", () => {
   it("holds each measured kind to the committed held-out run", () => {
@@ -26,7 +26,7 @@ describe("CARD_RECORDS", () => {
   it("shows every kind positive on the held-out read (owner, 2026-11-11), not the one below break-even", () => {
     const shown = (Object.keys(CARD_RECORDS) as CardKind[]).filter((k) => cardKindShown(k));
     expect(shown.sort()).toEqual(
-      ["bollinger", "donchian", "elliottWave", "maCrossover", "macdMomentum", "psarSupertrend", "rsiReversal", "rsiReversalTimed", "stochastic"].sort(),
+      ["bollinger", "donchian", "elliottWave", "maCrossover", "macdMomentum", "psarSupertrend", "rsiReversal", "rsiReversalTimed", "stochastic", "edgeBottom"].sort(),
     );
     expect(cardKindShown("saraStrat")).toBe(false);
   });
@@ -52,6 +52,11 @@ describe("CARD_RECORDS", () => {
     expect(CARD_KIND_MODE.rsiReversalTimed).toBe("rsiReversal");
     expect(CARD_KIND_MODE.donchian).toBe("donchian");
     expect(CARD_KIND_LABELS.rsiReversalTimed).toMatch(/^RSI 14 reversal/);
+  });
+
+  it("puts the engine card under the platform's own plan", () => {
+    expect(CARD_KIND_MODE.edgeBottom).toBe("gsps");
+    expect(CARD_RECORDS.edgeBottom?.summary).toMatch(/63\.7%/);
   });
 
   it("names no confidential source in a summary a member reads", () => {

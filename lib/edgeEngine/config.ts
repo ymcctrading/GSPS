@@ -1,10 +1,14 @@
 /**
  * Price-time square engine ("edge engine"): configuration.
  *
- * RESEARCH ONLY. Nothing in `lib/research/edgeEngine/` is imported by the
- * scan, the score, a plan, an order or any client component; it is the
- * reproducible form of an owner-requested study (thread "Build and test the
- * Gann Edge Engine", 2026-11-10). Rule ids are neutral; the source ledger
+ * The reproducible form of an owner-requested study (thread "Build and test
+ * the Gann Edge Engine", 2026-11-10). Since 2026-11-11 one live consumer reads
+ * it: the platform's engine card (`lib/cards/edgeCard.ts`, kind "edgeBottom",
+ * written nightly by /api/cards/edge), with the variant the held-out read
+ * scored (`chosen-variant.json`). It was moved out of lib/research for that,
+ * so the verdict-path guard (criteria-gate.test.ts, CYC-41) still holds for
+ * everything left there. Nothing here is imported by the scan, the score, a
+ * GSPS plan, an order or any client component. Rule ids are neutral; the source ledger
  * that maps each id to its book, page or video lives in the owner-private
  * research folder, never in this public repository. Gann's own books are
  * cited in `sources.ts` the way the rest of `lib/gann/` cites them.

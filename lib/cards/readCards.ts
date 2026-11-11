@@ -25,6 +25,9 @@ export interface TradeCard {
   entry: number;
   stop: number;
   tp1: number;
+  /** Second target and master take profit, where the kind has them. */
+  tp2: number | null;
+  mtp: number | null;
 }
 
 export interface TradeCardKindRecord {
@@ -77,6 +80,18 @@ export function withoutDuplicateCards(cards: TradeCard[]): TradeCard[] {
   return cards.filter((c) => !(c.kind === "rsiReversal" && timed.has(c.symbol)));
 }
 
+/**
+ * Pure. Whether a member sees cards of this kind: the platform's own plan
+ * ("gsps" kinds) goes to every member with a session, since it is the
+ * default and needs no opt-in; a strategy mode's cards only to the member who
+ * chose that mode (docs/agents/12-strategy-modes.md, "Opt-in and one-at-a-time").
+ */
+export function shownTo(kind: CardKind, viewer: TradeCardViewer | null): boolean {
+  if (!viewer) return false;
+  const mode = CARD_KIND_MODE[kind];
+  return mode === "gsps" || mode === viewer.mode;
+}
+
 /** Most forward rows read for a kind's tally; an engineering bound for one request. */
 const FORWARD_ROWS = 5000;
 
@@ -127,24 +142,35 @@ export async function getTradeCards(
   if (signalDate) {
     const { data } = await service
       .from("card_calls")
-      .select("kind, symbol, entry, stop, tp1")
+      .select("kind, symbol, entry, stop, tp1, tp2, mtp")
       .eq("published", true)
       .eq("signal_date", signalDate)
       .in("kind", kinds)
       .order("symbol");
-    cards = ((data ?? []) as { kind: CardKind; symbol: string; entry: number | string; stop: number | string; tp1: number | string }[]).map(
-      (r) => ({ kind: r.kind, label: CARD_KIND_LABELS[r.kind], symbol: r.symbol, entry: Number(r.entry), stop: Number(r.stop), tp1: Number(r.tp1) }),
-    );
+    type Num = number | string;
+    const opt = (v: Num | null | undefined) => (v == null ? null : Number(v));
+    cards = ((data ?? []) as { kind: CardKind; symbol: string; entry: Num; stop: Num; tp1: Num; tp2?: Num | null; mtp?: Num | null }[]).map((r) => ({
+      kind: r.kind,
+      label: CARD_KIND_LABELS[r.kind],
+      symbol: r.symbol,
+      entry: Number(r.entry),
+      stop: Number(r.stop),
+      tp1: Number(r.tp1),
+      tp2: opt(r.tp2),
+      mtp: opt(r.mtp),
+    }));
     cards = withoutDuplicateCards(cards);
     const all = cards.length;
     const allowed = viewer ? cards.filter((c) => isStrategyModeAllowedForPolicy(viewer.policy, CARD_KIND_MODE[c.kind])) : [];
-    cards = allowed.filter((c) => CARD_KIND_MODE[c.kind] === viewer?.mode);
+    cards = allowed.filter((c) => shownTo(c.kind, viewer));
     heldBack = all - cards.length;
     for (const c of allowed) {
-      if (CARD_KIND_MODE[c.kind] === viewer?.mode) continue;
-      const row = unchosen.find((u) => u.label === c.label);
+      if (shownTo(c.kind, viewer)) continue;
+      // Counted under the mode the member would choose, so one mode is one line.
+      const label = CARD_KIND_LABELS[CARD_KIND_MODE[c.kind]];
+      const row = unchosen.find((u) => u.label === label);
       if (row) row.count++;
-      else unchosen.push({ label: c.label, count: 1 });
+      else unchosen.push({ label, count: 1 });
     }
   }
 

@@ -4,7 +4,7 @@ import {
   DEFAULT_CONFIG, PRICE_FAMILIES, TIME_FAMILIES, BarClock, cells, creationTrades, decimalShifts, interaction, longTrades,
   percentLevels, prepare, ptsAt, quarterSquares, rangeDivisions, reproductionChecklist, ringSteps, squareDegrees,
   squareOfNineDynamic, squaredCount, swingWalk, timeCandidates, manageLong, cardLevels, strongestLevel, type EngineConfig,
-} from "@/lib/research/edgeEngine";
+} from "@/lib/edgeEngine";
 
 /** Weekday bars from 2016-01-04, a seeded random walk with swings. */
 function synth(n: number, seed = 7): Bar[] {

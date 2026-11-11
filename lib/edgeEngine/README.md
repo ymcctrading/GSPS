@@ -1,8 +1,10 @@
-# Price-time square engine (research only)
+# Price-time square engine
 
 A reproducible, labelled form of an owner-requested study: does a trend change come when a
 time count completes at the same moment price reaches a level, and can that be traded? It is
-**not** part of the scan, the score, a plan, an order or anything a member sees. Rule ids
+**not** part of the scan, the score, a GSPS plan or an order. Since 2026-11-11 its card
+(`card.ts`, with `chosen-variant.json`) is read nightly by `lib/cards/edgeCard.ts` for the
+"edgeBottom" setup card; members see only that card's levels and record, never this code's text. Rule ids
 are neutral; the source ledger and the results live in the owner-private research folder.
 
 | File | Section | What it does |
