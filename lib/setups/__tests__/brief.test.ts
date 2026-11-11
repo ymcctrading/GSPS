@@ -83,6 +83,13 @@ const BANNED = new RegExp(
     "Stock " + "Tape",
     "\\b\\d+[ -]points? (past|beyond|over|under|above|below|ahead|back|behind)\\b",
     "swing " + "chart",
+    // Owner, 2026-11-11: counts and verdicts only, never the rule behind them.
+    "tests? 1 to 3",
+    "1st to 3rd",
+    "up to 4 weeks",
+    "2 to 4 weeks",
+    "5th week",
+    "the plan (counts|treats|gives|reads)",
   ].join("|"),
   "i",
 );
@@ -96,7 +103,7 @@ describe("setup brief", () => {
     // The weekly chart falling argues for the sell.
     expect(brief.forCall.some((t) => /weekly chart is falling/.test(t.plain))).toBe(true);
     // The level lost but not yet by the reversal line: the buyer's case.
-    expect(brief.forOther.some((t) => /first return to an old high/.test(t.plain))).toBe(true);
+    expect(brief.forOther.some((t) => /can still act as support/.test(t.plain))).toBe(true);
     // The entry sits on an old high lost, not a low.
     const entry = brief.plan.find((l) => l.role === "entry")!;
     expect(entry.reason.plain).toContain("record high");
@@ -252,11 +259,11 @@ describe("setup brief review fixes (2026-11-11)", () => {
   it("dates the 4-week mark ahead while a rally is young, and turns it into a point once it has passed", () => {
     const { input } = bkrLike();
     const young = buildSetupBrief({ ...input, campaign: bearCampaign(10) }, "2026-11-11T18:00:00Z").brief;
-    expect(young.timing.some((t) => /up to 4 weeks/.test(t.plain))).toBe(true);
+    expect(young.timing.some((t) => /would be a sign of a change/.test(t.plain))).toBe(true);
     expect(young.wrongIf.plain).toMatch(/or if this bounce is still holding on/);
     const old = buildSetupBrief({ ...input, campaign: bearCampaign(40) }, "2026-11-11T18:00:00Z").brief;
-    expect(old.timing.some((t) => /up to 4 weeks/.test(t.plain))).toBe(false);
+    expect(old.timing.some((t) => /would be a sign of a change/.test(t.plain))).toBe(false);
     expect(old.wrongIf.plain).toBe("Wrong if price closes above $54.26.");
-    expect(old.forOther.some((t) => /past the 4 weeks/.test(t.plain))).toBe(true);
+    expect(old.forOther.some((t) => /long enough that GSPS reads it/.test(t.plain))).toBe(true);
   });
 });

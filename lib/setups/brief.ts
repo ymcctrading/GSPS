@@ -25,13 +25,15 @@
  * and the ids' citations live in `lib/setups/briefSources.ts`, which no client
  * module imports.
  *
- * Only the real (owner, 2026-10-21; AGENTS.md "Forward-looking claims"): a
- * line about what the plan does is stated as the plan's rule ("the plan gives
- * a bounce in a falling market up to 4 weeks"), never as what the market
- * usually does, because none of these readings has a measured rate yet. Dated
- * windows from the time counts stay out until the replay measures them (spec,
- * PR 2). The two dates shown (the 4-week mark and the next test) are the
- * plan's own rules applied to the chart, not forecasts.
+ * Only the real (owner, 2026-10-21; AGENTS.md "Forward-looking claims") and
+ * the owner's 2026-11-11 decision ("No, keep the rules hidden"): a line gives
+ * the count and GSPS's verdict ("the next touch would be the 3rd: still
+ * safe"; "GSPS reads this as a strong break"), never the rule behind it and
+ * never what the market usually does, because none of these readings has a
+ * measured rate yet. Dated windows from the time counts stay out until the
+ * replay measures them (spec, PR 2). The one date shown (when a rally in a
+ * falling market has run long enough to read as a change) is the plan's own
+ * rule applied to the chart, not a forecast.
  *
  * Foundations (spec, "Foundations check"):
  * 1. Gann: each line is one of his rules read on the chart; citations by rule
@@ -364,7 +366,7 @@ function campaignPoints(campaign: BriefInput["campaign"], bars: Bar[]): Point[] 
       rule: bear ? "lowerTops" : "higherBottoms",
       text: {
         plain: `${prices.length - 1} ${word} in a row since the ${dayText(dates[0])} ${bear ? "high" : "low"}.`,
-        full: `${prices.length} ${bear ? "tops" : "bottoms"}, each ${bear ? "lower" : "higher"} than the last (${list}), since ${dayText(dates[0])}; the plan reads that run as the ${bear ? "weakest" : "strongest"} structure.`,
+        full: `${prices.length} ${bear ? "tops" : "bottoms"}, each ${bear ? "lower" : "higher"} than the last (${list}), since ${dayText(dates[0])}. GSPS reads this as ${bear ? "weakness" : "strength"}.`,
       },
     });
   }
@@ -377,7 +379,7 @@ function campaignPoints(campaign: BriefInput["campaign"], bars: Bar[]): Point[] 
       rule: "overbalance",
       text: {
         plain: `This ${move} is already bigger than any ${move} since the ${bear ? "fall" : "rise"} began.`,
-        full: `This ${move} (${priceUsd(cur.points)} so far) is bigger than the largest ${move} since the ${bear ? "fall" : "rise"} began (${priceUsd(big.points)}), the plan's sign of a change in trend.`,
+        full: `This ${move} (${priceUsd(cur.points)} so far) is bigger than the largest ${move} since the ${bear ? "fall" : "rise"} began (${priceUsd(big.points)}). GSPS reads this as a sign of a change in trend.`,
       },
     });
   }
@@ -397,7 +399,7 @@ function testPoints(tests: MultipleTopsReading | null, price: number | null): Po
         rule: "levelCrossed",
         text: {
           plain: `Price broke ${top ? "above" : "below"} the ${where} ${word} it had ${top ? "stopped at" : "held at"} ${t.tests} times.`,
-          full: `Price closed clearly ${top ? "above" : "below"} the ${where} ${word}, tested ${t.tests} times before: the plan reads a level tested that often and then crossed as a strong break.`,
+          full: `Price closed clearly ${top ? "above" : "below"} the ${where} ${word}, tested ${t.tests} times before. GSPS reads this as a strong break.`,
         },
       });
       return;
@@ -408,7 +410,7 @@ function testPoints(tests: MultipleTopsReading | null, price: number | null): Po
         rule: "levelFailed",
         text: {
           plain: `Price ${top ? "turned down at" : "bounced off"} the ${where} ${word} ${t.tests} times.`,
-          full: `Price has ${top ? "failed at" : "held at"} the ${where} ${word} ${t.tests} times, so the plan reads them as ${top ? "resistance" : "support"}.`,
+          full: `Price has ${top ? "failed at" : "held at"} the ${where} ${word} ${t.tests} times. GSPS reads them as ${top ? "resistance" : "support"}.`,
         },
       });
       return;
@@ -419,8 +421,8 @@ function testPoints(tests: MultipleTopsReading | null, price: number | null): Po
         favors: top ? "buy" : "sell",
         rule: "fourthTest",
         text: {
-          plain: `Price has come back to the ${where} ${word} ${t.tests} times. The plan treats a 4th test as a warning that the level is about to give way.`,
-          full: `The ${where} ${word} have been tested ${t.tests} times. The plan counts the 1st to 3rd tests as safe and treats the 4th and later as a sign the level will break.`,
+          plain: `Price has come back to the ${where} ${word} ${t.tests} times. GSPS reads that as a warning the level may give way.`,
+          full: `The ${where} ${word} have been tested ${t.tests} times. GSPS reads that as a warning the level may give way.`,
         },
       });
     } else {
@@ -429,7 +431,7 @@ function testPoints(tests: MultipleTopsReading | null, price: number | null): Po
         rule: "levelTests",
         text: {
           plain: `Price has ${top ? "stopped at" : "held at"} about ${where} ${t.tests === 1 ? "once" : t.tests === 2 ? "twice" : `${t.tests} times`}.`,
-          full: `The ${where} ${word} have held ${t.tests} time${t.tests === 1 ? "" : "s"}${price != null ? `, ${priceUsd(Math.abs(price - t.level))} from price` : ""}; the plan counts tests 1 to 3 as safe.`,
+          full: `The ${where} ${word} have held ${t.tests} time${t.tests === 1 ? "" : "s"}${price != null ? `, ${priceUsd(Math.abs(price - t.level))} from price` : ""}.`,
         },
       });
     }
@@ -500,8 +502,8 @@ function excursionPoint(side: "buy" | "sell", ex: NonNullable<ReturnType<typeof 
     favors: other,
     rule: "fivePointReversal",
     text: {
-      plain: `So far price has gone only ${buy ? "a little above" : "a little under"} the old ${priceUsd(ex.level)} ${word}, and the plan treats a first return to an old ${word} as ${buy ? "resistance" : "support"}. It doesn't count the old trend as over until price is past ${priceUsd(ex.reversedAt)}.`,
-      full: `Since price came back past the old ${priceUsd(ex.level)} ${word}, the furthest it has gone is ${priceUsd(ex.extreme)}. The plan reads a shallow move past an old level as the old trend still strong, and counts the trend reversed only past ${priceUsd(ex.reversedAt)}. ${ex.points > 3 ? "This move is past the shallow zone but short of that line, so it could still go either way." : "This move is still shallow, which the plan reads as the stronger case for the other side."}`,
+      plain: `So far price has gone only ${buy ? "a little above" : "a little under"} the old ${priceUsd(ex.level)} ${word}, so it can still act as ${buy ? "resistance" : "support"}. GSPS doesn't count the old trend as over until price is past ${priceUsd(ex.reversedAt)}.`,
+      full: `Since price came back past the old ${priceUsd(ex.level)} ${word}, the furthest it has gone is ${priceUsd(ex.extreme)}. GSPS counts the old trend as over only past ${priceUsd(ex.reversedAt)}. ${ex.points > 3 ? "This move is short of that line, so it could still go either way." : "This move is still shallow, the stronger case for the other side."}`,
     },
   };
 }
@@ -675,8 +677,8 @@ export function buildSetupBrief(input: BriefInput, asOfIso: string): { brief: Se
     const safe = next <= 3;
     rules.push(safe ? "levelTests" : "fourthTest");
     timing.push({
-      plain: `The next touch of ${priceUsd(near.level)} would be the ${ordinal(next)}. ${safe ? `The plan treats tests up to the 3rd as safe.` : `The plan treats a 4th test or later as a warning.`}`,
-      full: `${near.tests} test${near.tests === 1 ? "" : "s"} of the ${priceUsd(near.level)} ${near.kind === "top" ? "highs" : "lows"} so far, the last on ${dayText(input.daily[near.lastTestIndex]?.t ?? asOfIso)}. The next is the ${ordinal(next)}: ${safe ? "within the 1st to 3rd the plan counts as safe" : "past the 3rd, where the plan expects the level to give way"}.`,
+      plain: `The next touch of ${priceUsd(near.level)} would be the ${ordinal(next)}: ${safe ? "still safe" : "a warning"}.`,
+      full: `${near.tests} test${near.tests === 1 ? "" : "s"} of the ${priceUsd(near.level)} ${near.kind === "top" ? "highs" : "lows"} so far, the last on ${dayText(input.daily[near.lastTestIndex]?.t ?? asOfIso)}. The next would be the ${ordinal(next)}: ${safe ? "still safe" : "a warning the level may give way"}.`,
     });
   }
   let timeStop: { date: string; text: BriefText } | null = null;
@@ -692,19 +694,19 @@ export function buildSetupBrief(input: BriefInput, asOfIso: string): { brief: Se
     rules.push("bearRallyWeeks");
     if (dateKey(fifth) > dateKey(last.t)) {
       timing.push({
-        plain: `This bounce began ${dayText(start)}. The plan gives a bounce in a falling market up to 4 weeks, and reads one still holding on ${dayText(fifth)} as a sign of a change.`,
-        full: `Rally in a falling market, ${cur.days} days old (from ${dayText(start)}). The plan gives such a rally 2 to 4 weeks and reads one still holding into its 5th week (from ${dayText(fifth)}) as a sign of an important change.`,
+        plain: `This bounce began ${dayText(start)}. Still holding on ${dayText(fifth)} would be a sign of a change.`,
+        full: `Rally in a falling market, ${cur.days} days old (from ${dayText(start)}). Still holding on ${dayText(fifth)} would be a sign of an important change.`,
       });
       if (!buy) {
         timeStop = {
           date: fifth,
-          text: { plain: ` or if this bounce is still holding on ${dayText(fifth)}`, full: ` or if the rally holds into its 5th week (${dayText(fifth)})` },
+          text: { plain: ` or if this bounce is still holding on ${dayText(fifth)}`, full: ` or if the rally is still holding on ${dayText(fifth)}` },
         };
       }
     } else {
       const point = {
-        plain: `This bounce has held since ${dayText(start)}, past the 4 weeks the plan gives a bounce in a falling market, which the plan reads as a sign of a change.`,
-        full: `The rally from ${dayText(start)} is ${cur.days} days old, into its 5th week or later; the plan reads a rally that outlasts 4 weeks in a falling market as a sign of an important change.`,
+        plain: `This bounce has held since ${dayText(start)}, long enough that GSPS reads it as a sign of a change.`,
+        full: `The rally from ${dayText(start)} is ${cur.days} days old, long enough that GSPS reads it as a sign of an important change.`,
       };
       (buy ? forCall : forOther).push({ favors: "buy", rule: "bearRallyWeeks", text: point });
     }
