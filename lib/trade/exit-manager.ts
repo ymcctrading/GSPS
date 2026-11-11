@@ -76,7 +76,7 @@ import {
 } from "@/lib/trade/protocol-exit";
 import { readLiveBadNews, readLiveBestSinceFill, readLiveGannExit, readLiveRebuy } from "@/lib/trade/gann-exit-live";
 import { badNewsOffer } from "@/lib/gann/badNews";
-import { positionExitStyle, traderStyleHistory } from "@/lib/trade/exit-style";
+import { laterOf, positionExitStyle, traderExitPrefs } from "@/lib/trade/exit-style";
 import type { TradeStyleChange } from "@/lib/gann/traderPrefs";
 import { rebuyOffer } from "@/lib/gann/rebuy";
 import { coverNote, coverReached, readRebuyCover } from "@/lib/automation/rebuy-cover";
@@ -199,11 +199,11 @@ export async function manageProtocolExits(
 
   const bySymbol = new Map(positions.map((p) => [p.symbol.toUpperCase(), p]));
   const run: ManageRun = { ...idle(), managed: plans.length };
-  const styleHistory = await traderStyleHistory(supabase, userId);
+  const { styleHistory, protectProfits, protectProfitsSince } = await traderExitPrefs(supabase, userId);
 
   for (const plan of plans) {
     try {
-      await advance(supabase, creds, userId, normalizePlan(plan), bySymbol, run, styleHistory);
+      await advance(supabase, creds, userId, normalizePlan(plan), bySymbol, run, styleHistory, protectProfits, protectProfitsSince);
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       console.error(`exit-manager: ${plan.symbol} plan ${plan.id} — ${detail}`);
@@ -237,6 +237,10 @@ async function advance(
   bySymbol: Map<string, AlpacaPosition>,
   run: ManageRun,
   styleHistory: readonly TradeStyleChange[] = [],
+  /** The member's Protect profits switch (`protocol-exit.ts`): MTP exit and the entry locked at TP1. */
+  protectProfits = false,
+  /** When the switch was turned on (ISO): prices before it never act. */
+  protectProfitsSince: string | null = null,
 ): Promise<void> {
   const position = bySymbol.get(plan.symbol.toUpperCase());
 
@@ -289,7 +293,7 @@ async function advance(
     // tranches on top of the first.
     if (!(await claimAttach(supabase, userId, plan))) return;
 
-    await attachExits(supabase, creds, userId, plan, held, entryPrice, highWater, run);
+    await attachExits(supabase, creds, userId, plan, held, entryPrice, highWater, run, protectProfits);
     return;
   }
 
@@ -313,6 +317,16 @@ async function advance(
           ...(await positionExitStyle(supabase, styleHistory, filledAt, plan.entry_order_id, "broker_order_id", plan.symbol)),
         })
       : null;
+  // Protect profits reads only prices since the switch applied to this trade
+  // (the later of the fill and the switch), so a touch from before never acts.
+  let protectBest: number | null | undefined;
+  if (protectProfits && protectProfitsSince) {
+    const from = laterOf(filledAt, protectProfitsSince);
+    protectBest =
+      from === filledAt
+        ? highWater
+        : extendHighWater(plan.side, Number.isFinite(price) ? price : null, await readLiveBestSinceFill({ symbol: plan.symbol, side: plan.side, openedAt: from }));
+  }
   let action = planStopAdjustment({
     side: plan.side,
     entryPrice,
@@ -325,6 +339,10 @@ async function advance(
     lastPrice: Number.isFinite(price) ? price : null,
     appliedStop: plan.applied_stop,
     gann,
+    protectProfits: protectProfits && protectBest !== undefined,
+    protectBest,
+    // A resting OCO fills a touch at the broker; a poll closes only at the MTP.
+    mtpFillsOnTouch: false,
   });
   // An automated reversal is covered at the re-buy's level (A-PYRAMID-07,
   // lib/automation/rebuy-cover.ts), as on paper and in the replay.
@@ -350,7 +368,9 @@ async function advance(
       highWater,
       entryPrice,
       stopReason: action.reason,
-      caught: covered ? "covered" : gann?.exit && action.atMarket ? gann.exit.reason : null,
+      // The MTP reached under Protect profits (`fillAt` set) is a win banked,
+      // never a caught trade: it is neither reversed nor re-bought.
+      caught: covered ? "covered" : action.fillAt == null && gann?.exit && action.atMarket ? gann.exit.reason : null,
       lastPrice: Number.isFinite(price) ? price : null,
     });
     run.closed++;
@@ -469,13 +489,21 @@ async function attachExits(
   entryPrice: number,
   highWater: number | null,
   run: ManageRun,
+  protectProfits = false,
 ): Promise<void> {
   const closingSide = plan.side === "long" ? "sell" : "buy";
-  const split = planProtocolExit(heldQty, {
-    stopLoss: plan.stop_loss,
-    takeProfit1: plan.take_profit_1,
-    masterProfit: plan.master_profit,
-  });
+  // Under Protect profits the runner rests as an OCO with the MTP as its
+  // limit, so the broker sells there while the app is closed.
+  const split = planProtocolExit(
+    heldQty,
+    {
+      stopLoss: plan.stop_loss,
+      takeProfit1: plan.take_profit_1,
+      masterProfit: plan.master_profit,
+    },
+    LIVE_EXIT_RULE,
+    { protectProfits },
+  );
 
   if (split.tranches.length === 0) {
     // Nothing worth splitting — the broker's held quantity read back as zero

@@ -2,7 +2,7 @@
  * GSPS — /api/settings/trade-rules
  *
  * The trader's switches for Gann's round-number notice, the twice-yearly rest
- * reminder, the close-out reminder before an absence (A-EXIT-05), and the autonomous portfolio manager's round-number setting. See
+ * reminder, the close-out reminder before an absence (A-EXIT-05), the autonomous portfolio manager's round-number setting, and the member's Protect profits switch (MTP exit, entry locked at TP1). See
  * lib/gann/traderPrefs.ts. Stored under `settings.prefs.gannRules`.
  */
 
@@ -15,6 +15,7 @@ import {
   resolveGannRulePrefs,
   restReminderDue,
   REST_REMINDER_COPY,
+  protectProfitsSinceAfter,
   withStyleChange,
 } from "@/lib/gann/traderPrefs";
 
@@ -27,6 +28,8 @@ const PatchSchema = z
     awayFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
     // Swing only: Fast was retired (lib/trade/tradeStyle.ts, FAST_RETIRED_AT).
     tradeStyle: z.enum(["swing"]),
+    // Sell at the MTP and lock the entry at TP1 (lib/trade/protocol-exit.ts, "Protect profits").
+    protectProfits: z.boolean(),
   })
   .partial();
 
@@ -68,6 +71,9 @@ export async function PUT(req: NextRequest) {
   // The style's history is the server's (a trade is managed in the style that
   // stood at its fill, lib/trade/exit-style.ts); the client never writes it.
   if (parsed.data.tradeStyle) next.tradeStyleHistory = withStyleChange(current, parsed.data.tradeStyle, new Date());
+  // When Protect profits counts from is the server's too: the exit managers
+  // read prices only from then on (lib/trade/protocol-exit.ts, `protectBest`).
+  next.protectProfitsSince = protectProfitsSinceAfter(current, next.protectProfits, new Date());
   const { error } = await supabase
     .from("settings")
     .upsert({ user_id: user.id, prefs: { ...prefs, gannRules: next }, updated_at: new Date().toISOString() }, { onConflict: "user_id" });

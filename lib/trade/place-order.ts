@@ -36,7 +36,7 @@ import {
   quotePrice,
 } from "@/lib/brokers/simulator";
 import { checkBracket } from "@/lib/trade/bracket";
-import { planProtocolExit } from "@/lib/trade/protocol-exit";
+import { LIVE_EXIT_RULE, planProtocolExit } from "@/lib/trade/protocol-exit";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
 import { isProtectiveOrder, killSwitchRefusal } from "@/lib/trade/kill-switch";
 import { recordOrderExecution, brokerStatusFrom, type RecordExecutionOptions } from "@/lib/learning/record";
@@ -66,7 +66,7 @@ import { averagingLossRefusal } from "@/lib/gann/pyramid";
 import { withOrderLock } from "@/lib/trade/order-lock";
 import { readLiveStartingCapital, readProfitCeiling } from "@/lib/risk/profitPeak";
 import { paperTradingUnit } from "@/lib/trade/resting-entry-guard";
-import { readAwayNotice, withAwayNotice } from "@/lib/trade/away-notice";
+import { closeOutNotice, readGannRulePrefs, withAwayNotice } from "@/lib/trade/away-notice";
 import { gannRiskCapital, readWinningRun } from "@/lib/risk/dynamic-risk";
 import { gateResolvedAction } from "@/lib/risk/cooldown";
 import { ledgerWriter } from "@/lib/supabase/ledger";
@@ -687,7 +687,10 @@ async function placeChecked(
 ): Promise<PlacedOrder> {
   // A-EXIT-05: inside the trader's away window a new entry comes back with
   // the close-out reminder (lib/trade/away-notice.ts). Never on a protective order.
-  const awayNotice = isProtective ? null : await readAwayNotice(supabase, userId);
+  // One read of the trader's settings serves the reminder and the Protect
+  // profits switch the exit summary states (lib/trade/protocol-exit.ts).
+  const traderPrefs = isProtective ? null : await readGannRulePrefs(supabase, userId);
+  const awayNotice = traderPrefs ? closeOutNotice(traderPrefs) : null;
 
   if (input.mode === "live") {
     return withAwayNotice(await placeLiveOrder(supabase, userId, input, isProtective, existing), awayNotice);
@@ -1064,11 +1067,16 @@ async function placeChecked(
   // The split is recomputed from the quantity actually filled when the exits are
   // attached, so this is the plan for the order as asked for.
   const exitPlan = useBracket
-    ? planProtocolExit(input.qty, {
-        stopLoss: bracketLevels!.stopLoss,
-        takeProfit1: bracketLevels!.takeProfit,
-        masterProfit: input.attachLevels!.masterProfit ?? null,
-      })
+    ? planProtocolExit(
+        input.qty,
+        {
+          stopLoss: bracketLevels!.stopLoss,
+          takeProfit1: bracketLevels!.takeProfit,
+          masterProfit: input.attachLevels!.masterProfit ?? null,
+        },
+        LIVE_EXIT_RULE,
+        { protectProfits: traderPrefs?.protectProfits === true },
+      )
     : null;
 
   const submittedAt = Date.now();

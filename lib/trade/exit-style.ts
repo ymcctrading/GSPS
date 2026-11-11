@@ -23,10 +23,27 @@ import { styleAt, type TradeStyleChange } from "@/lib/gann/traderPrefs";
 import type { TradeStyle } from "@/lib/trade/tradeStyle";
 import { isCryptoSymbol } from "@/lib/data/alpaca";
 
-/** One read of the trader's style history per manage pass. */
-export async function traderStyleHistory(supabase: SupabaseClient, userId: string): Promise<TradeStyleChange[]> {
+/**
+ * The trader's exit settings for one manage pass, from one read: the style
+ * history and the Protect profits switch (`lib/trade/protocol-exit.ts`). A
+ * failed read answers the defaults (Swing, switch off), so nothing tightens
+ * or sells on a guess.
+ */
+export async function traderExitPrefs(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ styleHistory: TradeStyleChange[]; protectProfits: boolean; protectProfitsSince: string | null }> {
   const prefs = await readGannRulePrefs(supabase, userId);
-  return prefs?.tradeStyleHistory ?? [];
+  const on = prefs?.protectProfits === true;
+  // On with no recorded time (saved before the field existed) counts from now:
+  // a price from before this pass never acts.
+  const since = on ? (prefs?.protectProfitsSince ?? new Date().toISOString()) : null;
+  return { styleHistory: prefs?.tradeStyleHistory ?? [], protectProfits: on, protectProfitsSince: since };
+}
+
+/** The later of two ISO times. */
+export function laterOf(a: string, b: string): string {
+  return Date.parse(b) > Date.parse(a) ? b : a;
 }
 
 /**

@@ -124,6 +124,8 @@ export interface BacktestRequest {
   useProductionStop?: boolean;
   /** Trade the production plan's own stop and TP1. See `ReplayOptions.usePlanLevels`. */
   usePlanLevels?: boolean;
+  /** The member's Protect profits switch: MTP exit and the entry locked at TP1. See `ReplayOptions.protectProfits`. */
+  protectProfits?: boolean;
   /** Add to winners on Gann's pyramiding rules. See `ReplayOptions.pyramid`. */
   pyramid?: boolean;
   /** The trade style walked. See `ReplayOptions.tradeStyle`. Defaults to `"swing"`. */
@@ -573,6 +575,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     since,
     useProductionStop,
     usePlanLevels,
+    protectProfits,
     pyramid,
     entryRule,
     exitRule,
@@ -609,6 +612,7 @@ export async function collectRun(request: BacktestRequest): Promise<RunOutcome> 
     ...(weights ? { weights } : {}),
     ...(useProductionStop !== undefined ? { useProductionStop } : {}),
     ...(usePlanLevels !== undefined ? { usePlanLevels } : {}),
+    ...(protectProfits !== undefined ? { protectProfits } : {}),
     ...(pyramid !== undefined ? { pyramid } : {}),
     ...(tradeStyle !== undefined ? { tradeStyle } : {}),
     ...(entryRule !== undefined ? { entryRule } : {}),
