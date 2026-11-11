@@ -1,0 +1,33 @@
+{
+ "_source": "Held-out read of 2026-11-11 (internal record RESULT-GC2.md), 249 large caps, 2018-07..2026-10; figures only.",
+ "rsiReversalTimed": {
+  "signals": 1979,
+  "nofill": 672,
+  "fills": 1307,
+  "unresolved": 7,
+  "good": 697,
+  "bad": 603,
+  "rate": 0.5361538461538462,
+  "breakeven": 0.4438780118026514,
+  "expR": 0.22348356102166783,
+  "t": 6.900139797391567,
+  "random_expR_mean": -0.017671150201576523,
+  "p_random": 0.0,
+  "PASS": true,
+  "halves": {
+   "0": {
+    "fills": 625,
+    "rate": 0.555735056542811,
+    "breakeven": 0.4340651613845488,
+    "expR": 0.2993777958266775
+   },
+   "1": {
+    "fills": 682,
+    "rate": 0.5183553597650514,
+    "breakeven": 0.45287072662862526,
+    "expR": 0.15449893349699675
+   }
+  },
+  "vs_card_without_condition_R": 0.1700819134397506
+ }
+}

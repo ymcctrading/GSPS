@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCards, walkCardCall, CARD_MODES, CARD_WINDOW_BARS } from "@/lib/cards/cardCalls";
+import { buildCards, timedCards, walkCardCall, CARD_KINDS, CARD_MODES, CARD_WINDOW_BARS, type CardCall } from "@/lib/cards/cardCalls";
 import { evaluateRsiReversal } from "@/lib/strategies/rsiReversal";
 import { GOOD_CALL_MAX_SESSIONS } from "@/lib/shadow/goodCall";
 import type { Bar } from "@/lib/types";
@@ -45,6 +45,32 @@ describe("buildCards", () => {
   it("builds nothing from no bars, and never a VWAP card (intraday only)", () => {
     expect(buildCards("TEST", [])).toEqual([]);
     expect(CARD_MODES).not.toContain("vwap");
+  });
+});
+
+describe("timedCards (the RSI card on a Rule 10 day)", () => {
+  /** Flat bars on fixed New York dates, so only the rule's holiday dates can fire. */
+  const flat = (dates: string[]): Bar[] => dates.map((d) => ({ t: `${d}T05:00:00.000Z`, o: 100, h: 101, l: 99, c: 100, v: 1 }));
+  const card = (signalDate: string, kind: CardCall["kind"] = "rsiReversal"): CardCall => ({
+    kind, symbol: "TEST", signalDate, entry: 101, stop: 97, tp1: 105, signalClose: 100,
+  });
+
+  it("copies the RSI card, levels unchanged, when its signal bar is a Rule 10 day", () => {
+    const h = flat(["2026-12-21", "2026-12-22", "2026-12-23", "2026-12-24"]);
+    expect(timedCards([card("2026-12-24")], h)).toEqual([{ ...card("2026-12-24"), kind: "rsiReversalTimed" }]);
+  });
+
+  it("gives nothing on a day the rule does not hold, for another kind, or on a history ending elsewhere", () => {
+    const quiet = flat(["2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20"]);
+    expect(timedCards([card("2026-08-20")], quiet)).toEqual([]);
+    const h = flat(["2026-12-21", "2026-12-22", "2026-12-23", "2026-12-24"]);
+    expect(timedCards([card("2026-12-24", "donchian")], h)).toEqual([]);
+    expect(timedCards([card("2026-12-23")], h)).toEqual([]);
+    expect(timedCards([card("2026-12-24")], [])).toEqual([]);
+  });
+
+  it("is recorded every night beside the modes' kinds", () => {
+    expect(CARD_KINDS).toEqual([...CARD_MODES, "rsiReversalTimed"]);
   });
 });
 
