@@ -12,11 +12,11 @@ platform-wide audit for that pattern and what came of it.
 **Three-question mandate, applied to this audit itself** (not retrofitted —
 this is what shaped which findings below got built vs. flagged):
 
-1. **Gann sourcing:** N/A for the audit itself — this is an access/UX design
-   question, not a market-technique one. Individual findings below cite Gann
+1. **Method sourcing:** N/A for the audit itself — this is an access/UX design
+   question, not a market-technique one. Individual findings below cite method
    sourcing where relevant (none did).
-2. **Dewey/cycle theory:** N/A — no periodicity or recurrence claim.
-3. **Hermetic principle:** **Polarity**, per the worked example above, read
+2. **Cycle theory:** N/A — no periodicity or recurrence claim.
+3. **Design principle:** **Polarity**, per the worked example above, read
    together with **Cause and Effect** for the specific fix this audit built
    (see "Trade Reviews" below) — pairing a trade's own criteria (cause) with
    its own outcome (effect) is a direct expression of that second principle,
@@ -89,7 +89,7 @@ building on this audit** (project owner direction, 2026-09-23): if new
 GSPS School content is ever written to plug a Polarity gap, it must teach
 the underlying premise of a technique without reproducing another
 practitioner's specific words, methods, or published observations verbatim
-— consistent with the numerology/astrology citation discipline elsewhere in
+— consistent with the citation discipline elsewhere in
 this file (a technique's *rule* can be taught; someone else's specific
 proprietary expression of it cannot be lifted). No new curriculum content
 was written in this pass, so this constraint did not need to be exercised
