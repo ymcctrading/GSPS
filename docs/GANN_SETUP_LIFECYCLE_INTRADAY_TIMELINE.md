@@ -5,7 +5,7 @@
 written, nothing here changed a verdict, a level, a gate or an order; on 2026-09-30 the owner decided
 the stop-breach rule and the intraday first target, and both are built. Part 1.4 and Part 3.4 say what
 was built; what is still not built is listed in Part 4.
-**Sources:** the page-by-page reads in `docs/memory-bank/sources/` (Tier A: Gann's own text, unless
+**Sources:** the page-by-page reads in `/mnt/project-files/private-research/sources/` (Tier A: Gann's own text, unless
 marked), and the committed replay runs in `docs/replay-runs/`. Read
 `docs/GANN_HISTORICAL_SOURCES.md` for the tier definitions.
 

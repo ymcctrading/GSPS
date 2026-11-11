@@ -1,6 +1,6 @@
 # Gann, Cycles & Hermetic Thought — GSPS Master Reference Report
 
-*Compiled 2026-09-27 from the page-by-page source reads in `docs/memory-bank/sources/`; second pass the same day added A08, A09, B04, B05, B07 and B11; third pass (local OCR) completed A08, H01 and B04/B05/B07 and added A02 *Truth of the Stock Tape*, A04 *Wall Street Stock Selector* and A07 *Face Facts America!*
+*Compiled 2026-09-27 from the page-by-page source reads in `/mnt/project-files/private-research/sources/`; second pass the same day added A08, A09, B04, B05, B07 and B11; third pass (local OCR) completed A08, H01 and B04/B05/B07 and added A02 *Truth of the Stock Tape*, A04 *Wall Street Stock Selector* and A07 *Face Facts America!*
 Use this with AGENTS.md's standing principles when a question comes up about Gann's methodology, cycle validation or the Hermetic lens.*
 
 > **What this is.** It synthesises everything read in the project owner's Gann, Observation of Cycles and Hermetic folders. It is written in our own words so no book is reproduced; the public repo carries no copyrighted text.
@@ -587,13 +587,13 @@ Not low priority, and not first. Where Gann himself names the technique and our 
 - ***Economic Forecaster* (1954):** 8 pages were read, but the catalog describes a 16-page booklet. Check the page count.
 - **Secondary:** Mikula Vol. 2's chart-only pages; Ingram's Elliott Wave paper (title page only; not Gann); Jensen's base and locality chart pages (B16, ~40 pages).
 
-**Status 2026-10-16: every item above has been read.** The Master Course PDF (all 464 pages, A2.1 reading log), the 45 Years plates, the Commodities plates, the New Stock Trend Detector charts (the Chrysler tables are on PDF 36–37), the Magic Word image pages and the full 16-page Economic Forecaster were done on 2026-10-01. Truth of the Stock Tape and the Stock Selector (all 488 pages OCR'd and every picture page viewed), Jensen's base charts and Mikula's chart pages were done on 2026-10-16 (`reading-log/other_gann_books_pictures.md`). None of the pictures adds a rule beyond the hexagon plate (G26) and the Master Chart divisions (G28), both now built. The 1929 forecast plate is the output of the undisclosed Master Time Factor. Ingram stays out of scope (Elliott Wave).
+**Status 2026-10-16: every item above has been read.** The Master Course PDF (all 464 pages, A2.1 reading log), the 45 Years plates, the Commodities plates, the New Stock Trend Detector charts (the Chrysler tables are on PDF 36–37), the Magic Word image pages and the full 16-page Economic Forecaster were done on 2026-10-01. Truth of the Stock Tape and the Stock Selector (all 488 pages OCR'd and every picture page viewed), Jensen's base charts and Mikula's chart pages were done on 2026-10-16 (reading log kept in the project's private research files). None of the pictures adds a rule beyond the hexagon plate (G26) and the Master Chart divisions (G28), both now built. The 1929 forecast plate is the output of the undisclosed Master Time Factor. Ingram stays out of scope (Elliott Wave).
 
 **Recommended addition:** *The Kybalion* (1908, public domain), the actual text of the seven principles AGENTS.md uses.
 
 ---
 
-## Appendix A — Source notes index (`docs/memory-bank/sources/`)
+## Appendix A — Source notes index (`/mnt/project-files/private-research/sources/`)
 
 | File | Source | Tier |
 |---|---|---|

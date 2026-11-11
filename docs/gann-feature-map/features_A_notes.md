@@ -143,7 +143,7 @@ The most significant come first.
 
 Not a conflict, but noted:
 - A-RISK-02 (≤10% of capital per trade): GSPS is stricter, at 1-2% (`lib/risk/config.ts`).
-- The repo-map errata for `docs/memory-bank/sources/A2_3_coffee_letter_1954.md` (4700 vs 8700, 6572 vs 8572, the scale list) are documentation errors. No code reads them.
+- The repo-map errata for `/mnt/project-files/private-research/sources/A2_3_coffee_letter_1954.md` (4700 vs 8700, 6572 vs 8572, the scale list) are documentation errors. No code reads them.
 
 ## 5. Rules with no implementation (gsps_location "none"): 51
 

@@ -1,6 +1,6 @@
 # Gann Parity Roadmap: what GSPS still needs to become a faithful copy of W. D. Gann's method
 
-*Compiled 2026-09-27, after the full read of every Gann source in the project owner's folders (A01–A11, A2.1–A2.3). Built from `GANN_CYCLES_HERMETIC_MASTER_REPORT.md`, the per-source notes in `docs/memory-bank/sources/`, and a check of the current code (`lib/gann/`, `lib/scoring/`, `lib/lifecycle/`, `lib/trade/`, `lib/risk/`). It recommends; it doesn't change code. Everything that would move a verdict, a plan, an order or risk is an owner decision under AGENTS.md.*
+*Compiled 2026-09-27, after the full read of every Gann source in the project owner's folders (A01–A11, A2.1–A2.3). Built from `GANN_CYCLES_HERMETIC_MASTER_REPORT.md`, the per-source notes in `/mnt/project-files/private-research/sources/`, and a check of the current code (`lib/gann/`, `lib/scoring/`, `lib/lifecycle/`, `lib/trade/`, `lib/risk/`). It recommends; it doesn't change code. Everything that would move a verdict, a plan, an order or risk is an owner decision under AGENTS.md.*
 
 > **Roadmap phase.** The current phase is Q1 (Aug–Oct 2026, monetization and retention). None of this is a Q1 initiative. It continues the out-of-phase Gann-grounding work recorded in ROADMAP.md under "Gann & Sara Cross-Market Confluence Layers." Each item built from here should be recorded as out-of-phase, per AGENTS.md.
 

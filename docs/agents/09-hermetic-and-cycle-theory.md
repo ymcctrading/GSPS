@@ -30,7 +30,7 @@ worked example):
    rather than designed, also answer three that the seven omit: persistence
    through changed conditions, persistence after discovery (out-of-sample),
    and a mathematical significance test. See
-   `docs/memory-bank/sources/C06_dewey_case_for_cycles.md`.)
+   `/mnt/project-files/private-research/sources/C06_dewey_case_for_cycles.md`.)
 3. **Which Hermetic principle it expresses** — Mentalism, Correspondence,
    Vibration, Polarity, Rhythm, Cause and Effect, Gender. Correspondence ("as
    above, so below") is why a technique proven on one timeframe or asset class

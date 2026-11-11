@@ -465,7 +465,7 @@ Masonic membership), not zodiacal.
 
 Read in full 2026-09-30 from the owner's upload (*Collected Writings of
 W. D. Gann* Vol. 3, 35 pages, and 18 screenshots). Full note:
-`docs/memory-bank/sources/A12_master_calculator_1953_and_1954_letter.md`.
+`/mnt/project-files/private-research/sources/A12_master_calculator_1953_and_1954_letter.md`.
 Built from it: `masterCalculator.ts`, `circleOf360.ts`,
 `planetaryAverages.ts` (the COE and MOF), `masterLevels.ts`.
 
@@ -480,7 +480,7 @@ never disclosed.** Every statement says what it does: tells when cycles
 repeat and run out, and when accumulation or distribution is under way.
 None says how. Adds the earliest dated use of the name (July 9, 1927) and
 three corrections (C-A13-1 to -3). Full note:
-`docs/memory-bank/sources/A13_master_time_factor_compilation_2014.md`.
+`/mnt/project-files/private-research/sources/A13_master_time_factor_compilation_2014.md`.
 
 ## Part A2 — Gann's private course and subscriber-bulletin material
 (primary, but not among the ten public books)
@@ -788,7 +788,7 @@ A2.1 alludes to but doesn't show:
   pairs.
 - (2026-09-30: the name is "COE", not "CE"; owner confirmed 2026-10-16.
   The Drive scan prints "CE", a recorded variant. The COE and MOF are
-  decoded and built in `docs/memory-bank/sources/A12_master_calculator_1953_and_1954_letter.md`.)
+  decoded and built in `/mnt/project-files/private-research/sources/A12_master_calculator_1953_and_1954_letter.md`.)
 - Explicitly withholds further material ("the CE AVERAGE," "the MOF
   FORMULA") for higher-tier paying students and reminds the reader of a
   signed non-disclosure agreement — the same withholding pattern already
@@ -968,7 +968,7 @@ to the technique catalog.
 into the rar Oct 2004)
 
 **Superseded 2026-09-30 by the full read** in
-`docs/memory-bank/sources/B12_gann_master_chart_spreadsheet.md`. The
+`/mnt/project-files/private-research/sources/B12_gann_master_chart_spreadsheet.md`. The
 workbook credits Utaro Hayashi (Chicago), was last saved by Ray Tomes,
 and comes from the Cycles Research Institute, the owner-trusted source of
 Part C. Its Square of Nine layout and date/time labels reproduce Gann's own
@@ -1023,7 +1023,7 @@ relative method `squareOf9.ts` already runs, and agree with it to within a
 cell, apart from two misprints. Its hexagon drawing is the same
 reconstruction as B12, not Gann's lost plate. It reprints Gann's January
 1931 Hexagon lesson, which matches A2.1 Ch. 15A/15B. No new Gann source.
-Full note: `docs/memory-bank/sources/B15_global_view_technology_2002_square_of_nine_hexagon.md`.
+Full note: `/mnt/project-files/private-research/sources/B15_global_view_technology_2002_square_of_nine_hexagon.md`.
 
 ### B16. L. J. Jensen, *Astro-Cycles and Speculative Markets* (Library of Gann, 1978; from brochures of 1934–36)
 
@@ -1038,7 +1038,7 @@ Gann's astrology. Its dated planetary positions check out against
 `astronomy-engine`. Gives a fixed aspect-and-orb specification usable for
 testing Gann's Jupiter–Saturn aspects (AS3), and surfaced two gaps in
 Gann's own rules (G27, G28). Full note:
-`docs/memory-bank/sources/B16_jensen_astro_cycles_and_speculative_markets.md`.
+`/mnt/project-files/private-research/sources/B16_jensen_astro_cycles_and_speculative_markets.md`.
 
 ### B17. "The Market Geometry of Luther Jensen" (tradingwdgann.com, Arcanum Research)
 
@@ -1050,7 +1050,7 @@ section on Descartes" in *Tunnel Thru the Air*: in the full text, Descartes
 is a doctor in the plot (pp. 244–246). Its visible mechanism (a line from
 each pivot, copied to the preceding opposite pivot) is Gann's own
 parallel-angle rule (A2.1 GA-12 to GA-16). Folded into gap G27. Full note:
-`docs/memory-bank/sources/B17_tradingwdgann_jensen_geometry_article.md`.
+`/mnt/project-files/private-research/sources/B17_tradingwdgann_jensen_geometry_article.md`.
 
 ### B18. James Flanagan, *W. D. Gann's Master Time Factor Revealed*
 
@@ -1061,7 +1061,7 @@ over the current one, and lists cycles of 150, 120, 100, 90, 82-84, 60, 50,
 Checked against Gann's text: 9, 14, 40, 84, 90 and 100 are his (1955 list,
 1935 lesson, *Commodities* p. 224) and are carried; 13, 120 and 150 are
 Flanagan's only. Full note:
-`docs/memory-bank/sources/B18_flanagan_master_time_factor_revealed.md`.
+`/mnt/project-files/private-research/sources/B18_flanagan_master_time_factor_revealed.md`.
 
 ### B19. Myles Wilson Walker, *Super Timing: W. D. Gann's Astrological Method* (1999)
 

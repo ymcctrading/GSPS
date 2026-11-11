@@ -50,7 +50,7 @@ and in the memory-bank report.
   - the 1948 soybean chart's and "Path of Planets" chart's plotted longitudes
   See `docs/memory-bank/` (A2.3, B03, B05). Interpretive decodings (Mikula's
   "natural"/"wise" key words) are leads, not sources.
-- "Proven" means Dewey's full standard (`docs/memory-bank/sources/C06_dewey_case_for_cycles.md`):
+- "Proven" means Dewey's full standard (`/mnt/project-files/private-research/sources/C06_dewey_case_for_cycles.md`):
   - a hit rate against a base rate
   - a significance test with a multiple-comparisons correction
   - out-of-sample persistence on data the rule never saw

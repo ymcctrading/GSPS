@@ -83,7 +83,7 @@ Entered as card and replay context fields (measured, not gating), the same way S
 `lib/scanner/intraday.ts` uses none of the swing chart, price-scaled points or stop-breach code that `replayIntraday.ts` uses. Point the live alerts at the same primitives (AGENTS.md cross-platform rule). Moves the intraday alerts.
 
 ### 9. Housekeeping (docs only)
-- Correct the coffee letter note (`docs/memory-bank/sources/A2_3_coffee_letter_1954.md`) in the five places it differs from the scan, and flag Gann's own three slips. **Held for you** (the reading thread's open question 3).
+- Correct the coffee letter note (`/mnt/project-files/private-research/sources/A2_3_coffee_letter_1954.md`) in the five places it differs from the scan, and flag Gann's own three slips. **Held for you** (the reading thread's open question 3).
 - Fix stale roadmap cells and AGENTS.md's line that `macroCycle.ts` is on an unmerged branch.
 - Step 9 of your method: `CLAUDE.md` is one line (`@AGENTS.md`), but AGENTS.md is very long. Move the domain history into `docs/` and keep AGENTS.md to commands, key files, source classes, protected actions and status vocabulary. This is a large doc change, so only if you want it.
 
