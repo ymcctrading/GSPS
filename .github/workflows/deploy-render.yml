@@ -130,15 +130,22 @@ jobs:
         run: |
           api="https://api.render.com/v1/services/$RENDER_SERVICE_ID"
           auth="Authorization: Bearer $RENDER_API_KEY"
-          deploy=$(curl -fsS -m 30 -X POST -H "$auth" -H 'content-type: application/json' \
-            -d "{\"clearCache\":\"do_not_clear\",\"commitId\":\"${{ github.sha }}\"}" "$api/deploys" | jq -r '.id')
-          echo "Render deploy $deploy"
+          # Render's list endpoint wraps each deploy as {"deploy": {...}}, and
+          # the create call's reply has not always carried an id (2026-11-11:
+          # it came back empty and the poll read the list). So start the deploy,
+          # then follow the newest deploy of this commit in the list.
+          curl -fsS -m 30 -X POST -H "$auth" -H 'content-type: application/json' \
+            -d "{\"clearCache\":\"do_not_clear\",\"commitId\":\"${{ github.sha }}\"}" "$api/deploys" >/dev/null
+          deploy=""
           for i in $(seq 1 100); do
             sleep 15
-            status=$(curl -fsS -m 30 -H "$auth" "$api/deploys/$deploy" | jq -r '.status' || echo unknown)
-            echo "$(date -u +%H:%M:%S) $status"
+            row=$(curl -fsS -m 30 -H "$auth" "$api/deploys?limit=10" \
+              | jq -c --arg sha "${{ github.sha }}" '[.[] | (.deploy // .) | select(.commit.id == $sha)] | first // empty' || true)
+            deploy=$(echo "$row" | jq -r '.id // ""' 2>/dev/null || true)
+            status=$(echo "$row" | jq -r '.status // "unknown"' 2>/dev/null || echo unknown)
+            echo "$(date -u +%H:%M:%S) ${deploy:-no deploy yet} $status"
             case "$status" in
-              live) url=$(curl -fsS -m 30 -H "$auth" "$api" | jq -r '.serviceDetails.url'); echo "::notice::Live at $url"; exit 0 ;;
+              live) url=$(curl -fsS -m 30 -H "$auth" "$api" | jq -r '(.service // .).serviceDetails.url'); echo "::notice::Live at $url"; exit 0 ;;
               build_failed|update_failed|canceled|deactivated|pre_deploy_failed) echo "::error::Render deploy $deploy ended $status"; exit 1 ;;
             esac
           done
