@@ -17,6 +17,7 @@
  */
 
 import { publicVersionLabel } from "@/lib/backtest/publicVersion";
+import { tallyGoodCalls, type CallOutcome, type GoodCallTally } from "@/lib/shadow/goodCall";
 
 export interface ShadowRecordRow {
   symbol: string;
@@ -32,6 +33,10 @@ export interface ShadowRecordRow {
   r_multiple: number | string | null;
   bars_held: number | null;
   fill_price: number | string | null;
+  /** The card's first target (migration 0147); absent on older rows. */
+  tp1?: number | string | null;
+  /** The card's good or bad call (migration 0147, `lib/shadow/goodCall.ts`). */
+  call_outcome?: string | null;
 }
 
 export type ShadowCallState = "win" | "loss" | "timeout" | "held" | "expired" | "retired" | "unread";
@@ -48,6 +53,10 @@ export interface ShadowCall {
   state: ShadowCallState;
   r: number | null;
   sessionsHeld: number | null;
+  /** The card's first target; null on rows recorded before it was kept. */
+  tp1: number | null;
+  /** Owner's scoring (2026-11-10): TP1 before the stop after the fill is good, the stop first bad. */
+  call: CallOutcome | "no_fill" | "unresolved" | null;
 }
 
 export interface ShadowDay {
@@ -88,7 +97,15 @@ export interface ShadowTotals {
   averageR: number | null;
   /** Wins over decided trades; null with none. */
   winRate: number | null;
+  /**
+   * The cards scored the owner's way (`lib/shadow/goodCall.ts`): good and bad
+   * calls, the good-call rate against its break-even rate, and the result in
+   * R to TP1 or the stop. Rows with no TP1 kept are left out.
+   */
+  goodCalls: GoodCallTally;
 }
+
+const CALLS: ReadonlySet<string> = new Set(["good", "bad", "open", "unresolved", "no_fill"]);
 
 const num = (v: number | string | null | undefined): number | null => {
   if (v == null || v === "") return null;
@@ -137,6 +154,8 @@ export function buildShadowDays(rows: readonly ShadowRecordRow[]): ShadowDay[] {
       state,
       r,
       sessionsHeld: row.bars_held,
+      tp1: num(row.tp1),
+      call: row.call_outcome && CALLS.has(row.call_outcome) ? (row.call_outcome as CallOutcome | "no_fill" | "unresolved") : null,
     });
     day.calls++;
     if (state === "win") day.wins++;
@@ -158,7 +177,11 @@ export function buildShadowDays(rows: readonly ShadowRecordRow[]): ShadowDay[] {
 
 /** The record's totals over the days given. Pure. */
 export function shadowTotals(days: readonly ShadowDay[]): ShadowTotals {
-  const t: ShadowTotals = { calls: 0, plans: 0, decided: 0, wins: 0, losses: 0, timeouts: 0, held: 0, expired: 0, retired: 0, unread: 0, totalR: 0, averageR: null, winRate: null };
+  const t: ShadowTotals = {
+    calls: 0, plans: 0, decided: 0, wins: 0, losses: 0, timeouts: 0, held: 0, expired: 0, retired: 0, unread: 0, totalR: 0, averageR: null, winRate: null,
+    goodCalls: tallyGoodCalls([]),
+  };
+  const scored = days.flatMap((d) => d.items).filter((c) => c.call != null && c.tp1 != null);
   const plans = new Set<string>();
   for (const d of days) {
     for (const c of d.items) plans.add(`${c.symbol}|${c.side}|${c.entry}|${c.stop}|${c.version}`);
@@ -173,6 +196,7 @@ export function shadowTotals(days: readonly ShadowDay[]): ShadowTotals {
     t.totalR += d.totalR;
   }
   t.plans = plans.size;
+  t.goodCalls = tallyGoodCalls(scored.map((c) => ({ call: c.call!, fill: c.fill, stop: c.stop, tp1: c.tp1 })));
   t.decided = t.wins + t.losses + t.timeouts;
   if (t.decided > 0) {
     t.averageR = t.totalR / t.decided;

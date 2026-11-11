@@ -29,6 +29,7 @@ import { z } from "zod";
 
 export const DASHBOARD_SECTION_IDS = [
   "summary",
+  "cards",
   "school",
   "walkthrough",
   "expectancy",
@@ -52,6 +53,7 @@ export interface DashboardSectionInfo {
 /** In default order. Labels are member-facing. */
 export const DASHBOARD_SECTIONS: readonly DashboardSectionInfo[] = [
   { id: "summary", label: "Your next step", note: "Novice accounts only" },
+  { id: "cards", label: "Trade cards for the next session" },
   { id: "school", label: "School progress", note: "Novice and Pro" },
   { id: "walkthrough", label: "Link to the walkthrough" },
   { id: "expectancy", label: "Recent replay of Guided's rules" },

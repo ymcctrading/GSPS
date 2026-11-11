@@ -154,11 +154,18 @@ describe("walkShadowTrade (R-032: production's reaction entry and the method's e
 });
 
 describe("evaluatePendingShadowSignals", () => {
-  function makeSupabase(pending: Record<string, unknown>[]) {
+  function makeSupabase(pending: Record<string, unknown>[], openCalls: Record<string, unknown>[] = []) {
     const updates: Record<string, unknown>[] = [];
-    const read: { or?: string; order: unknown[][]; limit?: number } = { order: [] };
+    const read: { or?: string; order: unknown[][]; limit?: number; openLimit?: number } = { order: [] };
+    // The open-call read (`.not("outcome", "is", null).eq("call_outcome", "open")`).
+    let openRead = false;
     const query = {
       is: () => query,
+      not: () => {
+        openRead = true;
+        return query;
+      },
+      eq: () => query,
       or: (filter: string) => {
         read.or = filter;
         return query;
@@ -168,6 +175,11 @@ describe("evaluatePendingShadowSignals", () => {
         return query;
       },
       limit: (n: number) => {
+        if (openRead) {
+          openRead = false;
+          read.openLimit = n;
+          return Promise.resolve({ data: openCalls, error: null });
+        }
         read.limit = n;
         return Promise.resolve({ data: pending, error: null });
       },
@@ -204,6 +216,68 @@ describe("evaluatePendingShadowSignals", () => {
     const outcome = await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
     expect(outcome.evaluated).toBe(1);
     expect(updates[0]).toMatchObject({ outcome: "loss", fill_price: 100.4 });
+  });
+
+  it("scores the card's call from the fill: the stop first is a bad call, TP1 first a good one", async () => {
+    bars({
+      "15Min": session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3], [100.4, 100.6, 95, 95.5]]),
+      "1Day": history("2026-08-25"),
+    });
+    const bad = makeSupabase([{ ...row, tp1: 103 }]);
+    await evaluatePendingShadowSignals(bad.client, new Date("2026-09-05T00:00:00Z"));
+    expect(bad.updates[0]).toMatchObject({ outcome: "loss", call_outcome: "bad" });
+
+    bars({
+      "15Min": session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3], [100.4, 103.2, 100.2, 101], [101, 101.1, 95, 95.5]]),
+      "1Day": history("2026-08-25"),
+    });
+    const good = makeSupabase([{ ...row, tp1: 103 }]);
+    await evaluatePendingShadowSignals(good.client, new Date("2026-09-05T00:00:00Z"));
+    // TP1 came first, so the later fall to the stop is the member's to manage.
+    expect(good.updates[0]).toMatchObject({ call_outcome: "good" });
+  });
+
+  it("counts a fill already at or past TP1 with the no-fills, as the nightly cards do", async () => {
+    bars({
+      "15Min": session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3], [100.4, 100.6, 95, 95.5]]),
+      "1Day": history("2026-08-25"),
+    });
+    const { client, updates } = makeSupabase([{ ...row, tp1: 100.3 }]);
+    await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
+    expect(updates[0]).toMatchObject({ outcome: "loss", call_outcome: "no_fill" });
+  });
+
+  it("writes no call for a row recorded before TP1 was kept", async () => {
+    bars({
+      "15Min": session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3], [100.4, 100.6, 95, 95.5]]),
+      "1Day": history("2026-08-25"),
+    });
+    const { client, updates } = makeSupabase([row]);
+    await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
+    expect(updates[0]).not.toHaveProperty("call_outcome");
+  });
+
+  it("calls a plan that never filled no_fill", async () => {
+    bars({ "15Min": session("2026-08-25", [[101, 102, 100.5, 101.5]]), "1Day": history("2026-08-25") });
+    const { client, updates } = makeSupabase([{ ...row, tp1: 103 }]);
+    await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
+    expect(updates[0]).toMatchObject({ outcome: "expired", call_outcome: "no_fill" });
+  });
+
+  it("reads again a call left open after the trade's exit", async () => {
+    // Filled at 100.4; the session never reaches 103 or 96, and the flat daily
+    // history after it neither, so the call stays open.
+    bars({
+      "15Min": session("2026-08-25", [[101, 101.5, 99.8, 100.2], [100.3, 100.5, 100.0, 100.3], [100.4, 100.8, 100.1, 100.6]]),
+      "1Day": history("2026-08-25"),
+    });
+    const open = { ...row, id: "s2", tp1: 103, call_outcome: "open", fill_price: 100.4, outcome: "open" };
+    const { client, updates, read } = makeSupabase([], [open]);
+    await evaluatePendingShadowSignals(client, new Date("2026-09-05T00:00:00Z"));
+    expect(read.openLimit).toBe(SHADOW_EVALUATIONS_PER_PASS);
+    expect(updates[0]).toMatchObject({ call_outcome: "open" });
+    // A decided trade's recorded result stands: only the call and the check time are written.
+    expect(Object.keys(updates[0]).sort()).toEqual(["call_outcome", "checked_at"]);
   });
 
   it("records a plan that never filled in its session as expired", async () => {
@@ -307,8 +381,12 @@ describe("evaluatePendingShadowSignals", () => {
     expect(read.order).toEqual([
       ["checked_at", { ascending: true, nullsFirst: true }],
       ["scanned_at", { ascending: true }],
+      // then the calls still open, least recently checked first
+      ["checked_at", { ascending: true, nullsFirst: true }],
     ]);
     expect(read.limit).toBe(SHADOW_EVALUATIONS_PER_PASS);
+    // the open calls take the room the pending rows left
+    expect(read.openLimit).toBe(SHADOW_EVALUATIONS_PER_PASS);
   });
 
   it("keeps a filled trade still held pending, with its fill and the time it was checked", async () => {

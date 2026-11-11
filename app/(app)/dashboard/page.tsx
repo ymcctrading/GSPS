@@ -41,6 +41,9 @@ import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
 import { RestReminder } from "@/components/dashboard/rest-reminder";
 import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import type { ScanRow } from "@/components/scan/results-table";
+import { TradeCards } from "@/components/dashboard/trade-cards";
+import { getTradeCards, NO_TRADE_CARDS } from "@/lib/cards/readCards";
+import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
 
 export const metadata = { title: "Dashboard — GSPS" };
 export const dynamic = "force-dynamic";
@@ -61,6 +64,25 @@ export default async function DashboardPage() {
   ]);
   const { scanDate, freshness, pricedBeforeSession, scannedAt, reconstructed, bullish, bearish } = scans;
   const user = userResult.data.user;
+  // Tonight's cards of the strategy mode this member chose (opt-in, one at a
+  // time), and every published kind's record (lib/cards/readCards.ts). Started
+  // here so it runs beside the per-user reads below. A failed read shows the
+  // no-card note rather than breaking the page.
+  const tradeCardsLoad = (
+    user
+      ? Promise.all([
+          getUserEntitlementPolicy(supabase, user.id),
+          supabase
+            .from("strategy_mode_preferences")
+            .select("mode")
+            .eq("user_id", user.id)
+            .maybeSingle()
+            .then(({ data }) => (data as { mode?: string } | null)?.mode ?? null),
+        ]).then(([policy, mode]) => ({ policy, mode }))
+      : Promise.resolve(null)
+  )
+    .then((viewer) => getTradeCards(createServiceClient(), viewer))
+    .catch(() => NO_TRADE_CARDS);
 
   const [tierSummary, trackedExecute, savedSetups, watchlist, layout] = user
     ? await Promise.all([
@@ -84,12 +106,15 @@ export default async function DashboardPage() {
           ),
       ])
     : [null, [], [], { symbols: [...DEFAULTS], isDefault: true }, DEFAULT_DASHBOARD_LAYOUT];
+  const tradeCards = await tradeCardsLoad;
   const noviceSummary = tierSummary?.novice ?? null;
   const schoolNudge = tierSummary?.school ?? null;
 
   // Each section the member can show, hide or move (lib/dashboard/sections.ts),
   // keyed by id. Null where it has nothing to show this member.
   const sections: Record<DashboardSectionId, ReactNode> = {
+    cards: <TradeCards data={tradeCards} />,
+
     summary: noviceSummary && (
       <NoviceHomeSummary regime={noviceSummary.regime} bestPlan={noviceSummary.bestPlan} home={noviceSummary.home} />
     ),

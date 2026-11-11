@@ -54,6 +54,7 @@ describe("buildShadowSignal", () => {
       entry: 200,
       stopLoss: 195,
       target: 215,
+      tp1: 205,
       score: 7,
       source: "scheduled_morning_scan",
       scannedAt: "2026-08-28T14:30:00Z",
