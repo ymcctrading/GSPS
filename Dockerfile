@@ -1,5 +1,8 @@
 # GSPS on Google Cloud Run (2026-11-04).
 #
+# Also built by Render (.github/workflows/deploy-render.yml, 2026-11-11),
+# which passes the environment in as build args.
+#
 # Vercel paused the Hobby account on 2026-10-31 for Fluid Active CPU until
 # 2026-11-30; the owner chose Cloud Run to keep the site up. Built and deployed
 # by .github/workflows/deploy-cloud-run.yml. `next build` with

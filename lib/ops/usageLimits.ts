@@ -236,11 +236,17 @@ export function meterBilled(meter: UsageMeterId, visibility: RepoVisibility): bo
 
 export const PUBLIC_REPO_REASON = "The repository is public: GitHub Actions minutes are free and not metered.";
 
-/** Where the app runs: Cloud Run sets K_SERVICE in every container it starts. */
-export type HostPlatform = "vercel" | "cloud_run";
+/**
+ * Where the app runs: Cloud Run sets K_SERVICE in every container it starts,
+ * and Render sets RENDER=true in every service (2026-11-11: the owner chose
+ * Render's free plan, which asks for no card, while Vercel is paused).
+ */
+export type HostPlatform = "vercel" | "cloud_run" | "render";
 
 export function hostPlatform(env: Record<string, string | undefined> = process.env): HostPlatform {
-  return env.K_SERVICE ? "cloud_run" : "vercel";
+  if (env.K_SERVICE) return "cloud_run";
+  if (env.RENDER === "true") return "render";
+  return "vercel";
 }
 
 /** Whether a function meter applies on this host: Vercel's limits on Vercel, Cloud Run's on Cloud Run. */
@@ -250,9 +256,10 @@ export function meterOnHost(meter: UsageMeterId, host: HostPlatform): boolean {
   return true;
 }
 
-export function offHostReason(meter: UsageMeterId): string {
-  return meter === "cloud_run_seconds"
-    ? "The site is not on Cloud Run: its free tier is not in use."
+export function offHostReason(meter: UsageMeterId, host: HostPlatform = "cloud_run"): string {
+  if (meter === "cloud_run_seconds") return "The site is not on Cloud Run: its free tier is not in use.";
+  return host === "render"
+    ? "The site is hosted on Render: Vercel's function limits are not in use."
     : "The site is hosted on Cloud Run: Vercel's function limits are not in use.";
 }
 

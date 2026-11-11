@@ -22,6 +22,7 @@ inside that. Measured 2026-11-09 from the Actions API; the full breakdown is in 
 | Security (`security.yml`) | pull requests that are ready for review; each push to main (the secret scan of what the merge adds) | 1 min |
 | Branch hygiene (`branch-hygiene.yml`) | pull requests that are ready for review, including title and body edits (the roadmap-phase gate reads them); the 1st of each month | 1 min |
 | Deploy to Cloud Run (`deploy-cloud-run.yml`) | each push to main | 1 min unconfigured, about 6 once set up |
+| Deploy to Render (`deploy-render.yml`, 2026-11-11) | each push to main | 1 min unconfigured, up to about 15 while it waits on Render's build; free while the repository is public |
 | Universe backtest and fetch jobs | by hand only, on the owner's ask | about 61 min a backtest |
 
 There is no Tests run on a push to main. Every push to main is a release-train merge, or an urgent fix merged alone, and its
