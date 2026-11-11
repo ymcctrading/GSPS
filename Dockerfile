@@ -14,7 +14,7 @@
 
 FROM node:24-slim AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci --no-audit --no-fund
 
 FROM node:24-slim AS build
