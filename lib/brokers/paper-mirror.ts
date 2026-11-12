@@ -927,7 +927,7 @@ async function mirrorPass(
       const p = now.find((x) => mirrorSymbol(x) === symbol);
       const q = p ? Math.abs(num(p.qty)) : NaN;
       if (q > 0 && q <= filled) return q;
-      await sleep(400);
+      if (i === 0) await sleep(400);
     }
     // Unread: the fill less the most the fee can take, so the stop is never
     // sized above what is held.
