@@ -5,6 +5,11 @@ import {
   nyDay,
   LIVE_MIRROR_START,
   liveOpenQty,
+  liveRiskFraction,
+  cryptoPair,
+  isCryptoPair,
+  floorTo,
+  roundTo,
   scaleSimForLive,
   MAX_OPEN_LINES,
   MIRROR_START,
@@ -176,6 +181,24 @@ describe("planMirrorActions", () => {
       expect(planMirrorActions([sim()], [line({ status })], held([]), gate())).toEqual([]);
     }
   });
+
+  it("trades a coin while the stock market is closed, and holds stocks", () => {
+    const coinSim = sim({ positionId: "c1", symbol: "BTC/USD", assetClass: "crypto", qty: 0.001, price: 90000, stop: 88000 });
+    const a = planMirrorActions([sim(), coinSim], [], held([]), gate({ marketOpen: false }));
+    expect(a.find((x) => x.positionId === "c1")?.kind).toBe("open");
+    expect(a.find((x) => x.positionId === "p1")).toMatchObject({ kind: "hold", reason: "Market closed." });
+    const coinLine = line({ positionId: "c1", symbol: "BTC/USD", targetQty: 0.001, simQty: 0.001, stopQty: 0.001 });
+    expect(planMirrorActions([], [coinLine], held([["BTC/USD", 0.001]]), gate({ marketOpen: false }))[0]).toMatchObject({ kind: "close", qty: 0.001 });
+  });
+
+  it("holds stock opens for the day-trade rule, never a coin's, and never a coin's same-day sell", () => {
+    const coinSim = sim({ positionId: "c1", symbol: "BTC/USD", assetClass: "crypto", qty: 0.001, price: 90000, stop: 88000 });
+    const a = planMirrorActions([sim(), coinSim], [], held([]), gate({ pdtOpenHold: true, pdtNote: "Day trades used." }));
+    expect(a.find((x) => x.positionId === "c1")?.kind).toBe("open");
+    expect(a.find((x) => x.positionId === "p1")).toMatchObject({ kind: "hold", reason: "Day trades used." });
+    const coinLine = line({ positionId: "c1", symbol: "BTC/USD", targetQty: 0.001, simQty: 0.001, stopQty: 0.001, openedAt: new Date(T0 - 60_000).toISOString() });
+    expect(planMirrorActions([], [coinLine], held([["BTC/USD", 0.001]]), gate({ sameDaySellBlocked: true }))[0].kind).toBe("close");
+  });
 });
 
 describe("orderSide", () => {
@@ -198,23 +221,66 @@ describe("dayLossHold", () => {
 
 
 describe("liveOpenQty (a small live account)", () => {
-  it("sizes whole shares within cash and a tenth of equity at risk", () => {
-    // $30 account, $12 stock, stop $11: cash allows 2, risk allows 3 → 2.
-    // The day limit keeps both caps at the fill: min(11 + 3/2, 28.50/2) = 12.50.
-    expect(liveOpenQty("long", 12, 11, 30, 30)).toEqual({ qty: 2, limitPrice: 12.5 });
-    // Wider stop: $12 stock, stop $10 → risk $2 a share, a tenth of $30 is $3 → 1.
-    expect(liveOpenQty("long", 12, 10, 30, 30)).toEqual({ qty: 1, limitPrice: 13 });
+  it("puts at most a third of the account in one trade, risking at most a tenth at the stop", () => {
+    // $30 account: a third is $10. $4 stock, stop $3.80: $10 buys 2, the
+    // $3 risk allows 15 → 2. The limit keeps both caps: min(3.80 + 3/2, 10/2) = 5.
+    expect(liveOpenQty("long", 4, 3.8, 30, 30)).toEqual({ qty: 2, limitPrice: 5 });
+    // Less cash than a third of the account: the cash binds.
+    expect(liveOpenQty("long", 4, 3.8, 30, 6)).toEqual({ qty: 1, limitPrice: 5.7 });
+  });
+
+  it("sizes a coin in its own lot", () => {
+    const lot = { increment: 0.000001, min: 0.001, priceIncrement: 0.1 };
+    // $10 at $3,000 is 0.003333; the risk ($3 at $50 a coin) allows 0.06.
+    expect(liveOpenQty("long", 3000, 2950, 30, 30, 0.1, lot)).toEqual({ qty: 0.003333, limitPrice: 3000.3 });
+    // A wide stop: the loss limit binds, and a higher step allows more.
+    expect(liveOpenQty("long", 3000, 1800, 60, 60, 0.1, lot).qty).toBe(0.005);
+    expect(liveOpenQty("long", 3000, 1800, 60, 60, 0.2, lot).qty).toBe(0.006666);
+    expect(liveOpenQty("long", 3000, 2950, 30, 30, 0.1, { increment: 0.0001, min: 0.01 }).reason).toMatch(/smallest order costs \$30.00, more than the \$10.00 one trade may use/);
   });
 
   it("refuses with a reason a small account would meet", () => {
-    expect(liveOpenQty("long", 92, 90, 30, 30).reason).toMatch(/more than the \$30.00 cash/);
-    expect(liveOpenQty("long", 20, 15, 30, 30).reason).toMatch(/per-trade risk limit/);
+    expect(liveOpenQty("long", 12, 11, 30, 30).reason).toMatch(/One share costs \$12.00, more than the \$10.00 one trade may use/);
+    expect(liveOpenQty("long", 8, 4.5, 30, 30).reason).toMatch(/per-trade loss limit \(\$3.00 on a \$30.00 account\)/);
     expect(liveOpenQty("short", 20, 21, 30, 30).reason).toMatch(/long only/);
     expect(liveOpenQty("long", 20, null, 30, 30).reason).toMatch(/No protective stop/);
     expect(liveOpenQty("long", 20, 21, 30, 30).reason).toMatch(/No protective stop/);
     expect(liveOpenQty("long", 20, Number.NaN, 30, 30).reason).toMatch(/No protective stop/);
+    expect(liveOpenQty("long", 4, 3.8, Number.NaN, 30).reason).toMatch(/equity unreadable/);
   });
 });
+
+describe("liveRiskFraction (the agreed step-ups, on trading gains)", () => {
+  it("steps from a tenth to a fifth at $15 made, and to a third at $45 made", () => {
+    expect(liveRiskFraction(0)).toBe(0.1);
+    expect(liveRiskFraction(14.99)).toBe(0.1);
+    expect(liveRiskFraction(15)).toBe(0.2);
+    expect(liveRiskFraction(44.99)).toBe(0.2);
+    expect(liveRiskFraction(45)).toBe(1 / 3);
+    expect(liveRiskFraction(-5)).toBe(0.1);
+  });
+
+  it("takes the first step when the gain can't be read", () => {
+    expect(liveRiskFraction(Number.NaN)).toBe(0.1);
+  });
+});
+
+describe("crypto symbols", () => {
+  it("keys a coin by its pair, whichever way the broker writes it", () => {
+    expect(cryptoPair("BTCUSD")).toBe("BTC/USD");
+    expect(cryptoPair("BTC/USD")).toBe("BTC/USD");
+    expect(cryptoPair("eth-usd")).toBe("ETH/USD");
+    expect(isCryptoPair("BTC/USD")).toBe(true);
+    expect(isCryptoPair("BRK.B")).toBe(false);
+  });
+
+  it("rounds to a lot without float dust", () => {
+    expect(floorTo(0.0033333333, 0.000001)).toBe(0.003333);
+    expect(floorTo(3000.30030, 0.1)).toBe(3000.3);
+    expect(roundTo(2949.96, 0.1)).toBe(2950);
+  });
+});
+
 
 describe("dayTradeBlocked", () => {
   it("blocks at three day trades under $25,000, and fails closed on an unreadable count", () => {
@@ -232,14 +298,29 @@ describe("nyDay", () => {
   });
 });
 
+
 describe("scaleSimForLive", () => {
   const T = new Date(Date.parse(LIVE_MIRROR_START) + 60_000).toISOString();
   const s = (over: Partial<SimLine> = {}): SimLine => sim({ openedAt: T, price: 12, stop: 11, qty: 40, ...over });
+  const coin = (over: Partial<SimLine> = {}): SimLine =>
+    s({ positionId: "c1", symbol: "ETH/USD", assetClass: "crypto", price: 3000, stop: 2950, qty: 0.5, ...over });
+  const lots = new Map([["ETH/USD", { increment: 0.000001, min: 0.001, priceIncrement: 0.1 }]]);
 
-  it("sizes a new line for the account and drops what it can't take", () => {
-    const r = scaleSimForLive([s(), s({ positionId: "p2", symbol: "BIG", price: 300, stop: 290 })], [], new Map(), 30, 30);
-    expect(r.lines).toEqual([expect.objectContaining({ positionId: "p1", qty: 2 })]);
-    expect(r.refused[0].line.positionId).toBe("p2");
+  it("sizes a new coin line and refuses stock trades on live", () => {
+    const r = scaleSimForLive([s({ price: 4, stop: 3.8 }), coin()], [], new Map(), 30, 30, { tradingGain: 0, lots });
+    expect(r.lines).toEqual([expect.objectContaining({ positionId: "c1", qty: 0.003333, limitPrice: 3000.3 })]);
+    expect(r.refused).toHaveLength(1);
+    expect(r.refused[0].reason).toMatch(/Stock trade: the live account trades crypto and options only/);
+  });
+
+  it("holds options until trading has made $45", () => {
+    const opt = s({ positionId: "o1", symbol: "AAA261218C00010000", assetClass: "option" });
+    expect(scaleSimForLive([opt], [], new Map(), 30, 30, { tradingGain: 10 }).refused[0].reason).toMatch(/Options open once trading has made \$45.00 \(so far \$10.00\)/);
+    expect(scaleSimForLive([opt], [], new Map(), 75, 75, { tradingGain: 45 }).refused[0].reason).toMatch(/aren't placed on the live account yet/);
+  });
+
+  it("refuses a coin whose lot couldn't be read", () => {
+    expect(scaleSimForLive([coin()], [], new Map(), 30, 30, { tradingGain: 0 }).refused[0].reason).toMatch(/order size couldn't be read/);
   });
 
   it("follows the simulator's exits in proportion, keeping a lone share until the last tranche", () => {
@@ -248,6 +329,13 @@ describe("scaleSimForLive", () => {
     expect(scaleSimForLive([s({ qty: 20 })], m, scale, 30, 30).lines[0].qty).toBe(1); // half out: round(0.5) keeps 1
     expect(scaleSimForLive([s({ qty: 10 })], m, scale, 30, 30).lines[0].qty).toBe(1); // three quarters out: still 1
     expect(scaleSimForLive([s({ qty: 1 })], m, scale, 30, 30).lines[0].qty).toBe(1); // one share left in the simulator: still 1
+  });
+
+  it("follows a coin's exits in its lot", () => {
+    const m = [line({ positionId: "c1", symbol: "ETH/USD", targetQty: 0.003325, simQty: 0.003333 })];
+    const scale = new Map([["c1", 0.003333 / 0.5]]);
+    expect(scaleSimForLive([coin({ qty: 0.25 })], m, scale, 30, 30, { lots }).lines[0].qty).toBe(0.001666);
+    expect(scaleSimForLive([coin({ qty: 0.01 })], m, scale, 30, 30, { lots }).lines[0].qty).toBe(0.001); // never under the smallest order
   });
 
   it("ignores positions opened before the live start", () => {

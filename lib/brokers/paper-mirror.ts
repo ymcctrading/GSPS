@@ -65,6 +65,8 @@ import {
   closePosition,
   envCreds,
   getAccount,
+  getAsset,
+  getNetDeposits,
   getOrder,
   getOrderByClientId,
   getPositions,
@@ -73,6 +75,8 @@ import {
   replaceOrder,
   type AlpacaCreds,
   type AlpacaOrder,
+  type AlpacaPosition,
+  type ExitOrderInput,
 } from "@/lib/brokers/alpaca";
 import { tradingDisabled } from "@/lib/trade/kill-switch";
 import { OWNER_EMAILS } from "@/lib/auth/owner";
@@ -88,6 +92,40 @@ export const DAILY_LOSS_HOLD_PCT = 0.03;
 export const MAX_OPEN_LAG_MS = 60 * 60 * 1000;
 
 export type Side = "long" | "short";
+export type AssetClass = "us_equity" | "crypto" | "option";
+
+/**
+ * A crypto pair in the form the mirror keys it by ("BTC/USD"). The broker
+ * lists a held coin as "BTCUSD"; orders take either.
+ */
+export function cryptoPair(symbol: string): string {
+  const s = symbol.toUpperCase().replace("-", "/");
+  return s.includes("/") ? s : s.replace(/(USDT|USDC|USD)$/, "/$1");
+}
+
+/** Mirror lines key crypto by its pair, so a slash marks one (no stock symbol carries a slash). */
+export function isCryptoPair(symbol: string): boolean {
+  return symbol.includes("/");
+}
+
+/** How an asset is ordered: whole shares, or a coin's own lot (the broker's minimum and step). */
+export interface Lot {
+  increment: number;
+  min: number;
+  /** The step between prices; cents when the broker gives none. */
+  priceIncrement?: number;
+}
+export const WHOLE_SHARES: Lot = { increment: 1, min: 1 };
+
+const stepDecimals = (step: number) => Math.min(9, Math.max(0, Math.ceil(-Math.log10(step) - 1e-9)));
+/** `x` rounded down to a multiple of `step`, without float dust. */
+export function floorTo(x: number, step: number): number {
+  return Number((Math.floor(x / step + 1e-9) * step).toFixed(stepDecimals(step)));
+}
+/** `x` rounded to the nearest multiple of `step`, without float dust. */
+export function roundTo(x: number, step: number): number {
+  return Number((Math.round(x / step) * step).toFixed(stepDecimals(step)));
+}
 
 export interface SimLine {
   positionId: string;
@@ -101,6 +139,8 @@ export interface SimLine {
   openedAt: string;
   /** Opened by automation (an entry order carrying a plan id). */
   automated: boolean;
+  /** Stocks when unset. */
+  assetClass?: AssetClass;
   /** Live only: the open goes as a day limit at this price, the most the account's caps allow a share. */
   limitPrice?: number;
 }
@@ -146,6 +186,12 @@ export interface MirrorGate {
    * shares held.
    */
   sameDaySellBlocked?: boolean;
+  /**
+   * The day trades left would not cover a same-day exit: stock and option
+   * opens are held (crypto has no day-trade rule), with `pdtNote` as reason.
+   */
+  pdtOpenHold?: boolean;
+  pdtNote?: string;
   /** Why opens are held, when `dayLossHold` is set (the account's own wording). */
   holdNote?: string;
   tradingHalted: boolean;
@@ -198,17 +244,24 @@ export function planMirrorActions(
   const closing = new Set(openMirror.filter((m) => !bySim.has(m.positionId)).map((m) => m.symbol));
   let openLines = openMirror.length;
   const maxOpen = gate.maxOpenLines ?? MAX_OPEN_LINES;
-  const canOpen = !gate.tradingHalted && gate.marketOpen && !gate.dayLossHold;
-  const openReason = gate.tradingHalted
-    ? "Trading is halted (TRADING_DISABLED)."
-    : !gate.marketOpen
-      ? "Market closed."
-      : gate.dayLossHold
-        ? (gate.holdNote ?? `Account down ${DAILY_LOSS_HOLD_PCT * 100}% or more today.`)
-        : "Not opened.";
+  // Crypto trades around the clock and has no day-trade rule.
+  const marketOpenFor = (symbol: string) => gate.marketOpen || isCryptoPair(symbol);
+  const pdtHeld = (symbol: string) => gate.pdtOpenHold === true && !isCryptoPair(symbol);
+  const canOpen = (symbol: string) => !gate.tradingHalted && marketOpenFor(symbol) && !gate.dayLossHold && !pdtHeld(symbol);
+  const openReason = (symbol: string) =>
+    gate.tradingHalted
+      ? "Trading is halted (TRADING_DISABLED)."
+      : !marketOpenFor(symbol)
+        ? "Market closed."
+        : gate.dayLossHold
+          ? (gate.holdNote ?? `Account down ${DAILY_LOSS_HOLD_PCT * 100}% or more today.`)
+          : pdtHeld(symbol)
+            ? (gate.pdtNote ?? "Day trades used: no new opens under $25,000.")
+            : "Not opened.";
   const mirroredSymbols = new Set(openMirror.map((m) => m.symbol));
   const today = nyDay(gate.now);
-  const sellHeld = (m: MirrorLine) => gate.sameDaySellBlocked === true && (!m.openedAt || nyDay(Date.parse(m.openedAt)) === today);
+  const sellHeld = (m: MirrorLine) =>
+    gate.sameDaySellBlocked === true && !isCryptoPair(m.symbol) && (!m.openedAt || nyDay(Date.parse(m.openedAt)) === today);
   const SELL_HELD = "Same-day sell held by the day-trade rule; the broker stop stays in place.";
 
   for (const m of openMirror) {
@@ -218,7 +271,7 @@ export function planMirrorActions(
       actions.push(m.stopOrderId ? { kind: "broker_stopped", positionId: m.positionId, symbol: m.symbol } : { kind: "check_open", positionId: m.positionId, symbol: m.symbol });
       continue;
     }
-    if (!gate.marketOpen) actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: "Close waits for the open market." });
+    if (!marketOpenFor(m.symbol)) actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: "Close waits for the open market." });
     else if (sellHeld(m)) actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: SELL_HELD });
     else actions.push({ kind: "close", positionId: m.positionId, symbol: m.symbol, side: m.side, qty: held });
   }
@@ -230,8 +283,8 @@ export function planMirrorActions(
       const lag = gate.now - Date.parse(s.openedAt);
       if (!(lag <= MAX_OPEN_LAG_MS)) {
         actions.push({ kind: "missed", positionId: s.positionId, symbol: s.symbol, side: s.side, reason: "The simulator's fill is more than an hour old; not chased." });
-      } else if (!canOpen) {
-        actions.push({ kind: "hold", positionId: s.positionId, symbol: s.symbol, reason: openReason });
+      } else if (!canOpen(s.symbol)) {
+        actions.push({ kind: "hold", positionId: s.positionId, symbol: s.symbol, reason: openReason(s.symbol) });
       } else if (closing.has(s.symbol)) {
         actions.push({ kind: "hold", positionId: s.positionId, symbol: s.symbol, reason: "Waits for the earlier line in this symbol to close." });
       } else if (openLines >= maxOpen) {
@@ -263,19 +316,19 @@ export function planMirrorActions(
       continue;
     }
     if (s.qty > m.simQty && gate.allowAdds !== false) {
-      if (canOpen) {
+      if (canOpen(m.symbol)) {
         // The stop below stays sized to the shares already held; it follows
         // the add next run, once those shares are held too.
         actions.push({ kind: "add", positionId: m.positionId, symbol: m.symbol, side: m.side, qty: s.qty - m.simQty, simPrice: s.price, targetAfter: m.targetQty + (s.qty - m.simQty), simAfter: s.qty });
       } else {
-        actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: `Add not placed: ${openReason}` });
+        actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: `Add not placed: ${openReason(m.symbol)}` });
       }
     }
     let after = held;
     if (s.qty < held) {
-      if (gate.marketOpen && sellHeld(m)) {
+      if (marketOpenFor(m.symbol) && sellHeld(m)) {
         actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: SELL_HELD });
-      } else if (gate.marketOpen) {
+      } else if (marketOpenFor(m.symbol)) {
         actions.push({ kind: "reduce", positionId: m.positionId, symbol: m.symbol, side: m.side, qty: held - s.qty, simPrice: s.price, targetAfter: s.qty });
         after = s.qty;
       } else {
@@ -388,7 +441,7 @@ async function readSimLines(supabase: SupabaseClient, userId: string): Promise<S
     .eq("closed", false)
     .gte("opened_at", MIRROR_START);
   if (error) throw new Error(`positions: ${error.message}`);
-  const rows = (positions ?? []).filter((p) => p.asset_class === "us_equity");
+  const rows = (positions ?? []).filter((p) => ["us_equity", "crypto", "option"].includes(p.asset_class as string));
   if (rows.length === 0) return [];
   const symbols = rows.map((p) => p.symbol as string);
   const [exitsRes, entriesRes] = await Promise.all([
@@ -427,9 +480,11 @@ async function readSimLines(supabase: SupabaseClient, userId: string): Promise<S
     const automated = (entriesRes.data ?? []).some(
       (o) => o.symbol === p.symbol && Math.abs(Date.parse(o.created_at as string) - openedMs) <= FIVE_MIN,
     );
+    const assetClass = p.asset_class as AssetClass;
     return {
       positionId: p.id as string,
-      symbol: p.symbol as string,
+      symbol: assetClass === "crypto" ? cryptoPair(p.symbol as string) : (p.symbol as string),
+      assetClass,
       side: (p.side === "short" ? "short" : "long") as Side,
       qty: num(p.qty),
       stop: Number.isFinite(stop) && stop > 0 ? stop : null,
@@ -504,11 +559,20 @@ export type MirrorMode = "paper" | "live";
  * separate from the Automated Portfolio Manager's members' live path, which
  * stays on paper (`AUTONOMOUS_PROVING_PERIOD`). No public record is kept.
  *
+ * The owner's own rules for this account (2026-11-12), each fails closed:
+ * - Crypto and options only: "Equities don't create a large enough profit
+ *   margin for my liking." A stock trade stays on paper and is logged as
+ *   one the live account skipped. (Futures and forex aren't offered by the
+ *   broker; margin needs $2,000.)
+ * - At most a third of the account in one trade: "No more than 1/3 of the
+ *   account can be 'invested' on one trade."
+ * - The loss allowed on one trade steps up with what trading has made,
+ *   never with deposits (his "Go" to this schedule on a $30 start, and "I'll
+ *   be adding money incrementally"): `liveRiskFraction`. Options open at the
+ *   third step, the premium counted as the loss; they aren't placed yet.
  * Small-account rules, each fails closed:
  * - Long only (an account under $2,000 cannot borrow shares).
- * - Whole shares only, so every line carries a broker stop.
- * - Risk on a line (entry to stop, times shares) at most a tenth of the
- *   account (ref: SRC-004 p.46, Rule 1), shares within the cash on hand.
+ * - Whole shares, or a coin's own lot, so every line carries a broker stop.
  * - No adds (no capital for them), at most `LIVE_MAX_OPEN_LINES` lines.
  * - No opens once the account is down `LIVE_DAY_LOSS_HOLD_PCT` on the day,
  *   or below `LIVE_EQUITY_FLOOR`.
@@ -518,8 +582,33 @@ export type MirrorMode = "paper" | "live";
 export const LIVE_MIRROR_AUTHORIZED = { by: "owner", on: "2026-11-12" } as const;
 /** Live opens begin with positions opened from this time (owner: "start live trading tomorrow"). */
 export const LIVE_MIRROR_START = "2026-11-13T14:30:00Z";
-export const LIVE_MAX_RISK_FRACTION = 0.1;
-/** Engineering choice: one full-size loss is the day's hold. */
+/** Owner, 2026-11-12: live trades these only; stocks stay on paper. */
+export const LIVE_ASSET_CLASSES: readonly AssetClass[] = ["crypto", "option"];
+/** Owner, 2026-11-12: "No more than 1/3 of the account can be 'invested' on one trade." */
+export const LIVE_MAX_POSITION_FRACTION = 1 / 3;
+/** The loss allowed on one trade before trading has made anything (ref: SRC-004 p.46, Rule 1). */
+export const LIVE_BASE_RISK_FRACTION = 0.1;
+/**
+ * The step-ups the owner agreed to (2026-11-12, "Go"): on the $30 start, a
+ * fifth from $45 and a third from $75. Counted in trading gains (equity less
+ * net deposits), so money he adds never moves a step.
+ */
+export const LIVE_RISK_STEPS: readonly { fromGain: number; fraction: number }[] = [
+  { fromGain: 45, fraction: 1 / 3 },
+  { fromGain: 15, fraction: 0.2 },
+];
+/** Options open at the third step (the account at $75 on the $30 start). */
+export const LIVE_OPTIONS_FROM_GAIN = 45;
+/** Engineering choice: no live order under a dollar (the broker's floor for a crypto order). */
+export const LIVE_MIN_ORDER_USD = 1;
+/**
+ * Engineering choice: crypto takes no plain stop order, so its protective
+ * stop is a stop-limit this far under the stop. Ordinary slippage still
+ * fills; a fall straight through the limit leaves the line to the next run,
+ * which closes it at market once the simulator has exited.
+ */
+export const CRYPTO_STOP_LIMIT_GAP = 0.02;
+/** Engineering choice: one full-size loss at the first step is the day's hold. */
 export const LIVE_DAY_LOSS_HOLD_PCT = 0.1;
 /** Engineering choice: half the $30 starting account. */
 export const LIVE_EQUITY_FLOOR = 15;
@@ -546,9 +635,21 @@ export function dayTradeBlocked(dayTradeCount: number, equity: number): boolean 
   return !(dayTradeCount < PDT_MAX_DAY_TRADES);
 }
 
+/** The share of equity one trade may lose, by what trading has made. An unreadable gain takes the first step. */
+export function liveRiskFraction(tradingGain: number): number {
+  if (!Number.isFinite(tradingGain)) return LIVE_BASE_RISK_FRACTION;
+  for (const step of LIVE_RISK_STEPS) if (tradingGain >= step.fromGain) return step.fraction;
+  return LIVE_BASE_RISK_FRACTION;
+}
+
+const usd = (v: number) => `$${v.toFixed(2)}`;
+
 /**
- * Whole shares a small live account can take for one line, or the reason it
- * can't: within the cash on hand, and risking at most a tenth of equity.
+ * The quantity a small live account can take for one line, or the reason it
+ * can't: at most a third of the account (within the cash on hand), losing at
+ * most `riskFraction` of equity at the stop, in whole shares or the coin's
+ * lot. The open goes as a limit at the most a unit may cost and still keep
+ * both caps at the real fill.
  */
 export function liveOpenQty(
   side: Side,
@@ -556,31 +657,37 @@ export function liveOpenQty(
   stop: number | null,
   equity: number,
   cash: number,
+  riskFraction: number = LIVE_BASE_RISK_FRACTION,
+  lot: Lot = WHOLE_SHARES,
 ): { qty: number; limitPrice?: number; reason?: string } {
   if (side !== "long") return { qty: 0, reason: "Live account is long only (shorting needs $2,000 or more)." };
   if (!(price > 0)) return { qty: 0, reason: "No price." };
   if (!usableStop(stop) || !(stop < price)) return { qty: 0, reason: "No protective stop below the entry." };
-  const byCash = Math.floor((0.95 * Math.max(cash, 0)) / price + 1e-9);
-  if (byCash < 1) return { qty: 0, reason: `One share costs $${price.toFixed(2)}, more than the $${cash.toFixed(2)} cash on hand.` };
-  const byRisk = Math.floor((LIVE_MAX_RISK_FRACTION * equity) / (price - stop) + 1e-9);
-  if (byRisk < 1) {
-    return { qty: 0, reason: `Risk of $${(price - stop).toFixed(2)} a share is over the per-trade risk limit ($${(LIVE_MAX_RISK_FRACTION * equity).toFixed(2)} on a $${equity.toFixed(2)} account).` };
+  if (!(equity > 0) || !(riskFraction > 0)) return { qty: 0, reason: "Account equity unreadable." };
+  const spend = Math.min(0.95 * Math.max(cash, 0), LIVE_MAX_POSITION_FRACTION * equity);
+  const byCash = floorTo(spend / price, lot.increment);
+  if (byCash < lot.min || byCash * price < LIVE_MIN_ORDER_USD) {
+    const unit = lot === WHOLE_SHARES ? `One share costs ${usd(price)}` : `The smallest order costs ${usd(Math.max(lot.min * price, LIVE_MIN_ORDER_USD))}`;
+    return { qty: 0, reason: `${unit}, more than the ${usd(spend)} one trade may use (a third of the account, within the cash on hand).` };
+  }
+  const riskAmt = riskFraction * equity;
+  const byRisk = floorTo(riskAmt / (price - stop), lot.increment);
+  if (byRisk < lot.min || byRisk * price < LIVE_MIN_ORDER_USD) {
+    return { qty: 0, reason: `Risk of ${usd(price - stop)} a unit to the stop is over the per-trade loss limit (${usd(riskAmt)} on a ${usd(equity)} account).` };
   }
   const qty = Math.min(byCash, byRisk);
-  // The most a share may cost and still keep both caps at the real fill:
-  // the risk to the stop and the cash, each recomputed at this price. Sent
-  // as a day limit, so a fill above the simulator's price never breaks them.
-  const cap = Math.min(stop + (LIVE_MAX_RISK_FRACTION * equity) / qty, (0.95 * Math.max(cash, 0)) / qty);
-  const limitPrice = Math.floor(cap * 100 + 1e-6) / 100;
-  if (!(limitPrice > stop)) return { qty: 0, reason: "No room between the stop and the most a share may cost." };
+  const cap = Math.min(stop + riskAmt / qty, spend / qty);
+  const limitPrice = floorTo(cap, lot.priceIncrement ?? 0.01);
+  if (!(limitPrice > stop)) return { qty: 0, reason: "No room between the stop and the most a unit may cost." };
   return { qty, limitPrice };
 }
 
 /**
- * The simulator's lines in live shares. A line not yet opened carries the
- * shares the live account can take (or is dropped with its reason); an open
- * line follows the simulator in proportion to its opening size, rounded, so
- * a one-share line keeps its share until the simulator's last tranche goes.
+ * The simulator's lines in live units. A line not yet opened is sized for
+ * the account under the owner's rules (or dropped with its reason); an open
+ * line follows the simulator in proportion to its opening size: whole
+ * shares rounded, so a one-share line keeps its share until the simulator's
+ * last tranche goes, and a coin rounded down to its lot.
  */
 export function scaleSimForLive(
   sim: SimLine[],
@@ -588,20 +695,43 @@ export function scaleSimForLive(
   scaleOf: Map<string, number>,
   equity: number,
   cash: number,
+  opts: { tradingGain?: number; lots?: Map<string, Lot> } = {},
 ): { lines: SimLine[]; refused: { line: SimLine; reason: string }[] } {
   const byMirror = new Map(mirror.map((m) => [m.positionId, m]));
+  const gain = opts.tradingGain ?? NaN;
   const lines: SimLine[] = [];
   const refused: { line: SimLine; reason: string }[] = [];
   for (const s of sim) {
     if (!s.automated || s.openedAt < LIVE_MIRROR_START) continue;
     const m = byMirror.get(s.positionId);
+    const assetClass = s.assetClass ?? "us_equity";
     if (!m) {
-      const { qty, limitPrice, reason } = liveOpenQty(s.side, s.price, s.stop, equity, cash);
-      if (qty < 1) refused.push({ line: s, reason: reason ?? "Not sized." });
-      else lines.push({ ...s, qty, limitPrice });
+      if (!LIVE_ASSET_CLASSES.includes(assetClass)) {
+        refused.push({ line: s, reason: "Stock trade: the live account trades crypto and options only (owner's rule); it stays on paper." });
+      } else if (assetClass === "option") {
+        refused.push({
+          line: s,
+          reason: Number.isFinite(gain) && gain >= LIVE_OPTIONS_FROM_GAIN
+            ? "Options aren't placed on the live account yet."
+            : `Options open once trading has made ${usd(LIVE_OPTIONS_FROM_GAIN)} (so far ${Number.isFinite(gain) ? usd(gain) : "unknown"}).`,
+        });
+      } else {
+        const lot = opts.lots?.get(s.symbol);
+        const { qty, limitPrice, reason } = lot
+          ? liveOpenQty(s.side, s.price, s.stop, equity, cash, liveRiskFraction(gain), lot)
+          : { qty: 0, limitPrice: undefined, reason: "The coin's order size couldn't be read from the broker." };
+        if (!(qty > 0)) refused.push({ line: s, reason: reason ?? "Not sized." });
+        else lines.push({ ...s, qty, limitPrice });
+      }
       continue;
     }
     const scale = scaleOf.get(s.positionId);
+    if (isCryptoPair(m.symbol)) {
+      const lot = opts.lots?.get(m.symbol);
+      const scaled = scale && scale > 0 ? floorTo(s.qty * scale, lot?.increment ?? 1e-9) : m.simQty;
+      lines.push({ ...s, qty: s.qty > 0 ? Math.max(lot?.min ?? 0, scaled) : 0 });
+      continue;
+    }
     // While the simulator holds any shares the line keeps at least one, so a
     // one-share line leaves only with the simulator's last tranche.
     const scaled = scale && scale > 0 ? Math.round(s.qty * scale) : m.simQty;
@@ -708,6 +838,16 @@ async function settleShortLines(
   }
 }
 
+/** A broker position's symbol as the mirror keys it (a held coin comes back as "BTCUSD"). */
+function mirrorSymbol(p: AlpacaPosition): string {
+  return p.asset_class === "crypto" ? cryptoPair(p.symbol) : p.symbol;
+}
+
+/** The symbol for a position call ("BTCUSD" for a coin). */
+function brokerSymbol(symbol: string): string {
+  return symbol.replace("/", "");
+}
+
 /** Each live line's opening size as a fraction of the simulator's, by position. */
 async function readLiveScales(supabase: SupabaseClient, ids: string[]): Promise<Map<string, number>> {
   const out = new Map<string, number>();
@@ -738,14 +878,43 @@ async function mirrorPass(
   const sideOf = new Map(mirror.filter((m) => m.status === "open").map((m) => [m.symbol, m.side]));
   for (const p of positions) {
     if (!(Math.abs(num(p.qty)) > 0)) continue;
-    brokerHeld.add(p.symbol);
-    const want = sideOf.get(p.symbol);
-    if (want && p.side === want) brokerQty.set(p.symbol, Math.abs(num(p.qty)));
+    const sym = mirrorSymbol(p);
+    brokerHeld.add(sym);
+    const want = sideOf.get(sym);
+    if (want && p.side === want) brokerQty.set(sym, Math.abs(num(p.qty)));
   }
+  // Each coin's lot (smallest order, size step, price step), read once a run.
+  const lots = new Map<string, Lot>();
+  const coins = new Set([...simAll.map((s) => s.symbol), ...mirror.filter((m) => m.status === "open").map((m) => m.symbol)].filter(isCryptoPair));
+  await Promise.all(
+    [...coins].map(async (sym) => {
+      const a = await getAsset(creds, sym).catch(() => getAsset(creds, brokerSymbol(sym))).catch(() => null);
+      if (a && a.tradable) lots.set(sym, { increment: a.minTradeIncrement ?? 1e-9, min: a.minOrderSize ?? 0, priceIncrement: a.priceIncrement ?? undefined });
+    }),
+  );
+  const priceStep = (sym: string, price: number) => lots.get(sym)?.priceIncrement ?? (price >= 1 ? 0.01 : 1e-6);
+  /** The protective stop for a line: a stop-limit for a coin (the broker takes no plain stop on crypto). */
+  const protect = (symbol: string, side: Side, qty: number, stop: number) => {
+    const input: ExitOrderInput = { symbol, side: orderSide(side, false), qty, stopLoss: stop };
+    if (isCryptoPair(symbol)) {
+      input.stopLoss = roundTo(stop, priceStep(symbol, stop));
+      input.stopLimit = floorTo(stop * (1 - CRYPTO_STOP_LIMIT_GAP), priceStep(symbol, stop));
+    }
+    return placeExitOrder(creds, input);
+  };
+  /** A coin's buy pays its fee in the coin, so what is held is read back rather than taken from the fill. */
+  const boughtQty = async (symbol: string, filled: number): Promise<number> => {
+    if (!isCryptoPair(symbol)) return filled;
+    const now = await getPositions(creds).catch(() => [] as AlpacaPosition[]);
+    const p = now.find((x) => mirrorSymbol(x) === symbol);
+    const q = p ? Math.abs(num(p.qty)) : NaN;
+    return q > 0 && q <= filled ? q : filled;
+  };
   const equity = num(account.equity);
   const lastEquity = num(account.last_equity);
   const dayTrades = num(account.daytrade_count ?? NaN);
-  let sim = simAll;
+  // Options aren't mirrored: the broker takes no stop order on a contract.
+  let sim = simAll.filter((s) => s.assetClass !== "option");
   let gate: MirrorGate;
   if (mode === "paper") {
     gate = {
@@ -761,7 +930,7 @@ async function mirrorPass(
     // trade: opens stop while the day trades left would not cover each of
     // them, so no line is opened that the broker won't let us close today.
     const today = nyDay(Date.now());
-    const openToday = mirror.filter((m) => m.status === "open" && m.openedAt && nyDay(Date.parse(m.openedAt)) === today).length;
+    const openToday = mirror.filter((m) => m.status === "open" && !isCryptoPair(m.symbol) && m.openedAt && nyDay(Date.parse(m.openedAt)) === today).length;
     const pdtHold = equity < PDT_EQUITY && !(dayTrades + openToday < PDT_MAX_DAY_TRADES);
     const belowFloor = !(equity >= LIVE_EQUITY_FLOOR);
     const downOnDay = !(lastEquity > 0) || (equity - lastEquity) / lastEquity <= -LIVE_DAY_LOSS_HOLD_PCT;
@@ -769,25 +938,26 @@ async function mirrorPass(
       disabled: false,
       tradingHalted: tradingDisabled(),
       marketOpen,
-      dayLossHold: belowFloor || downOnDay || pdtHold,
-      holdNote: belowFloor
-        ? `Live account below the $${LIVE_EQUITY_FLOOR} floor.`
-        : downOnDay
-          ? `Live account down ${LIVE_DAY_LOSS_HOLD_PCT * 100}% or more today.`
-          : `Day trades used (${Number.isFinite(dayTrades) ? dayTrades : "unknown"} of ${PDT_MAX_DAY_TRADES} in five sessions, ${openToday} line(s) opened today): no new opens under $25,000.`,
+      dayLossHold: belowFloor || downOnDay,
+      holdNote: belowFloor ? `Live account below the $${LIVE_EQUITY_FLOOR} floor.` : `Live account down ${LIVE_DAY_LOSS_HOLD_PCT * 100}% or more today.`,
+      pdtOpenHold: pdtHold,
+      pdtNote: `Day trades used (${Number.isFinite(dayTrades) ? dayTrades : "unknown"} of ${PDT_MAX_DAY_TRADES} in five sessions, ${openToday} line(s) opened today): no new opens under $25,000.`,
       maxOpenLines: LIVE_MAX_OPEN_LINES,
       sameDaySellBlocked: dayTradeBlocked(dayTrades, equity),
       allowAdds: false,
       now: Date.now(),
     };
     const scaleOf = await readLiveScales(supabase, mirror.map((m) => m.positionId));
-    const scaled = scaleSimForLive(simAll, mirror, scaleOf, equity, num(account.cash));
+    // What trading has made: equity less the cash put in, so a deposit never
+    // moves a step. Unreadable transfers leave the first step.
+    const netDeposits = await getNetDeposits(creds).catch(() => NaN);
+    const scaled = scaleSimForLive(simAll, mirror, scaleOf, equity, num(account.cash), { tradingGain: equity - netDeposits, lots });
     sim = scaled.lines;
     // What the small account could not take is recorded once per position,
     // and only while the open would otherwise have been placed (in session,
     // within the lag), so the record shows what a small account meets.
     for (const { line, reason } of scaled.refused) {
-      if (!marketOpen || gate.now - Date.parse(line.openedAt) > MAX_OPEN_LAG_MS) continue;
+      if ((!marketOpen && !isCryptoPair(line.symbol)) || gate.now - Date.parse(line.openedAt) > MAX_OPEN_LAG_MS) continue;
       const { error } = await supabase.from("paper_mirror_lines").insert({
         mode, position_id: line.positionId, symbol: line.symbol, side: line.side, status: "missed", target_qty: 0, note: reason,
       });
@@ -850,9 +1020,13 @@ async function mirrorPass(
           try {
             order = (await placeOrder(
               creds,
-              a.limitPrice != null
-                ? { symbol: a.symbol, side: orderSide(a.side, true), qty: a.qty, type: "limit", limitPrice: a.limitPrice, clientOrderId: clientId }
-                : { symbol: a.symbol, side: orderSide(a.side, true), qty: a.qty, type: "market", clientOrderId: clientId },
+              {
+                ...(a.limitPrice != null
+                  ? { symbol: a.symbol, side: orderSide(a.side, true), qty: a.qty, type: "limit" as const, limitPrice: a.limitPrice, clientOrderId: clientId }
+                  : { symbol: a.symbol, side: orderSide(a.side, true), qty: a.qty, type: "market" as const, clientOrderId: clientId }),
+                // Crypto takes no day order; an unfilled limit is cancelled below all the same.
+                ...(isCryptoPair(a.symbol) ? { timeInForce: "gtc" as const } : {}),
+              },
             )) as AlpacaOrder;
           } catch (err) {
             // An error can come after the order reached the broker (a
@@ -875,9 +1049,9 @@ async function mirrorPass(
           }
           await logEvent(supabase, mode, {
             position_id: a.positionId, symbol: a.symbol, side: a.side, action: "open", qty: a.qty, sim_price: a.simPrice, stop_price: null, broker_order_id: order.id, status: settled.status,
-            note: a.limitPrice != null ? `Day limit ${a.limitPrice.toFixed(2)}.` : null, ...fillFields(settled),
+            note: a.limitPrice != null ? `Limit ${a.limitPrice}.` : null, ...fillFields(settled),
           });
-          const partial = num(settled.filled_qty);
+          const partial = TERMINAL_UNFILLED.includes(settled.status) && num(settled.filled_qty) > 0 ? await boughtQty(a.symbol, num(settled.filled_qty)) : num(settled.filled_qty);
           if (TERMINAL_UNFILLED.includes(settled.status) && !(partial > 0)) {
             await must(lines().update({ status: "missed", note: `Broker ${settled.status} the open.` }).eq("position_id", a.positionId).eq("mode", mode), "line missed");
           } else if (TERMINAL_UNFILLED.includes(settled.status)) {
@@ -885,24 +1059,24 @@ async function mirrorPass(
             // and its stop goes on now, sized to those shares.
             await must(lines().update({ target_qty: partial, note: `Open part filled (${partial} of ${a.qty}).` }).eq("position_id", a.positionId).eq("mode", mode), "line target");
             if (a.stop != null) {
-              const stopOrder = await placeExitOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty: partial, stopLoss: a.stop });
+              const stopOrder = await protect(a.symbol, a.side, partial, a.stop);
               await must(lines().update({ stop_order_id: stopOrder.id, stop_price: a.stop, stop_qty: partial }).eq("position_id", a.positionId).eq("mode", mode), "line stop");
               await logEvent(supabase, mode, { position_id: a.positionId, symbol: a.symbol, side: a.side, action: "set_stop", qty: partial, sim_price: null, stop_price: a.stop, broker_order_id: stopOrder.id, status: stopOrder.status, note: null });
             }
           } else if (settled.status === "filled" && a.stop != null && !(a.side === "long" ? num(settled.filled_avg_price) > a.stop : num(settled.filled_avg_price) < a.stop)) {
             // Filled at or past the stop (a gap): the broker would refuse the
             // stop, and the plan's exit has already been met. Out at once.
-            const qty = num(settled.filled_qty);
+            const qty = await boughtQty(a.symbol, num(settled.filled_qty));
             let out: AlpacaOrder;
             try {
-              out = (await closePosition(creds, a.symbol, qty)) as AlpacaOrder;
+              out = (await closePosition(creds, brokerSymbol(a.symbol), qty)) as AlpacaOrder;
             } catch (err) {
               // The sell was refused: the stop goes on instead, so the shares
               // are never left bare (the broker may refuse it too while the
               // price is under it; then set_stop tries again each run).
               let stopOrder: AlpacaOrder;
               try {
-                stopOrder = await placeExitOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty, stopLoss: a.stop });
+                stopOrder = await protect(a.symbol, a.side, qty, a.stop);
               } catch (stopErr) {
                 throw new Error(`${err instanceof Error ? err.message : String(err)}; stop not placed: ${stopErr instanceof Error ? stopErr.message : String(stopErr)}`);
               }
@@ -917,9 +1091,12 @@ async function mirrorPass(
               note: `Open filled at ${num(settled.filled_avg_price).toFixed(2)}, at or past the stop ${a.stop.toFixed(2)}.`, ...fillFields(outSettled),
             });
           } else if (settled.status === "filled" && a.stop != null) {
-            const qty = num(settled.filled_qty);
-            const stopOrder = await placeExitOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty, stopLoss: a.stop });
-            await must(lines().update({ stop_order_id: stopOrder.id, stop_price: a.stop, stop_qty: qty }).eq("position_id", a.positionId).eq("mode", mode), "line stop");
+            const filled = num(settled.filled_qty);
+            const qty = await boughtQty(a.symbol, filled);
+            const stopOrder = await protect(a.symbol, a.side, qty, a.stop);
+            // A coin's fee comes out of the coin: the line targets what is held.
+            const target = qty < filled ? { target_qty: qty } : {};
+            await must(lines().update({ stop_order_id: stopOrder.id, stop_price: a.stop, stop_qty: qty, ...target }).eq("position_id", a.positionId).eq("mode", mode), "line stop");
             await logEvent(supabase, mode, { position_id: a.positionId, symbol: a.symbol, side: a.side, action: "set_stop", qty, sim_price: null, stop_price: a.stop, broker_order_id: stopOrder.id, status: stopOrder.status, note: null });
           }
           break;
@@ -979,7 +1156,7 @@ async function mirrorPass(
           // never open a short.
           let order: AlpacaOrder;
           try {
-            order = (await closePosition(creds, a.symbol, a.qty)) as AlpacaOrder;
+            order = (await closePosition(creds, brokerSymbol(a.symbol), a.qty)) as AlpacaOrder;
           } catch (err) {
             // The sell was refused after the stop came off: the stop goes
             // back on before anything else, so the shares are never bare.
@@ -987,7 +1164,7 @@ async function mirrorPass(
               const qty = brokerQty.get(a.symbol) ?? priorStop.qty ?? a.qty;
               let back: AlpacaOrder;
               try {
-                back = await placeExitOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty, stopLoss: priorStop.price });
+                back = await protect(a.symbol, a.side, qty, priorStop.price);
               } catch (restoreErr) {
                 // Both are reported: the sell's refusal and the stop's.
                 throw new Error(`${err instanceof Error ? err.message : String(err)}; stop not restored: ${restoreErr instanceof Error ? restoreErr.message : String(restoreErr)}`);
@@ -1015,9 +1192,13 @@ async function mirrorPass(
         case "set_stop": {
           const m = mirrorById.get(a.positionId);
           let stopOrder: AlpacaOrder | null = null;
+          // A coin's stop is a stop-limit: its limit moves with it.
+          const move = isCryptoPair(a.symbol)
+            ? { stopPrice: roundTo(a.stop, priceStep(a.symbol, a.stop)), limitPrice: floorTo(a.stop * (1 - CRYPTO_STOP_LIMIT_GAP), priceStep(a.symbol, a.stop)), qty: a.qty }
+            : { stopPrice: a.stop, qty: a.qty };
           if (m?.stopOrderId) {
             try {
-              stopOrder = await replaceOrder(creds, m.stopOrderId, { stopPrice: a.stop, qty: a.qty });
+              stopOrder = await replaceOrder(creds, m.stopOrderId, move);
             } catch (err) {
               // A stop that is no longer open (filled, cancelled outside the
               // app, or expired) can't be replaced: a filled one means the
@@ -1029,13 +1210,13 @@ async function mirrorPass(
               }
               if (old?.status === "replaced" && old.replaced_by) {
                 // An earlier replace went through but its id wasn't stored.
-                stopOrder = await replaceOrder(creds, old.replaced_by, { stopPrice: a.stop, qty: a.qty });
+                stopOrder = await replaceOrder(creds, old.replaced_by, move);
               } else if (old && !["canceled", ...TERMINAL_UNFILLED].includes(old.status)) {
                 throw err;
               }
             }
           }
-          if (!stopOrder) stopOrder = await placeExitOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty: a.qty, stopLoss: a.stop });
+          if (!stopOrder) stopOrder = await protect(a.symbol, a.side, a.qty, a.stop);
           await must(lines().update({ stop_order_id: stopOrder.id, stop_price: a.stop, stop_qty: a.qty }).eq("position_id", a.positionId).eq("mode", mode), "line stop");
           await logEvent(supabase, mode, { position_id: a.positionId, symbol: a.symbol, side: a.side, action: "set_stop", qty: a.qty, sim_price: null, stop_price: a.stop, broker_order_id: stopOrder.id, status: stopOrder.status, note: null });
           break;

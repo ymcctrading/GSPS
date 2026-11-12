@@ -74,6 +74,23 @@ export interface AlpacaAsset {
   fractionable?: boolean;
   status?: string;
   exchange?: string;
+  /** Crypto: the smallest order, the step between order sizes and between prices (null when the broker gives none). */
+  minOrderSize?: number | null;
+  minTradeIncrement?: number | null;
+  priceIncrement?: number | null;
+}
+
+const posNum = (v: unknown): number | null => {
+  const x = typeof v === "string" && v.trim() !== "" ? Number(v) : typeof v === "number" ? v : NaN;
+  return Number.isFinite(x) && x > 0 ? x : null;
+};
+
+/**
+ * An order quantity as the broker reads it: whole numbers as they are,
+ * fractions in plain decimals (String(1e-7) would send "1e-7").
+ */
+export function qtyString(qty: number): string {
+  return Number.isInteger(qty) ? String(qty) : qty.toFixed(9).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 /**
@@ -92,6 +109,9 @@ export async function getAsset(creds: AlpacaCreds, symbol: string): Promise<Alpa
     fractionable: raw.fractionable,
     status: raw.status,
     exchange: raw.exchange,
+    minOrderSize: posNum(raw.min_order_size),
+    minTradeIncrement: posNum(raw.min_trade_increment),
+    priceIncrement: posNum(raw.price_increment),
   };
 }
 
@@ -210,15 +230,17 @@ export interface PlaceOrderInput {
   bracket?: { stopLoss: number; takeProfit?: number | null };
   /** Rides through to the fill record; used to label a tranche. */
   clientOrderId?: string;
+  /** Default `day`. Crypto takes only `gtc` or `ioc`. */
+  timeInForce?: "day" | "gtc" | "ioc";
 }
 
 export async function placeOrder(creds: AlpacaCreds, input: PlaceOrderInput) {
   const body: Record<string, unknown> = {
     symbol: input.symbol,
-    qty: String(input.qty),
+    qty: qtyString(input.qty),
     side: input.side,
     type: input.type,
-    time_in_force: "day",
+    time_in_force: input.timeInForce ?? "day",
   };
   if (input.type === "limit") body.limit_price = String(input.limitPrice);
   if (input.clientOrderId) body.client_order_id = input.clientOrderId;
@@ -243,6 +265,11 @@ export interface ExitOrderInput {
   /** Resting profit level. Omit for a protective stop with no target. */
   takeProfit?: number | null;
   stopLoss: number;
+  /**
+   * Sends the protective stop as a stop-limit with this limit (crypto takes
+   * no plain stop order). Ignored with a target.
+   */
+  stopLimit?: number;
 }
 
 /**
@@ -262,7 +289,7 @@ export interface ExitOrderInput {
 export async function placeExitOrder(creds: AlpacaCreds, input: ExitOrderInput) {
   const body: Record<string, unknown> = {
     symbol: input.symbol,
-    qty: String(input.qty),
+    qty: qtyString(input.qty),
     side: input.side,
     time_in_force: "gtc",
   };
@@ -271,6 +298,10 @@ export async function placeExitOrder(creds: AlpacaCreds, input: ExitOrderInput) 
     body.type = "limit";
     body.take_profit = { limit_price: String(input.takeProfit) };
     body.stop_loss = { stop_price: String(input.stopLoss) };
+  } else if (input.stopLimit != null) {
+    body.type = "stop_limit";
+    body.stop_price = String(input.stopLoss);
+    body.limit_price = String(input.stopLimit);
   } else {
     body.type = "stop";
     body.stop_price = String(input.stopLoss);
@@ -319,7 +350,7 @@ export async function replaceOrder(
   const body: Record<string, unknown> = {};
   if (changes.stopPrice != null) body.stop_price = String(changes.stopPrice);
   if (changes.limitPrice != null) body.limit_price = String(changes.limitPrice);
-  if (changes.qty != null) body.qty = String(changes.qty);
+  if (changes.qty != null) body.qty = qtyString(changes.qty);
   return alpacaFetch(creds, `/v2/orders/${encodeURIComponent(orderId)}`, {
     method: "PATCH",
     body: JSON.stringify(body),
@@ -412,6 +443,31 @@ export async function getAccount(creds: AlpacaCreds): Promise<AlpacaAccount> {
 
 export async function getPositions(creds: AlpacaCreds): Promise<AlpacaPosition[]> {
   return alpacaFetch(creds, "/v2/positions");
+}
+
+/**
+ * Net cash the owner has put into the account (deposits less withdrawals,
+ * cash journals included), from the broker's own activity record, so money
+ * added is never read as money made. Throws on anything unreadable.
+ */
+export async function getNetDeposits(creds: AlpacaCreds): Promise<number> {
+  let total = 0;
+  let pageToken: string | undefined;
+  for (let page = 0; page < 20; page++) {
+    const q = new URLSearchParams({ activity_types: "CSD,CSW,JNLC", direction: "asc", page_size: "100" });
+    if (pageToken) q.set("page_token", pageToken);
+    const rows = (await alpacaFetch(creds, `/v2/account/activities?${q.toString()}`)) as { id?: string; activity_type?: string; net_amount?: string | number }[];
+    if (!Array.isArray(rows)) throw new Error("Account activities unreadable.");
+    for (const r of rows) {
+      const v = typeof r.net_amount === "string" && r.net_amount.trim() === "" ? NaN : Number(r.net_amount ?? NaN);
+      if (!Number.isFinite(v)) throw new Error(`Transfer ${r.id ?? "?"} has no readable amount.`);
+      total += r.activity_type === "CSD" ? Math.abs(v) : r.activity_type === "CSW" ? -Math.abs(v) : v;
+    }
+    if (rows.length < 100) return total;
+    pageToken = rows[rows.length - 1].id;
+    if (!pageToken) throw new Error("Account activities: no page token.");
+  }
+  throw new Error("Account activities: too many pages.");
 }
 
 export async function getOrders(creds: AlpacaCreds, status: "open" | "closed" | "all" = "all") {
@@ -579,6 +635,6 @@ export async function cancelOrder(creds: AlpacaCreds, orderId: string) {
  * Alpaca cancels any resting orders on the symbol as part of this.
  */
 export async function closePosition(creds: AlpacaCreds, symbol: string, qty?: number) {
-  const path = `/v2/positions/${encodeURIComponent(symbol)}${qty ? `?qty=${qty}` : ""}`;
+  const path = `/v2/positions/${encodeURIComponent(symbol)}${qty ? `?qty=${qtyString(qty)}` : ""}`;
   return alpacaFetch(creds, path, { method: "DELETE" });
 }
