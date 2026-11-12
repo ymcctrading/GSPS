@@ -24,6 +24,7 @@ import { evaluateAllRestingOrders } from "@/lib/brokers/simulator";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { markAllPaperEquity } from "@/lib/portfolio/paper-equity";
 import { placeAutomatedPyramidAdds } from "@/lib/automation/pyramid-adds";
+import { runPaperMirror } from "@/lib/brokers/paper-mirror";
 
 // Vercel Hobby hard-caps function execution at 60s regardless of what this
 // says. This loop is per-user/per-plan database work with no external data
@@ -63,5 +64,12 @@ export async function GET(req: NextRequest) {
     error: String(err),
   }));
   if (equityMarks.error) console.error(`automation/portfolio-manager/run: equity marks — ${equityMarks.error}`);
-  return NextResponse.json({ ...result, exits, resting, pyramid, equityMarks });
+  // Then the owner's book is copied to the Alpaca paper account
+  // (lib/brokers/paper-mirror.ts), after every step above has moved it. Paper
+  // only; a failure here never fails the run.
+  const paperMirror = await runPaperMirror(supabase as unknown as Parameters<typeof runPaperMirror>[0]).catch(
+    (err: unknown) => ({ ran: false, placed: 0, held: [] as string[], errors: [String(err)] }),
+  );
+  if (paperMirror.errors.length > 0) console.error(`automation/portfolio-manager/run: paper mirror — ${paperMirror.errors.join("; ")}`);
+  return NextResponse.json({ ...result, exits, resting, pyramid, equityMarks, paperMirror });
 }

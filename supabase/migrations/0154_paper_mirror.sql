@@ -1,0 +1,95 @@
+-- GSPS — 0154: the broker paper mirror's lines and its order log
+--
+-- Numbered 0154: 0151 (trade notes), 0152 (watchlist shares) and 0153
+-- (scheduled call log) are taken by open PRs #664, #665 and #662. Applied to
+-- production on 2026-11-12 under the name 0151_paper_mirror, before the
+-- renumber; the tables are the same.
+--
+-- Owner, 2026-11-12: the platform trades his Alpaca account for him, on paper
+-- only until the edge is verified. lib/brokers/paper-mirror.ts copies the
+-- owner's automated simulator positions into the app's Alpaca paper account
+-- and logs every broker order beside the simulator's price.
+--
+-- DEPLOY ORDER: apply before the code that reads and writes it is deployed.
+-- Without these tables the mirror's reads fail and it places nothing.
+--
+-- Server-only: written and read with the service role, by the Automated
+-- Portfolio Manager's scheduled run. RLS is on with no policy, so no member
+-- can read either table.
+--
+-- The event log is the trade record: rows are never deleted by the app
+-- (AGENTS.md ledger rule), losses included.
+--
+-- Rollback:
+--   drop table if exists public.paper_mirror_lock;
+--   drop table if exists public.paper_mirror_events;
+--   drop table if exists public.paper_mirror_lines;
+
+create table if not exists public.paper_mirror_lines (
+  -- the simulator position this line copies (positions.id)
+  position_id uuid primary key,
+  symbol text not null,
+  side text not null check (side in ('long', 'short')),
+  status text not null check (status in ('open', 'closed', 'broker_stopped', 'missed')),
+  -- shares the line should hold at the broker (opened, added, reduced to)
+  target_qty numeric not null default 0,
+  -- the simulator's quantity the mirror last acted on: adds follow only a
+  -- rise above it, so shares a broker stop sold are never bought back
+  sim_qty numeric not null default 0,
+  -- the broker order that opened the line (client id gsps-mirror-open-<position_id>)
+  open_order_id text,
+  -- the last add's broker order, and how many adds so far (each add's client
+  -- id is gsps-mirror-add-<position_id>-<n>)
+  add_order_id text,
+  add_seq integer not null default 0,
+  -- the one resting good-till-cancelled stop at the broker
+  stop_order_id text,
+  stop_price numeric,
+  stop_qty numeric,
+  note text,
+  opened_at timestamptz not null default now(),
+  closed_at timestamptz
+);
+
+create index if not exists paper_mirror_lines_open_idx
+  on public.paper_mirror_lines (status) where status = 'open';
+
+create table if not exists public.paper_mirror_events (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  position_id uuid not null,
+  symbol text not null,
+  side text,
+  -- open | add | reduce | close | set_stop | broker_stopped | missed | retarget | error kinds
+  action text not null,
+  qty numeric,
+  -- the simulator's fill for the same step, where there is one
+  sim_price numeric,
+  stop_price numeric,
+  broker_order_id text,
+  -- the broker's order status, or skipped / error
+  status text not null,
+  fill_price numeric,
+  filled_qty numeric,
+  filled_at timestamptz,
+  note text
+);
+
+create index if not exists paper_mirror_events_created_idx
+  on public.paper_mirror_events (created_at desc);
+create index if not exists paper_mirror_events_unsettled_idx
+  on public.paper_mirror_events (id) where fill_price is null and broker_order_id is not null;
+
+-- One mirror run at a time: a run takes the lease only when it has lapsed.
+create table if not exists public.paper_mirror_lock (
+  id integer primary key check (id = 1),
+  held_until timestamptz not null default 'epoch'
+);
+insert into public.paper_mirror_lock (id) values (1) on conflict (id) do nothing;
+
+alter table public.paper_mirror_lines enable row level security;
+alter table public.paper_mirror_events enable row level security;
+revoke all on public.paper_mirror_lines from anon, authenticated;
+revoke all on public.paper_mirror_events from anon, authenticated;
+alter table public.paper_mirror_lock enable row level security;
+revoke all on public.paper_mirror_lock from anon, authenticated;
