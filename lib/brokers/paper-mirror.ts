@@ -519,7 +519,7 @@ export function liveOpenQty(
   if (byCash < 1) return { qty: 0, reason: `One share costs $${price.toFixed(2)}, more than the $${cash.toFixed(2)} cash on hand.` };
   const byRisk = Math.floor((LIVE_MAX_RISK_FRACTION * equity) / (price - stop) + 1e-9);
   if (byRisk < 1) {
-    return { qty: 0, reason: `Risk of $${(price - stop).toFixed(2)} a share is more than a tenth of the $${equity.toFixed(2)} account.` };
+    return { qty: 0, reason: `Risk of $${(price - stop).toFixed(2)} a share is over the per-trade risk limit ($${(LIVE_MAX_RISK_FRACTION * equity).toFixed(2)} on a $${equity.toFixed(2)} account).` };
   }
   return { qty: Math.min(byCash, byRisk) };
 }

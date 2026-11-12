@@ -192,7 +192,7 @@ describe("liveOpenQty (a small live account)", () => {
 
   it("refuses with a reason a small account would meet", () => {
     expect(liveOpenQty("long", 92, 90, 30, 30).reason).toMatch(/more than the \$30.00 cash/);
-    expect(liveOpenQty("long", 20, 15, 30, 30).reason).toMatch(/more than a tenth/);
+    expect(liveOpenQty("long", 20, 15, 30, 30).reason).toMatch(/per-trade risk limit/);
     expect(liveOpenQty("short", 20, 21, 30, 30).reason).toMatch(/long only/);
     expect(liveOpenQty("long", 20, null, 30, 30).reason).toMatch(/No protective stop/);
     expect(liveOpenQty("long", 20, 21, 30, 30).reason).toMatch(/No protective stop/);
