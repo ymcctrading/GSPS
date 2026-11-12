@@ -29,6 +29,8 @@ import { TIER_ORDER, type PlatformTier } from "@/lib/tiers";
 export type TermId =
   | "buyStop"
   | "sellStop"
+  | "buyAtOpen"
+  | "buyLimit"
   | "stopLoss"
   | "tp1"
   | "tp2"
@@ -68,6 +70,18 @@ export const TERMS: Record<TermId, TermEntry> = {
     introducedIn: "PRACTICE",
     introduced: "Entry (sell stop)",
     plain: "Sell stop",
+  },
+  buyAtOpen: {
+    lessonId: ORDER_TYPES,
+    introducedIn: "PRACTICE",
+    introduced: "Entry (buy at the open, a market order)",
+    plain: "Buy at the open",
+  },
+  buyLimit: {
+    lessonId: ORDER_TYPES,
+    introducedIn: "PRACTICE",
+    introduced: "Entry (buy limit)",
+    plain: "Buy limit",
   },
   stopLoss: {
     lessonId: TRADE_LEVELS,

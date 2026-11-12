@@ -39,6 +39,14 @@ export type EntitlementPolicy = {
   /** 9:15 AM ET confirmation scan — included on every tier. */
   morningConfirmationScanEnabled: boolean;
   manualDashboardScansPerDay: Limit;
+  /**
+   * Higher-risk alerts on the Dashboard's trade cards (the range breakout,
+   * lib/setups/cardRecords.ts `CARD_KIND_GRADE`): shown labelled as an alert,
+   * not a verified setup. Expert and Wall Street only (owner, 2026-11-12). The
+   * lower tiers' counterpart is the range-low card, the patient side of the
+   * same range, which every tier gets.
+   */
+  higherRiskAlertsEnabled: boolean;
   guidedScansPerDay: Limit;
   maxDashboardSetupsPerScan: 6 | 12 | 20 | 30;
   universeScansEnabled: boolean;
@@ -173,6 +181,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     morningPreparationScanEnabled: true,
     morningConfirmationScanEnabled: true,
     manualDashboardScansPerDay: 1,
+    higherRiskAlertsEnabled: false,
     guidedScansPerDay: 1,
     maxDashboardSetupsPerScan: 6,
     universeScansEnabled: true,
@@ -200,6 +209,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     morningPreparationScanEnabled: true,
     morningConfirmationScanEnabled: true,
     manualDashboardScansPerDay: 3,
+    higherRiskAlertsEnabled: false,
     guidedScansPerDay: 2,
     maxDashboardSetupsPerScan: 12,
     universeScansEnabled: true,
@@ -227,6 +237,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     morningPreparationScanEnabled: true,
     morningConfirmationScanEnabled: true,
     manualDashboardScansPerDay: 6,
+    higherRiskAlertsEnabled: true,
     guidedScansPerDay: 6,
     maxDashboardSetupsPerScan: 20,
     universeScansEnabled: true,
@@ -254,6 +265,7 @@ const ENTITLEMENT_POLICY: Record<PlatformTier, EntitlementPolicy> = {
     morningPreparationScanEnabled: true,
     morningConfirmationScanEnabled: true,
     manualDashboardScansPerDay: "unlimited",
+    higherRiskAlertsEnabled: true,
     guidedScansPerDay: "unlimited",
     maxDashboardSetupsPerScan: 30,
     universeScansEnabled: true,
