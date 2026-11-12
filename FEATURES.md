@@ -56,6 +56,10 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
   Expired — each with its own count, empty state, and newest-first ordering.
   Closed and Canceled & Expired start collapsed; Pending and Rejected never do,
   because both hold things that may need acting on
+- **Your Record**: Your closed paper and live trades read back in order, with
+  your winning and losing runs, where the pause after three losses in a row
+  fell, and a private note of your own on any trade. The note also appears in
+  the daily journal workbook. It describes your own trading only
 - **Broker Order Reconciliation**: Every load diffs the local order ledger
   against the broker's own order list and writes the broker's answer back, so
   Pending shows what is actually working rather than what was working when each

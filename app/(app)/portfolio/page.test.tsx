@@ -231,7 +231,7 @@ afterEach(() => {
 });
 
 describe("Portfolio sections", () => {
-  it("renders the risk card, then the six sections in order: Open, Pending, Rejected, Closed, Canceled & Expired, Trade Reviews", async () => {
+  it("renders the risk card, then the six sections in order: Open, Pending, Rejected, Closed, Canceled & Expired, Your record, Trade Reviews", async () => {
     mockApi({});
     render(<PortfolioPage />);
 
@@ -243,6 +243,7 @@ describe("Portfolio sections", () => {
       "Rejected Orders (0)",
       "Closed Positions (0)",
       "Canceled & Expired (0)",
+      "Your record (0)",
       "Trade Reviews (0)",
     ]);
   });

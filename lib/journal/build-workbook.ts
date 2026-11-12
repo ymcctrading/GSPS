@@ -32,6 +32,8 @@ export interface JournalTrade {
   exit_condition: string | null;
   signal_called: string;
   signal_adherence: string | null;
+  /** The member's own note on the trade (`trade_notes`, migration 0151), when they wrote one. */
+  note?: string | null;
 }
 
 const COLUMNS: Partial<ExcelJS.Column>[] = [
@@ -48,6 +50,7 @@ const COLUMNS: Partial<ExcelJS.Column>[] = [
   { header: "Exit reason", key: "exit_condition", width: 14 },
   { header: "Signal adherence", key: "signal_adherence", width: 16 },
   { header: "Reasoning", key: "signal_called", width: 60 },
+  { header: "Your note", key: "note", width: 60 },
 ];
 
 /** Only fully-closed trades belong in the journal — an open position has no reasoning to review yet. */

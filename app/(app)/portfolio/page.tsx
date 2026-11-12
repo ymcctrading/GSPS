@@ -15,6 +15,7 @@ import { SyncBar } from "@/components/portfolio/sync-bar";
 import { ExitActivity } from "@/components/portfolio/exit-activity";
 import { AnalyticsDashboard } from "@/components/portfolio/analytics-dashboard";
 import { TradeReviews } from "@/components/portfolio/trade-reviews";
+import { TradeRecord } from "@/components/portfolio/trade-record";
 import { RiskPanel } from "@/components/portfolio/risk-panel";
 import type { ExitsState, OrderRow, Portfolio, SyncState } from "@/components/portfolio/types";
 import { countOpenLegs, groupByDisposition, sectionOrders } from "@/lib/portfolio/sections";
@@ -292,6 +293,8 @@ export default function PortfolioPage() {
           </div>
         )}
       </PositionSection>
+
+      <TradeRecord />
 
       <TradeReviews />
 
