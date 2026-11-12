@@ -100,6 +100,19 @@ describe("planMirrorActions", () => {
     ]);
   });
 
+  it("holds a same-day sell the day-trade rule would refuse, keeping the stop on every share held", () => {
+    const today = line({ openedAt: new Date(T0 - 30 * 60_000).toISOString() });
+    const a = planMirrorActions([sim({ qty: 5, stop: 96 })], [today], held([["AAA", 10]]), gate({ sameDaySellBlocked: true }));
+    expect(a.some((x) => x.kind === "reduce")).toBe(false);
+    expect(a.find((x) => x.kind === "set_stop")).toMatchObject({ qty: 10, stop: 96 });
+    expect(a[0].kind).toBe("hold");
+    const c = planMirrorActions([], [today], held([["AAA", 10]]), gate({ sameDaySellBlocked: true }));
+    expect(c).toEqual([expect.objectContaining({ kind: "hold" })]);
+    // A line from an earlier day sells as usual.
+    const old = line({ openedAt: new Date(T0 - 3 * 24 * 3600_000).toISOString() });
+    expect(planMirrorActions([sim({ qty: 5 })], [old], held([["AAA", 10]]), gate({ sameDaySellBlocked: true }))[0].kind).toBe("reduce");
+  });
+
   it("follows a moved simulator stop", () => {
     const a = planMirrorActions([sim({ stop: 101 })], [line()], held([["AAA", 10]]), gate());
     expect(a).toEqual([{ kind: "set_stop", positionId: "p1", symbol: "AAA", side: "long", qty: 10, stop: 101 }]);
