@@ -41,6 +41,7 @@ import { rebuyOffer } from "@/lib/gann/rebuy";
 import { coverNote, coverReached, readRebuyCover } from "@/lib/automation/rebuy-cover";
 import type { createClient } from "@/lib/supabase/server";
 import { ledgerWriter } from "@/lib/supabase/ledger";
+import { newTargetHits, recordTargetHits } from "@/lib/trade/target-hits";
 import { readStoredLots, type PyramidLot } from "@/lib/gann/pyramid";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -418,6 +419,16 @@ async function advance(
   // ---- Only the claim's winner executes the actual fills. ---------------
   for (const f of toFill) {
     await executeTrancheFill(supabase, userId, plan, f.qty, f.price);
+  }
+  // The entry order records the first time TP1, the MTP or the stop was hit
+  // (lib/trade/target-hits.ts), so the orders page shows it as hit.
+  const hits = newTargetHits(plan.side, plan.high_water, highWater, {
+    takeProfit1: plan.take_profit_1,
+    masterProfit: plan.master_profit,
+  });
+  const stopHit = caught === "stop" || caught === "initial";
+  if (hits.tp1 || hits.mp || stopHit) {
+    await recordTargetHits(supabase, userId, { column: "id", value: plan.entry_order_id }, { ...hits, sl: stopHit });
   }
   if (toFill.length > 0) run.filled++;
   for (const f of toFill) {

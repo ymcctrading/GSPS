@@ -419,3 +419,28 @@ describe("manageSimulatedExits — Protect profits (2026-11-11)", () => {
     expect(log).toMatchObject({ exit_condition: "master_target", exit_price: 725 });
   });
 });
+
+describe("manageSimulatedExits — the entry order records TP1 and MTP hits (2026-11-12)", () => {
+  beforeEach(() => {
+    quotePrice.mockReset();
+    executeFill.mockReset();
+    readLiveRebuy.mockReset().mockResolvedValue(null);
+    readLiveGannExit.mockClear();
+    readLiveBestSinceFill.mockReset().mockResolvedValue(null);
+  });
+
+  it("writes tp1_hit_at the pass the best price first reaches TP1", async () => {
+    quotePrice.mockResolvedValue(652);
+    const { client, updates } = stubSupabase(amdPlan({ entry_order_id: "order-1" }));
+    await manageSimulatedExits(client, "user-1");
+    expect(updates.some((u) => typeof u.tp1_hit_at === "string")).toBe(true);
+    expect(updates.some((u) => "mp_hit_at" in u)).toBe(false);
+  });
+
+  it("writes nothing new once TP1 was already through before the pass", async () => {
+    quotePrice.mockResolvedValue(660);
+    const { client, updates } = stubSupabase(amdPlan({ entry_order_id: "order-1", high_water: 655, scale_out_order_id: "sim_1", scale_out_fill_price: 650 }));
+    await manageSimulatedExits(client, "user-1");
+    expect(updates.some((u) => "tp1_hit_at" in u)).toBe(false);
+  });
+});
