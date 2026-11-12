@@ -26,7 +26,7 @@ create table if not exists public.paper_mirror_lines (
   symbol text not null,
   side text not null check (side in ('long', 'short')),
   status text not null check (status in ('open', 'closed', 'broker_stopped', 'missed')),
-  -- shares the simulator held when the mirror last opened or added
+  -- shares the line should hold at the broker (opened, added, reduced to)
   target_qty numeric not null default 0,
   -- the simulator's quantity the mirror last acted on: adds follow only a
   -- rise above it, so shares a broker stop sold are never bought back
