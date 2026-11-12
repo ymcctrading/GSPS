@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Link from "next/link";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
@@ -18,6 +17,7 @@ import { AnalyticsDashboard } from "@/components/portfolio/analytics-dashboard";
 import { TradeReviews } from "@/components/portfolio/trade-reviews";
 import { TradeRecord } from "@/components/portfolio/trade-record";
 import { RiskPanel } from "@/components/portfolio/risk-panel";
+import { LiveAccountView } from "@/components/portfolio/live-account";
 import type { ExitsState, OrderRow, Portfolio, SyncState } from "@/components/portfolio/types";
 import { countOpenLegs, groupByDisposition, sectionOrders } from "@/lib/portfolio/sections";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
@@ -26,7 +26,46 @@ import { intradayChartPlan } from "@/lib/setups/intraday";
 import { LEVEL_SOURCE_PLACED_ON } from "@/lib/trade/level-source";
 import { intradayPlanForSide, planStopForEdit, swingPlanForSide, type PlanPick } from "@/lib/portfolio/plan-levels";
 
+type AccountView = "paper" | "live";
+
+/**
+ * Portfolio, with a switch between the simulated paper account and the
+ * member's own live account (owner, 2026-11-12). Paper is the default and
+ * the page's own book; Live is read from the broker and only shows. Each
+ * visit opens on Paper, so real money is never what the page shows by
+ * surprise, and the live view says plainly that it is real money.
+ */
 export default function PortfolioPage() {
+  const [view, setView] = useState<AccountView>("paper");
+  const choose = setView;
+
+  return (
+    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-xl font-semibold sm:text-2xl">Portfolio</h1>
+        <div role="group" aria-label="Account" className="inline-flex rounded-lg border border-border p-0.5 text-sm">
+          {(["paper", "live"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={view === v}
+              onClick={() => choose(v)}
+              className={cn(
+                "rounded-md px-3 py-1 font-medium",
+                view === v ? (v === "live" ? "bg-bear text-white" : "bg-accent text-accent-foreground") : "text-muted hover:text-foreground",
+              )}
+            >
+              {v === "paper" ? "Paper account" : "Live account"}
+            </button>
+          ))}
+        </div>
+      </div>
+      {view === "live" ? <LiveAccountView /> : <PaperPortfolio />}
+    </div>
+  );
+}
+
+function PaperPortfolio() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [ordersLoaded, setOrdersLoaded] = useState(false);
@@ -144,13 +183,11 @@ export default function PortfolioPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
-      <div className="flex items-center gap-3">
-        <h1 className="text-xl font-semibold sm:text-2xl">Portfolio</h1>
-        <Badge variant="muted">Paper account</Badge>
+      <div className="flex justify-end">
         <a
           href="/api/audit/orders"
           download
-          className="ml-auto text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
           title="Every order you placed, the plan behind it, what the broker did and how it closed"
         >
           Download audit trail (CSV)

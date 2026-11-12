@@ -632,3 +632,16 @@ describe("Edit exit levels: the swing plan, the intraday plan or your own", () =
     expect(inputs.map((i) => Number(i.value))).toEqual([195, 225, 240]);
   });
 });
+
+describe("PortfolioPage account switch", () => {
+  it("opens on the paper account and switches to the live view on request", async () => {
+    const { calls } = mockApi({});
+    render(<PortfolioPage />);
+    expect(screen.getByRole("button", { name: "Paper account" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Live account" }));
+    expect(screen.getByRole("button", { name: "Live account" })).toHaveAttribute("aria-pressed", "true");
+    // The live view reads its own endpoint; the paper book is no longer on screen.
+    await vi.waitFor(() => expect(calls).toContain("/api/portfolio/live"));
+    expect(screen.queryByRole("heading", { name: /Open Positions/ })).toBeNull();
+  });
+});
