@@ -47,8 +47,8 @@ export function TickerCardPanel({
         </ul>
         {relation === "cardLeads" && (
           <p className="text-xs text-warn" data-testid="card-plan-other-side">
-            The daily plan below reads {symbol} the other way (a sell, {planState ?? "not a trade"}), and it is not an
-            Execute. For this session the chart draws the card&apos;s buy levels. The card is good for the next session
+            The daily plan below reads {symbol} the other way (a sell, rated {planState ?? "no trade"}), and it is not
+            an Execute. For this session the chart draws the card&apos;s buy levels. The card is good for the next session
             only; once it passes, the daily plan is the one to follow.
           </p>
         )}

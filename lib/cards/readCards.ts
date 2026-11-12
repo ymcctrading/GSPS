@@ -236,15 +236,6 @@ async function readTonightsCards(
 }
 
 /**
- * Pure. Whether a card on a stock disagrees with that stock's daily plan:
- * cards are long only, so a bearish plan is the other side. "none" (no
- * plan) does not disagree.
- */
-export function cardAgainstPlan(planDirection: "bullish" | "bearish" | "none" | null | undefined): boolean {
-  return planDirection === "bearish";
-}
-
-/**
  * The cards open tonight on one stock that `viewer` would see on the
  * Dashboard (same reader, same filters), for that stock's own page.
  */
