@@ -140,6 +140,12 @@ export interface MirrorGate {
   maxOpenLines?: number;
   /** Whether pyramid adds are mirrored (a small live account has no capital for them). */
   allowAdds?: boolean;
+  /**
+   * The broker would refuse a sell on a line opened today (the day-trade
+   * rule). Such a reduce or close is held, and its stop stays sized to the
+   * shares held.
+   */
+  sameDaySellBlocked?: boolean;
   /** Why opens are held, when `dayLossHold` is set (the account's own wording). */
   holdNote?: string;
   tradingHalted: boolean;
@@ -201,6 +207,9 @@ export function planMirrorActions(
         ? (gate.holdNote ?? `Account down ${DAILY_LOSS_HOLD_PCT * 100}% or more today.`)
         : "Not opened.";
   const mirroredSymbols = new Set(openMirror.map((m) => m.symbol));
+  const today = nyDay(gate.now);
+  const sellHeld = (m: MirrorLine) => gate.sameDaySellBlocked === true && (!m.openedAt || nyDay(Date.parse(m.openedAt)) === today);
+  const SELL_HELD = "Same-day sell held by the day-trade rule; the broker stop stays in place.";
 
   for (const m of openMirror) {
     if (bySim.has(m.positionId)) continue;
@@ -209,8 +218,9 @@ export function planMirrorActions(
       actions.push(m.stopOrderId ? { kind: "broker_stopped", positionId: m.positionId, symbol: m.symbol } : { kind: "check_open", positionId: m.positionId, symbol: m.symbol });
       continue;
     }
-    if (gate.marketOpen) actions.push({ kind: "close", positionId: m.positionId, symbol: m.symbol, side: m.side, qty: held });
-    else actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: "Close waits for the open market." });
+    if (!gate.marketOpen) actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: "Close waits for the open market." });
+    else if (sellHeld(m)) actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: SELL_HELD });
+    else actions.push({ kind: "close", positionId: m.positionId, symbol: m.symbol, side: m.side, qty: held });
   }
 
   for (const s of sim) {
@@ -263,7 +273,9 @@ export function planMirrorActions(
     }
     let after = held;
     if (s.qty < held) {
-      if (gate.marketOpen) {
+      if (gate.marketOpen && sellHeld(m)) {
+        actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: SELL_HELD });
+      } else if (gate.marketOpen) {
         actions.push({ kind: "reduce", positionId: m.positionId, symbol: m.symbol, side: m.side, qty: held - s.qty, simPrice: s.price, targetAfter: s.qty });
         after = s.qty;
       } else {
@@ -764,6 +776,7 @@ async function mirrorPass(
           ? `Live account down ${LIVE_DAY_LOSS_HOLD_PCT * 100}% or more today.`
           : `Day trades used (${Number.isFinite(dayTrades) ? dayTrades : "unknown"} of ${PDT_MAX_DAY_TRADES} in five sessions, ${openToday} line(s) opened today): no new opens under $25,000.`,
       maxOpenLines: LIVE_MAX_OPEN_LINES,
+      sameDaySellBlocked: dayTradeBlocked(dayTrades, equity),
       allowAdds: false,
       now: Date.now(),
     };
@@ -868,14 +881,29 @@ async function mirrorPass(
           if (TERMINAL_UNFILLED.includes(settled.status) && !(partial > 0)) {
             await must(lines().update({ status: "missed", note: `Broker ${settled.status} the open.` }).eq("position_id", a.positionId).eq("mode", mode), "line missed");
           } else if (TERMINAL_UNFILLED.includes(settled.status)) {
-            // Part filled, the rest cancelled: the line keeps what it holds.
-            // Its stop follows next run, sized to those shares.
+            // Part filled, the rest cancelled: the line keeps what it holds,
+            // and its stop goes on now, sized to those shares.
             await must(lines().update({ target_qty: partial, note: `Open part filled (${partial} of ${a.qty}).` }).eq("position_id", a.positionId).eq("mode", mode), "line target");
+            if (a.stop != null) {
+              const stopOrder = await placeExitOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty: partial, stopLoss: a.stop });
+              await must(lines().update({ stop_order_id: stopOrder.id, stop_price: a.stop, stop_qty: partial }).eq("position_id", a.positionId).eq("mode", mode), "line stop");
+              await logEvent(supabase, mode, { position_id: a.positionId, symbol: a.symbol, side: a.side, action: "set_stop", qty: partial, sim_price: null, stop_price: a.stop, broker_order_id: stopOrder.id, status: stopOrder.status, note: null });
+            }
           } else if (settled.status === "filled" && a.stop != null && !(a.side === "long" ? num(settled.filled_avg_price) > a.stop : num(settled.filled_avg_price) < a.stop)) {
             // Filled at or past the stop (a gap): the broker would refuse the
             // stop, and the plan's exit has already been met. Out at once.
             const qty = num(settled.filled_qty);
-            const out = (await closePosition(creds, a.symbol, qty)) as AlpacaOrder;
+            let out: AlpacaOrder;
+            try {
+              out = (await closePosition(creds, a.symbol, qty)) as AlpacaOrder;
+            } catch (err) {
+              // The sell was refused: the stop goes on instead, so the shares
+              // are never left bare (the broker may refuse it too while the
+              // price is under it; then set_stop tries again each run).
+              const stopOrder = await placeExitOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty, stopLoss: a.stop });
+              await must(lines().update({ stop_order_id: stopOrder.id, stop_price: a.stop, stop_qty: qty }).eq("position_id", a.positionId).eq("mode", mode), "line stop");
+              throw err;
+            }
             result.placed++;
             await must(lines().update({ status: "closed", closed_at: new Date().toISOString(), note: "Filled at or past the stop; closed at once." }).eq("position_id", a.positionId).eq("mode", mode), "line closed");
             const outSettled = await settleOrder(creds, out.id);
@@ -932,22 +960,6 @@ async function mirrorPass(
           // cancel confirmed first. If it had already filled, the line was
           // stopped at the broker and no sell goes out.
           const m = mirrorById.get(a.positionId);
-          if (
-            mode === "live" &&
-            m?.openedAt &&
-            nyDay(Date.parse(m.openedAt)) === nyDay(Date.now()) &&
-            dayTradeBlocked(dayTrades, equity)
-          ) {
-            // The broker would refuse this sell as a fourth day trade. The
-            // stop stays resting (never cancelled for a sell that can't go),
-            // and the sell is tried again next session.
-            result.held.push(`${a.symbol}: ${a.kind} held: the sell would be a day trade the broker refuses; the stop stays.`);
-            await logEvent(supabase, mode, {
-              position_id: a.positionId, symbol: a.symbol, side: a.side, action: a.kind, qty: a.qty, sim_price: null, stop_price: m.stopPrice,
-              broker_order_id: null, status: "held", note: "Same-day sell held by the day-trade rule; the broker stop stays in place.",
-            });
-            break;
-          }
           const priorStop = m?.stopOrderId ? { price: m.stopPrice, qty: m.stopQty } : null;
           if (m?.stopOrderId) {
             const filledStop = await cancelStop(creds, m.stopOrderId);
@@ -968,7 +980,13 @@ async function mirrorPass(
             // back on before anything else, so the shares are never bare.
             if (priorStop && usableStop(priorStop.price) && m) {
               const qty = brokerQty.get(a.symbol) ?? priorStop.qty ?? a.qty;
-              const back = await placeExitOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty, stopLoss: priorStop.price });
+              let back: AlpacaOrder;
+              try {
+                back = await placeExitOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty, stopLoss: priorStop.price });
+              } catch (restoreErr) {
+                // Both are reported: the sell's refusal and the stop's.
+                throw new Error(`${err instanceof Error ? err.message : String(err)}; stop not restored: ${restoreErr instanceof Error ? restoreErr.message : String(restoreErr)}`);
+              }
               await must(lines().update({ stop_order_id: back.id, stop_price: priorStop.price, stop_qty: qty }).eq("position_id", a.positionId).eq("mode", mode), "line stop restored");
               m.stopOrderId = back.id;
               m.stopQty = qty;

@@ -327,7 +327,7 @@ describe("runPaperMirror", () => {
     const r = await runLiveMirror(client);
     expect(alpaca.cancelOrder).not.toHaveBeenCalled();
     expect(alpaca.closePosition).not.toHaveBeenCalled();
-    expect(r.held.join(" ")).toMatch(/day trade/);
+    expect(r.held.join(" ")).toMatch(/day-trade rule/);
   });
 
   it("live: a close on a line from an earlier day goes even with the day trades used", async () => {
