@@ -293,6 +293,16 @@ export async function getOrder(
   return alpacaFetch(creds, `/v2/orders/${encodeURIComponent(orderId)}${query}`);
 }
 
+/** One order by the client order id it was sent with; null when the broker has none. */
+export async function getOrderByClientId(creds: AlpacaCreds, clientOrderId: string): Promise<AlpacaOrder | null> {
+  try {
+    return await alpacaFetch(creds, `/v2/orders:by_client_order_id?client_order_id=${encodeURIComponent(clientOrderId)}`);
+  } catch (err) {
+    if (err instanceof Error && /\(404\)/.test(err.message)) return null;
+    throw err;
+  }
+}
+
 /**
  * Move a resting order's price.
  *

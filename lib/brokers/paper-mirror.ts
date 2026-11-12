@@ -57,9 +57,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   cancelOrder,
+  closePosition,
   envCreds,
   getAccount,
   getOrder,
+  getOrderByClientId,
   getPositions,
   placeExitOrder,
   placeOrder,
@@ -102,8 +104,10 @@ export interface MirrorLine {
   symbol: string;
   side: Side;
   status: MirrorStatus;
-  /** Shares the simulator held when the mirror last opened or added. */
+  /** Shares the simulator held when the mirror last opened, added or reduced. */
   targetQty: number;
+  /** The broker order that opened the line. */
+  openOrderId: string | null;
   stopOrderId: string | null;
   stopPrice: number | null;
   stopQty: number | null;
@@ -119,25 +123,18 @@ export interface MirrorGate {
 
 export type MirrorAction =
   | { kind: "open"; positionId: string; symbol: string; side: Side; qty: number; simPrice: number; stop: number | null }
-  | { kind: "add"; positionId: string; symbol: string; side: Side; qty: number; simPrice: number }
-  | { kind: "reduce"; positionId: string; symbol: string; side: Side; qty: number; simPrice: number }
+  | { kind: "add"; positionId: string; symbol: string; side: Side; qty: number; simPrice: number; targetAfter: number }
+  | { kind: "reduce"; positionId: string; symbol: string; side: Side; qty: number; simPrice: number; targetAfter: number }
   | { kind: "close"; positionId: string; symbol: string; side: Side; qty: number }
   | { kind: "set_stop"; positionId: string; symbol: string; side: Side; qty: number; stop: number }
   | { kind: "broker_stopped"; positionId: string; symbol: string }
+  | { kind: "check_open"; positionId: string; symbol: string }
   | { kind: "missed"; positionId: string; symbol: string; side: Side; reason: string }
   | { kind: "hold"; positionId: string; symbol: string; reason: string };
 
-const finitePositive = (n: number | null | undefined): n is number => typeof n === "number" && Number.isFinite(n) && n > 0;
-
-/**
- * Whether a stop is on the protective side of the simulator's own fill
- * region: below for a long, above for a short is not required (a trailed stop
- * can sit past entry), so only a positive, finite price is demanded here; the
- * broker refuses one on the wrong side of the market, and that refusal is
- * logged rather than retried blindly.
- */
+/** Only a positive, finite stop is placed; the broker refuses one on the wrong side of the market, and that refusal is logged. */
 function usableStop(stop: number | null): stop is number {
-  return finitePositive(stop);
+  return typeof stop === "number" && Number.isFinite(stop) && stop > 0;
 }
 
 /**
@@ -146,24 +143,27 @@ function usableStop(stop: number | null): stop is number {
  * without a broker.
  *
  * `brokerQty` is the shares the broker holds per symbol, unsigned, on the
- * line's side (a symbol held on the other side counts as not held for a
- * mirrored line). `brokerHeld` is every symbol held on either side: a new
- * line never opens on a symbol the account already holds, so an open can
- * never net against, or flip, a position the mirror doesn't own.
+ * side of the mirrored line for that symbol. `brokerHeld` is every symbol
+ * held on either side: a new line never opens on a symbol the account
+ * already holds, so an open can never net against, or flip, a position the
+ * mirror doesn't own.
  */
 export function planMirrorActions(
   sim: SimLine[],
   mirror: MirrorLine[],
   brokerQty: Map<string, number>,
   gate: MirrorGate,
-  /** Symbols the broker holds on either side, for the open check. */
   brokerHeld: Set<string> = new Set(brokerQty.keys()),
 ): MirrorAction[] {
   if (gate.disabled) return [];
   const actions: MirrorAction[] = [];
   const bySim = new Map(sim.map((s) => [s.positionId, s]));
   const byMirror = new Map(mirror.map((m) => [m.positionId, m]));
-  let openLines = mirror.filter((m) => m.status === "open").length;
+  const openMirror = mirror.filter((m) => m.status === "open");
+  // Lines the simulator has left are closed first (below); their symbols
+  // free up next run, so a symbol the simulator reopened waits, not misses.
+  const closing = new Set(openMirror.filter((m) => !bySim.has(m.positionId)).map((m) => m.symbol));
+  let openLines = openMirror.length;
   const canOpen = !gate.tradingHalted && gate.marketOpen && !gate.dayLossHold;
   const openReason = gate.tradingHalted
     ? "Trading is halted (TRADING_DISABLED)."
@@ -171,8 +171,19 @@ export function planMirrorActions(
       ? "Market closed."
       : gate.dayLossHold
         ? `Paper account down ${DAILY_LOSS_HOLD_PCT * 100}% or more today.`
-        : null;
-  const mirroredSymbols = new Set(mirror.filter((m) => m.status === "open").map((m) => m.symbol));
+        : "Not opened.";
+  const mirroredSymbols = new Set(openMirror.map((m) => m.symbol));
+
+  for (const m of openMirror) {
+    if (bySim.has(m.positionId)) continue;
+    const held = brokerQty.get(m.symbol) ?? 0;
+    if (held <= 0) {
+      actions.push(m.stopOrderId ? { kind: "broker_stopped", positionId: m.positionId, symbol: m.symbol } : { kind: "check_open", positionId: m.positionId, symbol: m.symbol });
+      continue;
+    }
+    if (gate.marketOpen) actions.push({ kind: "close", positionId: m.positionId, symbol: m.symbol, side: m.side, qty: held });
+    else actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: "Close waits for the open market." });
+  }
 
   for (const s of sim) {
     if (!s.automated || s.openedAt < MIRROR_START || !(s.qty > 0)) continue;
@@ -181,44 +192,45 @@ export function planMirrorActions(
       const lag = gate.now - Date.parse(s.openedAt);
       if (!(lag <= MAX_OPEN_LAG_MS)) {
         actions.push({ kind: "missed", positionId: s.positionId, symbol: s.symbol, side: s.side, reason: "The simulator's fill is more than an hour old; not chased." });
-        continue;
-      }
-      if (!canOpen) {
-        actions.push({ kind: "hold", positionId: s.positionId, symbol: s.symbol, reason: openReason ?? "Not opened." });
-        continue;
-      }
-      if (openLines >= MAX_OPEN_LINES) {
+      } else if (!canOpen) {
+        actions.push({ kind: "hold", positionId: s.positionId, symbol: s.symbol, reason: openReason });
+      } else if (closing.has(s.symbol)) {
+        actions.push({ kind: "hold", positionId: s.positionId, symbol: s.symbol, reason: "Waits for the earlier line in this symbol to close." });
+      } else if (openLines >= MAX_OPEN_LINES) {
         actions.push({ kind: "missed", positionId: s.positionId, symbol: s.symbol, side: s.side, reason: `Already ${MAX_OPEN_LINES} mirrored lines open.` });
-        continue;
-      }
-      if (mirroredSymbols.has(s.symbol) || brokerHeld.has(s.symbol) || (brokerQty.get(s.symbol) ?? 0) > 0) {
+      } else if (mirroredSymbols.has(s.symbol) || brokerHeld.has(s.symbol)) {
         actions.push({ kind: "missed", positionId: s.positionId, symbol: s.symbol, side: s.side, reason: "The paper account already holds this symbol." });
-        continue;
+      } else {
+        actions.push({ kind: "open", positionId: s.positionId, symbol: s.symbol, side: s.side, qty: s.qty, simPrice: s.price, stop: usableStop(s.stop) ? s.stop : null });
+        openLines++;
+        mirroredSymbols.add(s.symbol);
       }
-      actions.push({ kind: "open", positionId: s.positionId, symbol: s.symbol, side: s.side, qty: s.qty, simPrice: s.price, stop: usableStop(s.stop) ? s.stop : null });
-      openLines++;
-      mirroredSymbols.add(s.symbol);
       continue;
     }
     if (m.status !== "open") continue;
     const held = brokerQty.get(m.symbol) ?? 0;
     if (held <= 0) {
-      // The open has filled before (a stop was placed for it) and the
-      // broker now holds nothing: the broker's stop took it. Never re-buy.
-      if (m.stopOrderId) actions.push({ kind: "broker_stopped", positionId: m.positionId, symbol: m.symbol });
+      // A line that had a stop and now holds nothing: the broker's stop took
+      // it. Never re-buy. A line with no stop yet: its open is checked.
+      actions.push(m.stopOrderId ? { kind: "broker_stopped", positionId: m.positionId, symbol: m.symbol } : { kind: "check_open", positionId: m.positionId, symbol: m.symbol });
       continue;
     }
-    let after = held;
-    if (s.qty > m.targetQty && held >= m.targetQty) {
+    if (held < m.targetQty) {
+      // An open or add still filling: nothing moves until the broker settles.
+      continue;
+    }
+    if (s.qty > m.targetQty) {
       if (canOpen) {
-        actions.push({ kind: "add", positionId: m.positionId, symbol: m.symbol, side: m.side, qty: s.qty - m.targetQty, simPrice: s.price });
-        after = held + (s.qty - m.targetQty);
-      } else {
-        actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: `Add not placed: ${openReason}` });
+        actions.push({ kind: "add", positionId: m.positionId, symbol: m.symbol, side: m.side, qty: s.qty - m.targetQty, simPrice: s.price, targetAfter: s.qty });
+        // The stop is re-sized next run, once the add's shares are held.
+        continue;
       }
-    } else if (s.qty < held) {
+      actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: `Add not placed: ${openReason}` });
+    }
+    let after = held;
+    if (s.qty < held) {
       if (gate.marketOpen) {
-        actions.push({ kind: "reduce", positionId: m.positionId, symbol: m.symbol, side: m.side, qty: held - s.qty, simPrice: s.price });
+        actions.push({ kind: "reduce", positionId: m.positionId, symbol: m.symbol, side: m.side, qty: held - s.qty, simPrice: s.price, targetAfter: s.qty });
         after = s.qty;
       } else {
         actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: "Reduce waits for the open market." });
@@ -227,17 +239,6 @@ export function planMirrorActions(
     if (usableStop(s.stop) && (m.stopPrice !== s.stop || m.stopQty !== after || !m.stopOrderId)) {
       actions.push({ kind: "set_stop", positionId: m.positionId, symbol: m.symbol, side: m.side, qty: after, stop: s.stop });
     }
-  }
-
-  for (const m of mirror) {
-    if (m.status !== "open" || bySim.has(m.positionId)) continue;
-    const held = brokerQty.get(m.symbol) ?? 0;
-    if (held <= 0) {
-      if (m.stopOrderId) actions.push({ kind: "broker_stopped", positionId: m.positionId, symbol: m.symbol });
-      continue;
-    }
-    if (gate.marketOpen) actions.push({ kind: "close", positionId: m.positionId, symbol: m.symbol, side: m.side, qty: held });
-    else actions.push({ kind: "hold", positionId: m.positionId, symbol: m.symbol, reason: "Close waits for the open market." });
   }
   return actions;
 }
@@ -257,15 +258,19 @@ export function dayLossHold(equity: number, lastEquity: number): boolean {
 // The runner: reads, plans, places, logs.
 // ---------------------------------------------------------------------------
 
+/** Engineering choice: the mirror's share of the scheduled run's 60-second budget. */
+export const MIRROR_BUDGET_MS = 15_000;
+
 export interface MirrorRunResult {
   ran: boolean;
   reason?: string;
   placed: number;
   held: string[];
   errors: string[];
+  elapsedMs?: number;
 }
 
-interface Logged {
+interface EventRow {
   position_id: string;
   symbol: string;
   side: Side | null;
@@ -281,18 +286,36 @@ interface Logged {
   filled_at?: string | null;
 }
 
-function fillFields(o: AlpacaOrder | null): Pick<Logged, "fill_price" | "filled_qty" | "filled_at"> {
+const num = (v: unknown): number => (typeof v === "string" ? Number(v) : typeof v === "number" ? v : NaN);
+const TERMINAL_UNFILLED = ["canceled", "expired", "rejected", "done_for_day"];
+
+function fillFields(o: AlpacaOrder | null): Pick<EventRow, "fill_price" | "filled_qty" | "filled_at"> {
   if (o?.status !== "filled") return {};
   return { fill_price: num(o.filled_avg_price), filled_qty: num(o.filled_qty), filled_at: o.filled_at ?? null };
 }
 
+/** A Supabase write that throws on failure, so no broker step goes unrecorded silently. */
+async function must(p: PromiseLike<{ error: { message: string } | null }>, what: string): Promise<void> {
+  const { error } = await p;
+  if (error) throw new Error(`${what}: ${error.message}`);
+}
+
+/** Every event is written the moment its order is placed, so a cut-off run still leaves its record. */
+async function logEvent(supabase: SupabaseClient, row: EventRow): Promise<void> {
+  await must(supabase.from("paper_mirror_events").insert(row), "paper_mirror_events");
+}
+
 async function isMarketOpen(creds: AlpacaCreds): Promise<boolean> {
-  const res = await fetch("https://paper-api.alpaca.markets/v2/clock", {
-    headers: { "APCA-API-KEY-ID": creds.key, "APCA-API-SECRET-KEY": creds.secret },
-  });
-  if (!res.ok) return false;
-  const clock = (await res.json()) as { is_open?: boolean };
-  return clock.is_open === true;
+  try {
+    const res = await fetch("https://paper-api.alpaca.markets/v2/clock", {
+      headers: { "APCA-API-KEY-ID": creds.key, "APCA-API-SECRET-KEY": creds.secret },
+    });
+    if (!res.ok) return false;
+    const clock = (await res.json()) as { is_open?: boolean };
+    return clock.is_open === true;
+  } catch {
+    return false;
+  }
 }
 
 async function ownerUserId(supabase: SupabaseClient): Promise<string | null> {
@@ -302,8 +325,6 @@ async function ownerUserId(supabase: SupabaseClient): Promise<string | null> {
   const u = data.users.find((x) => (x.email ?? "").toLowerCase() === owner);
   return u?.id ?? null;
 }
-
-const num = (v: unknown): number => (typeof v === "string" ? Number(v) : typeof v === "number" ? v : NaN);
 
 async function readSimLines(supabase: SupabaseClient, userId: string): Promise<SimLine[]> {
   const { data: positions, error } = await supabase
@@ -317,14 +338,15 @@ async function readSimLines(supabase: SupabaseClient, userId: string): Promise<S
   const rows = (positions ?? []).filter((p) => p.asset_class === "us_equity");
   if (rows.length === 0) return [];
   const symbols = rows.map((p) => p.symbol as string);
-  const [{ data: exits }, { data: entries }] = await Promise.all([
+  const [exitsRes, entriesRes] = await Promise.all([
     supabase
       .from("protocol_exits")
-      .select("symbol, applied_stop, stop_loss, status")
+      .select("symbol, applied_stop, stop_loss, status, created_at")
       .eq("user_id", userId)
       .eq("mode", "paper")
       .neq("status", "closed")
-      .in("symbol", symbols),
+      .in("symbol", symbols)
+      .order("created_at", { ascending: false }),
     supabase
       .from("orders")
       .select("symbol, created_at")
@@ -334,15 +356,23 @@ async function readSimLines(supabase: SupabaseClient, userId: string): Promise<S
       .gte("created_at", MIRROR_START)
       .in("symbol", symbols),
   ]);
+  if (exitsRes.error) throw new Error(`protocol_exits: ${exitsRes.error.message}`);
+  if (entriesRes.error) throw new Error(`orders: ${entriesRes.error.message}`);
+  const FIVE_MIN = 5 * 60 * 1000;
   return rows.map((p) => {
-    const exit = (exits ?? []).find((e) => e.symbol === p.symbol);
-    const exitStop = exit ? (Number.isFinite(num(exit.applied_stop)) && exit.applied_stop != null ? num(exit.applied_stop) : num(exit.stop_loss)) : NaN;
-    const stop = Number.isFinite(exitStop) ? exitStop : num(p.stop_loss);
     const openedMs = Date.parse(p.opened_at as string);
+    // The exit plan written for this position: same symbol, made no earlier
+    // than five minutes before the position opened (newest first).
+    const exit = (exitsRes.data ?? []).find(
+      (e) => e.symbol === p.symbol && Date.parse(e.created_at as string) >= openedMs - FIVE_MIN,
+    );
+    const applied = exit && exit.applied_stop != null ? num(exit.applied_stop) : NaN;
+    const exitStop = Number.isFinite(applied) ? applied : exit ? num(exit.stop_loss) : NaN;
+    const stop = Number.isFinite(exitStop) ? exitStop : num(p.stop_loss);
     // Automated: a plan-carrying entry order for the symbol within five
     // minutes either side of the position's opening.
-    const automated = (entries ?? []).some(
-      (o) => o.symbol === p.symbol && Math.abs(Date.parse(o.created_at as string) - openedMs) <= 5 * 60 * 1000,
+    const automated = (entriesRes.data ?? []).some(
+      (o) => o.symbol === p.symbol && Math.abs(Date.parse(o.created_at as string) - openedMs) <= FIVE_MIN,
     );
     return {
       positionId: p.id as string,
@@ -359,7 +389,7 @@ async function readSimLines(supabase: SupabaseClient, userId: string): Promise<S
 
 /** Every open line, plus any line (missed, closed, stopped) for a position the simulator still holds. */
 async function readMirrorLines(supabase: SupabaseClient, simIds: string[]): Promise<MirrorLine[]> {
-  const cols = "position_id, symbol, side, status, target_qty, stop_order_id, stop_price, stop_qty";
+  const cols = "position_id, symbol, side, status, target_qty, open_order_id, stop_order_id, stop_price, stop_qty";
   const query = supabase.from("paper_mirror_lines").select(cols);
   const { data, error } =
     simIds.length > 0 ? await query.or(`status.eq.open,position_id.in.(${simIds.join(",")})`) : await query.eq("status", "open");
@@ -370,21 +400,37 @@ async function readMirrorLines(supabase: SupabaseClient, simIds: string[]): Prom
     side: (r.side === "short" ? "short" : "long") as Side,
     status: r.status as MirrorStatus,
     targetQty: num(r.target_qty),
+    openOrderId: (r.open_order_id as string | null) ?? null,
     stopOrderId: (r.stop_order_id as string | null) ?? null,
     stopPrice: r.stop_price == null ? null : num(r.stop_price),
     stopQty: r.stop_qty == null ? null : num(r.stop_qty),
   }));
 }
 
-/** Waits briefly for a market order to report its fill; null when it hasn't yet. */
-async function awaitFill(creds: AlpacaCreds, id: string): Promise<AlpacaOrder | null> {
-  for (let i = 0; i < 4; i++) {
-    const o = await getOrder(creds, id);
-    if (o.status === "filled") return o;
-    if (["canceled", "expired", "rejected"].includes(o.status)) return o;
-    await new Promise((r) => setTimeout(r, 750));
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Reads an order until it leaves `pending_*`/`new`, up to three reads. */
+async function settleOrder(creds: AlpacaCreds, id: string): Promise<AlpacaOrder> {
+  let o = await getOrder(creds, id);
+  for (let i = 0; i < 2 && !["filled", "canceled", ...TERMINAL_UNFILLED].includes(o.status); i++) {
+    await sleep(400);
+    o = await getOrder(creds, id);
   }
-  return null;
+  return o;
+}
+
+/**
+ * Cancels a line's resting stop and confirms it. Returns the stop order when
+ * it had already filled (the broker stopped the line), else null once it is
+ * cancelled; throws when neither is confirmed, so no sell goes out against
+ * shares the stop still reserves.
+ */
+async function cancelStop(creds: AlpacaCreds, stopId: string): Promise<AlpacaOrder | null> {
+  await cancelOrder(creds, stopId).catch(() => undefined);
+  const o = await settleOrder(creds, stopId);
+  if (o.status === "filled") return o;
+  if (o.status === "canceled" || TERMINAL_UNFILLED.includes(o.status)) return null;
+  throw new Error(`Stop ${stopId} not confirmed cancelled (${o.status}); sell not sent.`);
 }
 
 /**
@@ -392,6 +438,8 @@ async function awaitFill(creds: AlpacaCreds, id: string): Promise<AlpacaOrder | 
  * Portfolio Manager's scheduled run, so it sees the book that run left.
  */
 export async function runPaperMirror(supabase: SupabaseClient): Promise<MirrorRunResult> {
+  const started = Date.now();
+  const deadline = started + MIRROR_BUDGET_MS;
   const result: MirrorRunResult = { ran: false, placed: 0, held: [], errors: [] };
   if ((process.env.PAPER_MIRROR_DISABLED ?? "").trim().toLowerCase() === "true") {
     return { ...result, reason: "PAPER_MIRROR_DISABLED" };
@@ -428,118 +476,192 @@ export async function runPaperMirror(supabase: SupabaseClient): Promise<MirrorRu
   result.ran = true;
   const actions = planMirrorActions(sim, mirror, brokerQty, gate, brokerHeld);
   const mirrorById = new Map(mirror.map((m) => [m.positionId, m]));
-  const logs: Logged[] = [];
-  const log = (l: Logged) => logs.push(l);
+  const lines = () => supabase.from("paper_mirror_lines");
+
+  const markBrokerStopped = async (positionId: string, symbol: string, stop: AlpacaOrder | null) => {
+    const m = mirrorById.get(positionId);
+    await must(lines().update({ status: "broker_stopped", closed_at: new Date().toISOString() }).eq("position_id", positionId), "line stopped");
+    await logEvent(supabase, {
+      position_id: positionId, symbol, side: m?.side ?? null, action: "broker_stopped", qty: m?.stopQty ?? null, sim_price: null,
+      stop_price: m?.stopPrice ?? null, broker_order_id: m?.stopOrderId ?? null, status: stop?.status ?? "unknown",
+      note: stop?.status === "filled" ? "The broker's stop filled before the simulator's exit; not re-bought." : "The broker holds no shares for this line; not re-bought.",
+      ...fillFields(stop),
+    });
+  };
 
   for (const a of actions) {
+    if (a.kind === "hold") {
+      result.held.push(`${a.symbol}: ${a.reason}`);
+      continue;
+    }
+    if (Date.now() > deadline) {
+      result.held.push(`${a.symbol}: ${a.kind} left for the next run (time budget).`);
+      continue;
+    }
     try {
       switch (a.kind) {
-        case "hold":
-          result.held.push(`${a.symbol}: ${a.reason}`);
-          break;
         case "missed": {
-          await supabase.from("paper_mirror_lines").insert({
-            position_id: a.positionId, symbol: a.symbol, side: a.side, status: "missed", target_qty: 0, note: a.reason,
-          });
-          log({ position_id: a.positionId, symbol: a.symbol, side: a.side, action: "missed", qty: null, sim_price: null, stop_price: null, broker_order_id: null, status: "skipped", note: a.reason });
+          await must(lines().insert({ position_id: a.positionId, symbol: a.symbol, side: a.side, status: "missed", target_qty: 0, note: a.reason }), "line missed");
+          await logEvent(supabase, { position_id: a.positionId, symbol: a.symbol, side: a.side, action: "missed", qty: null, sim_price: null, stop_price: null, broker_order_id: null, status: "skipped", note: a.reason });
           break;
         }
         case "open": {
-          const order = (await placeOrder(creds, { symbol: a.symbol, side: orderSide(a.side, true), qty: a.qty, type: "market" })) as AlpacaOrder;
-          result.placed++;
-          await supabase.from("paper_mirror_lines").insert({
-            position_id: a.positionId, symbol: a.symbol, side: a.side, status: "open", target_qty: a.qty,
-          });
-          const filled = await awaitFill(creds, order.id);
-          log({ position_id: a.positionId, symbol: a.symbol, side: a.side, action: "open", qty: a.qty, sim_price: a.simPrice, stop_price: null, broker_order_id: order.id, status: filled?.status ?? order.status, note: null, ...fillFields(filled) });
-          if (filled && filled.status !== "filled") {
-            await supabase.from("paper_mirror_lines").update({ status: "missed", note: `Broker ${filled.status} the open.` }).eq("position_id", a.positionId);
+          // The line is claimed before the order: its primary key stops a
+          // second run from opening it again, and the client order id stops
+          // the broker from taking the same open twice.
+          await must(lines().insert({ position_id: a.positionId, symbol: a.symbol, side: a.side, status: "open", target_qty: a.qty }), "claim line");
+          let order: AlpacaOrder;
+          try {
+            order = (await placeOrder(creds, { symbol: a.symbol, side: orderSide(a.side, true), qty: a.qty, type: "market", clientOrderId: `gsps-mirror-open-${a.positionId}` })) as AlpacaOrder;
+          } catch (err) {
+            await lines().update({ status: "missed", note: `Open refused: ${String(err).slice(0, 300)}` }).eq("position_id", a.positionId);
+            throw err;
           }
-          if (filled?.status === "filled" && a.stop != null) {
-            const qty = num(filled.filled_qty);
+          result.placed++;
+          await must(lines().update({ open_order_id: order.id }).eq("position_id", a.positionId), "line open order");
+          const settled = await settleOrder(creds, order.id);
+          await logEvent(supabase, { position_id: a.positionId, symbol: a.symbol, side: a.side, action: "open", qty: a.qty, sim_price: a.simPrice, stop_price: null, broker_order_id: order.id, status: settled.status, note: null, ...fillFields(settled) });
+          if (TERMINAL_UNFILLED.includes(settled.status)) {
+            await must(lines().update({ status: "missed", note: `Broker ${settled.status} the open.` }).eq("position_id", a.positionId), "line missed");
+          } else if (settled.status === "filled" && a.stop != null) {
+            const qty = num(settled.filled_qty);
             const stopOrder = await placeExitOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty, stopLoss: a.stop });
-            await supabase.from("paper_mirror_lines").update({ stop_order_id: stopOrder.id, stop_price: a.stop, stop_qty: qty }).eq("position_id", a.positionId);
-            log({ position_id: a.positionId, symbol: a.symbol, side: a.side, action: "set_stop", qty, sim_price: null, stop_price: a.stop, broker_order_id: stopOrder.id, status: stopOrder.status, note: null });
+            await must(lines().update({ stop_order_id: stopOrder.id, stop_price: a.stop, stop_qty: qty }).eq("position_id", a.positionId), "line stop");
+            await logEvent(supabase, { position_id: a.positionId, symbol: a.symbol, side: a.side, action: "set_stop", qty, sim_price: null, stop_price: a.stop, broker_order_id: stopOrder.id, status: stopOrder.status, note: null });
           }
           break;
         }
         case "add": {
-          const order = (await placeOrder(creds, { symbol: a.symbol, side: orderSide(a.side, true), qty: a.qty, type: "market" })) as AlpacaOrder;
-          result.placed++;
           const m = mirrorById.get(a.positionId);
-          await supabase.from("paper_mirror_lines").update({ target_qty: (m?.targetQty ?? 0) + a.qty }).eq("position_id", a.positionId);
-          const filled = await awaitFill(creds, order.id);
-          log({ position_id: a.positionId, symbol: a.symbol, side: a.side, action: "add", qty: a.qty, sim_price: a.simPrice, stop_price: null, broker_order_id: order.id, status: filled?.status ?? order.status, note: null, ...fillFields(filled) });
+          const before = m?.targetQty ?? 0;
+          // Target first (the planner reads an unfilled add as "still
+          // filling"), then the order; the client order id is per target, so
+          // a retried add is refused by the broker.
+          await must(lines().update({ target_qty: a.targetAfter }).eq("position_id", a.positionId), "line target");
+          let order: AlpacaOrder;
+          try {
+            order = (await placeOrder(creds, { symbol: a.symbol, side: orderSide(a.side, true), qty: a.qty, type: "market", clientOrderId: `gsps-mirror-add-${a.positionId}-${a.targetAfter}` })) as AlpacaOrder;
+          } catch (err) {
+            await lines().update({ target_qty: before }).eq("position_id", a.positionId);
+            throw err;
+          }
+          result.placed++;
+          const settled = await settleOrder(creds, order.id);
+          if (TERMINAL_UNFILLED.includes(settled.status)) {
+            await must(lines().update({ target_qty: before }).eq("position_id", a.positionId), "line target");
+          }
+          await logEvent(supabase, { position_id: a.positionId, symbol: a.symbol, side: a.side, action: "add", qty: a.qty, sim_price: a.simPrice, stop_price: null, broker_order_id: order.id, status: settled.status, note: null, ...fillFields(settled) });
           break;
         }
         case "reduce":
         case "close": {
-          // A resting stop reserves the shares; it goes first, and the
-          // set_stop that follows (reduce) puts a new one on what remains.
+          // The resting stop reserves the shares: it is cancelled and the
+          // cancel confirmed first. If it had already filled, the line was
+          // stopped at the broker and no sell goes out.
           const m = mirrorById.get(a.positionId);
           if (m?.stopOrderId) {
-            await cancelOrder(creds, m.stopOrderId).catch(() => undefined);
-            await supabase.from("paper_mirror_lines").update({ stop_order_id: null, stop_qty: null }).eq("position_id", a.positionId);
+            const filledStop = await cancelStop(creds, m.stopOrderId);
+            if (filledStop) {
+              await markBrokerStopped(a.positionId, a.symbol, filledStop);
+              break;
+            }
+            await must(lines().update({ stop_order_id: null, stop_qty: null }).eq("position_id", a.positionId), "line stop cleared");
             m.stopOrderId = null;
           }
-          const order = (await placeOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty: a.qty, type: "market" })) as AlpacaOrder;
+          // closePosition never sells more than the account holds, so it can
+          // never open a short.
+          const order = (await closePosition(creds, a.symbol, a.qty)) as AlpacaOrder;
           result.placed++;
-          const filled = await awaitFill(creds, order.id);
           if (a.kind === "close") {
-            await supabase.from("paper_mirror_lines").update({ status: "closed", closed_at: new Date().toISOString() }).eq("position_id", a.positionId);
+            await must(lines().update({ status: "closed", closed_at: new Date().toISOString() }).eq("position_id", a.positionId), "line closed");
+          } else {
+            await must(lines().update({ target_qty: a.targetAfter }).eq("position_id", a.positionId), "line target");
           }
-          log({ position_id: a.positionId, symbol: a.symbol, side: a.side, action: a.kind, qty: a.qty, sim_price: a.kind === "reduce" ? a.simPrice : null, stop_price: null, broker_order_id: order.id, status: filled?.status ?? order.status, note: null, ...fillFields(filled) });
+          const settled = await settleOrder(creds, order.id);
+          await logEvent(supabase, { position_id: a.positionId, symbol: a.symbol, side: a.side, action: a.kind, qty: a.qty, sim_price: a.kind === "reduce" ? a.simPrice : null, stop_price: null, broker_order_id: order.id, status: settled.status, note: null, ...fillFields(settled) });
           break;
         }
         case "set_stop": {
           const m = mirrorById.get(a.positionId);
-          let stopOrder: AlpacaOrder;
-          if (m?.stopOrderId && m.stopQty === a.qty) {
-            stopOrder = await replaceOrder(creds, m.stopOrderId, { stopPrice: a.stop });
-          } else {
-            if (m?.stopOrderId) await cancelOrder(creds, m.stopOrderId).catch(() => undefined);
-            stopOrder = await placeExitOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty: a.qty, stopLoss: a.stop });
+          let stopOrder: AlpacaOrder | null = null;
+          if (m?.stopOrderId) {
+            try {
+              stopOrder = await replaceOrder(creds, m.stopOrderId, { stopPrice: a.stop, qty: a.qty });
+            } catch (err) {
+              // A stop that is no longer open (filled, cancelled outside the
+              // app, or expired) can't be replaced: a filled one means the
+              // broker stopped the line; anything else gets a fresh stop.
+              const old = await getOrder(creds, m.stopOrderId).catch(() => null);
+              if (old?.status === "filled") {
+                await markBrokerStopped(a.positionId, a.symbol, old);
+                break;
+              }
+              if (old && !["canceled", ...TERMINAL_UNFILLED].includes(old.status)) throw err;
+            }
           }
-          await supabase.from("paper_mirror_lines").update({ stop_order_id: stopOrder.id, stop_price: a.stop, stop_qty: a.qty }).eq("position_id", a.positionId);
-          log({ position_id: a.positionId, symbol: a.symbol, side: a.side, action: "set_stop", qty: a.qty, sim_price: null, stop_price: a.stop, broker_order_id: stopOrder.id, status: stopOrder.status, note: null });
+          if (!stopOrder) stopOrder = await placeExitOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty: a.qty, stopLoss: a.stop });
+          await must(lines().update({ stop_order_id: stopOrder.id, stop_price: a.stop, stop_qty: a.qty }).eq("position_id", a.positionId), "line stop");
+          await logEvent(supabase, { position_id: a.positionId, symbol: a.symbol, side: a.side, action: "set_stop", qty: a.qty, sim_price: null, stop_price: a.stop, broker_order_id: stopOrder.id, status: stopOrder.status, note: null });
           break;
         }
         case "broker_stopped": {
           const m = mirrorById.get(a.positionId);
-          await supabase.from("paper_mirror_lines").update({ status: "broker_stopped", closed_at: new Date().toISOString() }).eq("position_id", a.positionId);
-          log({ position_id: a.positionId, symbol: a.symbol, side: m?.side ?? null, action: "broker_stopped", qty: m?.stopQty ?? null, sim_price: null, stop_price: m?.stopPrice ?? null, broker_order_id: m?.stopOrderId ?? null, status: "filled", note: "The broker's stop filled before the simulator's exit; not re-bought." });
+          const stop = m?.stopOrderId ? await getOrder(creds, m.stopOrderId).catch(() => null) : null;
+          await markBrokerStopped(a.positionId, a.symbol, stop);
+          break;
+        }
+        case "check_open": {
+          const m = mirrorById.get(a.positionId);
+          // Claimed but its order id never stored (a cut-off run): the order
+          // is found by the client order id it was sent with, and a claim
+          // whose order never reached the broker is marked missed.
+          const o = m?.openOrderId
+            ? await getOrder(creds, m.openOrderId)
+            : await getOrderByClientId(creds, `gsps-mirror-open-${a.positionId}`);
+          if (!o) {
+            await must(lines().update({ status: "missed", note: "The open never reached the broker." }).eq("position_id", a.positionId), "line missed");
+            break;
+          }
+          if (!m?.openOrderId) await must(lines().update({ open_order_id: o.id }).eq("position_id", a.positionId), "line open order");
+          if (TERMINAL_UNFILLED.includes(o.status)) {
+            await must(lines().update({ status: "missed", note: `Broker ${o.status} the open.` }).eq("position_id", a.positionId), "line missed");
+          } else if (o.status === "filled") {
+            // Filled, and the broker holds nothing on the line's side: the
+            // shares left outside the mirror. Closed, never re-bought.
+            await must(lines().update({ status: "closed", closed_at: new Date().toISOString(), note: "Open filled but no shares held; closed outside the mirror." }).eq("position_id", a.positionId), "line closed");
+          }
           break;
         }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      result.errors.push(`${a.kind} ${"symbol" in a ? a.symbol : ""}: ${msg}`);
-      log({ position_id: a.positionId, symbol: a.symbol, side: "side" in a ? a.side : null, action: a.kind, qty: "qty" in a ? a.qty : null, sim_price: null, stop_price: null, broker_order_id: null, status: "error", note: msg.slice(0, 500) });
+      result.errors.push(`${a.kind} ${a.symbol}: ${msg}`);
+      await logEvent(supabase, { position_id: a.positionId, symbol: a.symbol, side: "side" in a ? a.side : null, action: a.kind, qty: "qty" in a ? a.qty : null, sim_price: null, stop_price: null, broker_order_id: null, status: "error", note: msg.slice(0, 500) }).catch(() => undefined);
     }
   }
-  if (logs.length > 0) {
-    const { error } = await supabase.from("paper_mirror_events").insert(logs);
-    if (error) result.errors.push(`paper_mirror_events: ${error.message}`);
-  }
-  await settleFills(supabase, creds).catch((err) => result.errors.push(`settle: ${String(err)}`));
+  await settleFills(supabase, creds, deadline).catch((err) => result.errors.push(`settle: ${String(err)}`));
+  result.elapsedMs = Date.now() - started;
   return result;
 }
 
 /**
  * Fills not yet known when they were logged: read each from the broker and
  * write its price and time, so every row ends with the broker's own fill
- * beside the simulator's.
+ * beside the simulator's. Bounded by the run's deadline.
  */
-async function settleFills(supabase: SupabaseClient, creds: AlpacaCreds): Promise<void> {
-  const { data } = await supabase
+async function settleFills(supabase: SupabaseClient, creds: AlpacaCreds, deadline: number): Promise<void> {
+  const { data, error } = await supabase
     .from("paper_mirror_events")
     .select("id, broker_order_id")
-    .in("action", ["open", "add", "reduce", "close"])
+    .in("action", ["open", "add", "reduce", "close", "broker_stopped"])
     .is("fill_price", null)
     .not("broker_order_id", "is", null)
-    .not("status", "in", "(canceled,expired,rejected,error)")
+    .not("status", "in", "(canceled,expired,rejected,done_for_day,error)")
+    .order("id", { ascending: true })
     .limit(25);
+  if (error) throw new Error(error.message);
   for (const row of data ?? []) {
+    if (Date.now() > deadline) return;
     const o = await getOrder(creds, row.broker_order_id as string);
     const patch: Record<string, unknown> = { status: o.status };
     if (o.status === "filled") {
@@ -547,6 +669,6 @@ async function settleFills(supabase: SupabaseClient, creds: AlpacaCreds): Promis
       patch.filled_qty = num(o.filled_qty);
       patch.filled_at = o.filled_at ?? null;
     }
-    await supabase.from("paper_mirror_events").update(patch).eq("id", row.id);
+    await must(supabase.from("paper_mirror_events").update(patch).eq("id", row.id), "settle");
   }
 }

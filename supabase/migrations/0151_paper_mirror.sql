@@ -27,6 +27,8 @@ create table if not exists public.paper_mirror_lines (
   status text not null check (status in ('open', 'closed', 'broker_stopped', 'missed')),
   -- shares the simulator held when the mirror last opened or added
   target_qty numeric not null default 0,
+  -- the broker order that opened the line (client id gsps-mirror-open-<position_id>)
+  open_order_id text,
   -- the one resting good-till-cancelled stop at the broker
   stop_order_id text,
   stop_price numeric,
