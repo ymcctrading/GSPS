@@ -89,6 +89,26 @@ describe("push messages", () => {
     expect(msg.url).toBe("/ticker/AAPL");
   });
 
+  it("names the stop and first target in the recipient's school-tier words", () => {
+    const base = {
+      symbol: "AAPL",
+      direction: "bullish" as const,
+      score: 7,
+      exactScoreDisplayEnabled: false,
+      entry: 100,
+      stopLoss: 95,
+      takeProfit: 110,
+      verdict: "Execute" as const,
+      confidence: 0.8,
+    };
+    expect(deliveryPushMessage({ ...base, vocabularyTier: "PRACTICE" }).body).toContain(
+      "exit if wrong (stop loss) 95.00, first target (TP1) 110.00",
+    );
+    expect(deliveryPushMessage({ ...base, vocabularyTier: "STANDARD" }).body).toContain("stop 95.00, TP1 110.00");
+    // A payload stored before the tier was carried reads as a visitor: glossed.
+    expect(deliveryPushMessage(base).body).toContain("exit if wrong (stop loss)");
+  });
+
   it("words an invalidation and a price alert", () => {
     expect(deliveryPushMessage({ symbol: "MSFT", verdict: "INVALIDATED" } as never).title).toBe("MSFT invalidated");
     // A position on the member's own levels: the break doesn't move its stop.

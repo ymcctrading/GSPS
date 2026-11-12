@@ -27,6 +27,7 @@ import type { PublicSignalSummary } from "@/lib/signals/publicSummary";
 import { formatScore, SCORE_MAX } from "@/lib/scoring/display";
 import { etDateKey } from "@/lib/market/session";
 import { heldOffPlanNote } from "@/lib/trade/level-source";
+import { termInSentence, type VocabularyTier } from "@/lib/school/terms";
 
 export type DeliveryChannel = "email" | "sms" | "push";
 
@@ -48,6 +49,12 @@ export type EntitledAlertPayload = {
   score: number;
   /** See lib/scoring/display.ts — the recipient's own tier, resolved once. */
   exactScoreDisplayEnabled: boolean;
+  /**
+   * The recipient's tier for trading vocabulary (lib/school/terms.ts),
+   * resolved once with the score's precision. Absent on a payload stored
+   * before it existed, which reads as a visitor: every term glossed.
+   */
+  vocabularyTier?: VocabularyTier;
   entry: number;
   stopLoss: number;
   takeProfit: number;
@@ -489,7 +496,7 @@ export async function recordInAppNotification(
           symbol: payload.symbol,
           verdict: "Execute" as const,
           title: `${payload.symbol} — Execute (${formatScore(payload.score, payload.exactScoreDisplayEnabled)}/${SCORE_MAX})`,
-          body: `${payload.direction === "bullish" ? "Buy" : "Sell"} setup confirmed at ${formatScore(payload.score, payload.exactScoreDisplayEnabled)}/${SCORE_MAX}. Entry ${payload.entry}, stop ${payload.stopLoss}, target ${payload.takeProfit}.`,
+          body: `${payload.direction === "bullish" ? "Buy" : "Sell"} setup confirmed at ${formatScore(payload.score, payload.exactScoreDisplayEnabled)}/${SCORE_MAX}. Entry ${payload.entry}, ${termInSentence("stopLoss", payload.vocabularyTier ?? null)} ${payload.stopLoss}, ${termInSentence("tp1", payload.vocabularyTier ?? null)} ${payload.takeProfit}.`,
         };
 
   const { error } = await service.from("in_app_notifications").insert({

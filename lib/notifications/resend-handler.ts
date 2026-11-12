@@ -6,6 +6,7 @@ import { priceUsd } from "@/lib/strat/priceText";
 import { configuredAppUrl, tickerHref } from "@/lib/routes";
 import { emailBudgetHold } from "@/lib/notifications/email-budget";
 import { heldOffPlanNote } from "@/lib/trade/level-source";
+import { termLabel, type VocabularyTier } from "@/lib/school/terms";
 
 function getResendClient() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -93,6 +94,8 @@ export interface AlertEmailData {
   score: number;
   /** See lib/scoring/display.ts. */
   exactScoreDisplayEnabled: boolean;
+  /** The recipient's tier for trading vocabulary (lib/school/terms.ts); absent glosses every term. */
+  vocabularyTier?: VocabularyTier;
   entry: number;
   stopLoss: number;
   /** Null when the alert fixes no target and the stop trails the move instead. */
@@ -156,9 +159,9 @@ export async function sendAlertEmail(data: AlertEmailData) {
         <div style="background: #fff7ed; padding: 15px; border-left: 4px solid #ea580c; border-radius: 4px; margin-bottom: 20px;">
           <p style="margin: 0; color: #7c2d12; font-size: 14px; font-weight: 600;">Risk Management</p>
           <p style="margin: 8px 0 0; color: #7c2d12; font-size: 13px;">
-            Stop Loss: <strong>${priceUsd(data.stopLoss)}</strong> |
-            Target: <strong>${data.takeProfit != null ? `${priceUsd(data.takeProfit)}` : "none fixed — the stop trails the move"}</strong>${
-              data.masterProfit != null ? ` | MTP: <strong>${priceUsd(data.masterProfit)}</strong>` : ""
+            ${termLabel("stopLoss", data.vocabularyTier ?? null)}: <strong>${priceUsd(data.stopLoss)}</strong> |
+            ${termLabel("tp1", data.vocabularyTier ?? null)}: <strong>${data.takeProfit != null ? `${priceUsd(data.takeProfit)}` : "none fixed — the stop trails the move"}</strong>${
+              data.masterProfit != null ? ` | ${termLabel("mtp", data.vocabularyTier ?? null)}: <strong>${priceUsd(data.masterProfit)}</strong>` : ""
             }
           </p>
         </div>

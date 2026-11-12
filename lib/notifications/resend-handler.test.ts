@@ -66,6 +66,18 @@ describe("sendAlertEmail", () => {
     expect(html).not.toContain("A-tier");
   });
 
+  it("labels the stop and first target in the recipient's school-tier words", async () => {
+    await sendAlertEmail({ ...BASE, vocabularyTier: "PRACTICE" });
+    await sendAlertEmail({ ...BASE, vocabularyTier: "INVESTOR_MODE" });
+    const novice = sendMock.mock.calls[0][0].html as string;
+    const expert = sendMock.mock.calls[1][0].html as string;
+    expect(novice).toContain("Exit if wrong (stop loss):");
+    expect(novice).toContain("First target (TP1):");
+    expect(expert).toContain("Stop loss:");
+    expect(expert).toContain("TP1:");
+    expect(expert).not.toContain("Exit if wrong");
+  });
+
   it("omits the section entirely when there is no signal rollup", async () => {
     await sendAlertEmail(BASE);
 

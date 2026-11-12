@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { ACADEMIES, schoolProgram } from "@/lib/school/curriculum";
-import { TERMS, termIsFamiliar, termLabel, type TermId } from "@/lib/school/terms";
+import { TERMS, termInSentence, termIsFamiliar, termLabel, type TermId } from "@/lib/school/terms";
 import { TIER_ORDER, tierRank, type PlatformTier } from "@/lib/tiers";
 
 function tierThatTeaches(lessonId: string): PlatformTier | null {
@@ -61,5 +61,14 @@ describe("trading vocabulary by school tier", () => {
 
   it("keeps the plain term inside its gloss, so a member learns the word they will read later", () => {
     for (const t of Object.values(TERMS)) expect(t.introduced.toLowerCase()).toContain(t.plain.toLowerCase());
+  });
+
+  it("says a term inside a sentence with a lower-case gloss, and the short word once familiar", () => {
+    expect(termInSentence("stopLoss", "PRACTICE")).toBe("exit if wrong (stop loss)");
+    expect(termInSentence("stopLoss", "STANDARD")).toBe("stop");
+    expect(termInSentence("buyStop", "PRACTICE")).toBe("entry (buy stop)");
+    expect(termInSentence("buyStop", "INVESTOR_MODE")).toBe("buy stop");
+    expect(termInSentence("tp1", "SYSTEM_MASTERY")).toBe("TP1");
+    expect(termInSentence("mtp", null)).toBe("master target (MTP)");
   });
 });

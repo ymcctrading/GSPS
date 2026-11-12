@@ -97,3 +97,20 @@ export function termIsFamiliar(id: TermId, tier: VocabularyTier): boolean {
 export function termLabel(id: TermId, tier: VocabularyTier): string {
   return termIsFamiliar(id, tier) ? TERMS[id].plain : TERMS[id].introduced;
 }
+
+/**
+ * How a later tier says the term inside a sentence, where it differs from the
+ * label ("stop 97.00" rather than "Stop loss 97.00").
+ */
+const IN_SENTENCE: Partial<Record<TermId, string>> = { buyStop: "buy stop", sellStop: "sell stop", stopLoss: "stop" };
+
+/**
+ * The term as this reader reads it inside a sentence: lower-case lead for the
+ * gloss ("exit if wrong (stop loss) 97.00"), the short word once familiar
+ * ("stop 97.00"). For messages written on the server for one member.
+ */
+export function termInSentence(id: TermId, tier: VocabularyTier): string {
+  if (termIsFamiliar(id, tier)) return IN_SENTENCE[id] ?? TERMS[id].plain;
+  const t = TERMS[id].introduced;
+  return t.charAt(0).toLowerCase() + t.slice(1);
+}
