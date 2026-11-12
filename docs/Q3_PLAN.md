@@ -59,6 +59,18 @@ items.
 
 ### 2. Notes on closed trades, and the trader's own record read back
 
+**Built 2026-11-12** (out of phase, on Chuck's 2026-11-12 ask to finish the open
+Q1 to Q3 items): a "Your record" card on the Portfolio page
+(`components/portfolio/trade-record.tsx`, `/api/trade-record`,
+`lib/portfolio/tradeRecord.ts`) and a member's note on any closed trade
+(`/api/trade-notes`, migration 0151 `trade_notes`). The note is its own table
+written on the member's session under row security, not a ledger column, so the
+ledger stays server-written (R-029). The record reads the trades the loss-series
+pause reads (paper and live closes, not journal entries), counts a series and
+honours an operator's reset the same way, and dates the pause on the same trading
+calendar, so the card can't disagree with the rule. Notes also ride in the daily
+journal workbook ("Your note" column). No win rate or expectancy is shown.
+
 **The method:** keep a record of every trade and read it back to find your own good
 and bad runs, and quit after 2 or 3 losses then restart small (*Truth of the
 Stock Tape*, PDF 246-247, `/mnt/project-files/private-research/sources/A02_A04_truth_of_stock_tape_1923_and_stock_selector_1930.md`). The loss

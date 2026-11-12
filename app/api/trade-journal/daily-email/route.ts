@@ -81,7 +81,7 @@ async function sendDailyJournals(): Promise<NextResponse> {
     const { data: rows, error } = await supabase
       .from("trade_logs")
       .select(
-        "symbol, direction, quantity, entry_timestamp, entry_price, exit_timestamp, exit_price, outcome, profit_loss_dollars, profit_loss_percent, exit_condition, signal_called, signal_adherence",
+        "id, symbol, direction, quantity, entry_timestamp, entry_price, exit_timestamp, exit_price, outcome, profit_loss_dollars, profit_loss_percent, exit_condition, signal_called, signal_adherence",
       )
       .eq("user_id", user.id)
       .not("exit_timestamp", "is", null)
@@ -93,7 +93,7 @@ async function sendDailyJournals(): Promise<NextResponse> {
       continue;
     }
 
-    const trades = (rows ?? []) as JournalTrade[];
+    const trades = (rows ?? []) as (JournalTrade & { id: string })[];
     const closed = closedTrades(trades);
 
     // Today's intraday signals, from the member's own bell (2026-10-28: they
@@ -126,7 +126,17 @@ async function sendDailyJournals(): Promise<NextResponse> {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const exitedAt = (t: JournalTrade) => new Date(t.exit_timestamp as string).getTime();
 
-    const attachment = closed.length > 0 ? await buildJournalWorkbook(trades, now) : null;
+    // The member's own notes ride along in the workbook (Q3 plan item 2), so
+    // the journal and the Portfolio page's record read the same trades the
+    // same way. An unreadable notes table leaves the column empty, never the
+    // email unsent.
+    const notes = new Map<string, string>();
+    if (closed.length > 0) {
+      const { data: noteRows } = await supabase.from("trade_notes").select("trade_log_id, note").eq("user_id", user.id).limit(5000);
+      for (const n of (noteRows ?? []) as { trade_log_id: string; note: string }[]) notes.set(n.trade_log_id, n.note);
+    }
+    const withNotes = trades.map(({ id, ...t }) => ({ ...t, note: notes.get(id) ?? null }));
+    const attachment = closed.length > 0 ? await buildJournalWorkbook(withNotes, now) : null;
     const result = await sendJournalEmail({
       userEmail: user.email,
       dateLabel,
