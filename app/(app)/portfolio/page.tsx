@@ -16,6 +16,7 @@ import { SyncBar } from "@/components/portfolio/sync-bar";
 import { ExitActivity } from "@/components/portfolio/exit-activity";
 import { AnalyticsDashboard } from "@/components/portfolio/analytics-dashboard";
 import { TradeReviews } from "@/components/portfolio/trade-reviews";
+import { TradeRecord } from "@/components/portfolio/trade-record";
 import { RiskPanel } from "@/components/portfolio/risk-panel";
 import type { ExitsState, OrderRow, Portfolio, SyncState } from "@/components/portfolio/types";
 import { countOpenLegs, groupByDisposition, sectionOrders } from "@/lib/portfolio/sections";
@@ -146,6 +147,14 @@ export default function PortfolioPage() {
       <div className="flex items-center gap-3">
         <h1 className="text-xl font-semibold sm:text-2xl">Portfolio</h1>
         <Badge variant="muted">Paper account</Badge>
+        <a
+          href="/api/audit/orders"
+          download
+          className="ml-auto text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          title="Every order you placed, the plan behind it, what the broker did and how it closed"
+        >
+          Download audit trail (CSV)
+        </a>
       </div>
 
       {error && (
@@ -294,6 +303,8 @@ export default function PortfolioPage() {
           </div>
         )}
       </PositionSection>
+
+      <TradeRecord />
 
       <TradeReviews />
 

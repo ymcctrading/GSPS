@@ -1,0 +1,65 @@
+{
+ "_source": "Held-out read of 2026-11-12 (internal records RESULT-WHALE7-HOLDOUT.md, RESULT-WHALE9.md, RESULT-WHALE-CARDS.md), 248 large caps, 2019-01..2026-10; figures only. Descriptive read: no pass bar was set (PASS false).",
+ "rangeLow": {
+  "fills": 6417,
+  "good": 2988,
+  "bad": 3348,
+  "unresolved": 81,
+  "rate": 0.4716,
+  "breakeven": 0.406,
+  "expR": 0.1998,
+  "random_expR_mean": 0.0868,
+  "PASS": false,
+  "halves": {
+   "2019-2023": {
+    "fills": 3996,
+    "good": 1921,
+    "bad": 2059,
+    "unresolved": 16,
+    "rate": 0.4827,
+    "breakeven": 0.4162,
+    "expR": 0.1817
+   },
+   "2024-2026": {
+    "fills": 2421,
+    "good": 1067,
+    "bad": 1289,
+    "unresolved": 65,
+    "rate": 0.4529,
+    "breakeven": 0.3891,
+    "expR": 0.2303
+   }
+  }
+ },
+ "rangeBreakout": {
+  "fills": 2201,
+  "good": 969,
+  "bad": 1217,
+  "unresolved": 15,
+  "rate": 0.4433,
+  "breakeven": 0.3751,
+  "expR": 0.1767,
+  "random_expR_mean": 0.2412,
+  "PASS": false,
+  "halves": {
+   "2019-2023": {
+    "fills": 1262,
+    "good": 564,
+    "bad": 696,
+    "unresolved": 2,
+    "rate": 0.4476,
+    "breakeven": 0.3874,
+    "expR": 0.1393
+   },
+   "2024-2026": {
+    "fills": 939,
+    "good": 405,
+    "bad": 521,
+    "unresolved": 13,
+    "rate": 0.4374,
+    "breakeven": 0.3587,
+    "expR": 0.2276
+   }
+  }
+ }
+}

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { cardsStillTrade, getTradeCards } from "@/lib/cards/readCards";
+import { cardsStillTrade, getTradeCards, tierCarries } from "@/lib/cards/readCards";
+import { getEntitlementPolicy } from "@/lib/entitlements/policy";
+import { TIER_ORDER } from "@/lib/tiers";
 
 type Row = Record<string, unknown>;
 
@@ -125,6 +127,30 @@ describe("getTradeCards", () => {
     expect((await getTradeCards(svc, null, tuesdayEvening)).cards).toEqual([]);
     const rsi = await getTradeCards(svc, pro, tuesdayEvening);
     expect(rsi.cards.map((c) => [c.symbol, c.tp2])).toEqual([["EEE", 110], ["AAA", null]]);
+  });
+
+  it("shows the range-low card to every tier, and the breakout alert only to Expert and Wall Street, labelled", async () => {
+    const svc = fakeService([card("rangeLow", "LLL", "2026-11-10", true), card("rangeBreakout", "BBB", "2026-11-10", true)]);
+    const novice = await getTradeCards(svc, { policy: { allowedStrategyModes: [], higherRiskAlertsEnabled: false } as never, mode: null }, tuesdayEvening);
+    expect(novice.cards.map((c) => [c.symbol, c.grade, c.order])).toEqual([["LLL", "setup", "buyAtOpen"]]);
+    expect(novice).toMatchObject({ heldBack: 1, alertsHeldBack: 1 });
+    const proTier = await getTradeCards(svc, { policy: { ...(proPolicy as object), higherRiskAlertsEnabled: false } as never, mode: "rsiReversal" }, tuesdayEvening);
+    expect(proTier.cards.map((c) => c.symbol)).toEqual(["LLL"]);
+    expect(proTier.alertsHeldBack).toBe(1);
+    const expert = await getTradeCards(svc, { policy: { allowedStrategyModes: "all", higherRiskAlertsEnabled: true } as never, mode: null }, tuesdayEvening);
+    expect(expert.cards.map((c) => [c.symbol, c.grade, c.order]).sort()).toEqual([
+      ["BBB", "alert", "buyLimit"],
+      ["LLL", "setup", "buyAtOpen"],
+    ]);
+    expect(expert).toMatchObject({ heldBack: 0, alertsHeldBack: 0 });
+    expect(expert.kinds.map((k) => k.kind)).toEqual(expect.arrayContaining(["rangeLow", "rangeBreakout"]));
+  });
+
+  it("reads the alert gate from the real policy: Expert and Wall Street carry alerts, Novice and Pro do not", () => {
+    expect(TIER_ORDER.map((t) => getEntitlementPolicy(t).higherRiskAlertsEnabled)).toEqual([false, false, true, true]);
+    expect(tierCarries("rangeBreakout", getEntitlementPolicy("STANDARD"))).toBe(false);
+    expect(tierCarries("rangeBreakout", getEntitlementPolicy("INVESTOR_MODE"))).toBe(true);
+    expect(tierCarries("rangeLow", getEntitlementPolicy("PRACTICE"))).toBe(true);
   });
 
   it("keeps the forward record, losses and no-fills included", async () => {

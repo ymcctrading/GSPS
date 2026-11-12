@@ -56,6 +56,10 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
   Expired — each with its own count, empty state, and newest-first ordering.
   Closed and Canceled & Expired start collapsed; Pending and Rejected never do,
   because both hold things that may need acting on
+- **Your Record**: Your closed paper and live trades read back in order, with
+  your winning and losing runs, where the pause after three losses in a row
+  fell, and a private note of your own on any trade. The note also appears in
+  the daily journal workbook. It describes your own trading only
 - **Broker Order Reconciliation**: Every load diffs the local order ledger
   against the broker's own order list and writes the broker's answer back, so
   Pending shows what is actually working rather than what was working when each
@@ -84,6 +88,12 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - **Ended-Order Dispositions**: Orders that never became a position group by
   how each one ended — canceled, expired, replaced, done for day
 - **Position Tracking**: Real-time position monitoring
+- **Order Audit Trail (CSV)**: Portfolio's "Download audit trail (CSV)" exports
+  every order you placed (up to 5,000, newest first): its levels and where they
+  came from, the rules version, what the broker did with it and why it refused,
+  the fill, the plan it was placed on, and how the trade closed with its P/L.
+  Read with your own session, so it holds only your rows; cells a spreadsheet
+  could run as a formula are written as text
 
 ### 5. Trading Interface
 - **Guided Decision Mode**: One recommended action per symbol, in plain English,
@@ -171,6 +181,12 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - **Scan Results Table**: View latest scan signals
 - **Score Badges**: Visual display of pattern scores (1-10 scale)
 - **Signal Cards**: Quick view of the highest-scoring setups
+- **Shared Watchlists**: Share your Dashboard list by link, read-only, with
+  anyone who has the link or only members you approve; a new link stops the old
+  one. Viewers see symbols only and can keep the list as their own
+- **Fed Meetings Calendar**: The Federal Reserve's scheduled policy meetings on
+  the Dashboard, and a note on a symbol's page in the week of a meeting. Dates
+  only, from the Fed's own published calendar
 
 ### 10. Settings & Configuration
 - **User Settings**: Customize preferences

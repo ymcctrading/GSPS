@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Pencil, X } from "lucide-react";
+import { Pencil, Share2, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import {
   isWatchSymbolFormat,
 } from "@/lib/dashboard/watchlist";
 import { tickerHref } from "@/lib/routes";
+import { WatchlistShare } from "@/components/dashboard/watchlist-share";
 import { cn } from "@/lib/utils";
 
 /**
@@ -39,6 +40,7 @@ export function DashboardWatchlist({
   const [entry, setEntry] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   function startEditing() {
     setDraft(symbols);
@@ -113,14 +115,23 @@ export function DashboardWatchlist({
             </CardDescription>
           </div>
           {canEdit && !editing && (
-            <Button variant="outline" size="sm" onClick={startEditing} className="shrink-0">
-              <Pencil className="h-3.5 w-3.5" aria-hidden />
-              Customize
-            </Button>
+            <div className="flex shrink-0 gap-2">
+              {!isDefault && (
+                <Button variant="outline" size="sm" onClick={() => setSharing((v) => !v)} aria-expanded={sharing}>
+                  <Share2 className="h-3.5 w-3.5" aria-hidden />
+                  Share
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={startEditing}>
+                <Pencil className="h-3.5 w-3.5" aria-hidden />
+                Customize
+              </Button>
+            </div>
           )}
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        {canEdit && !editing && !isDefault && sharing && <WatchlistShare />}
         {!editing ? (
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
             {symbols.map((s) => (

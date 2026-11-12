@@ -91,7 +91,7 @@ function tradingDaysAfter(from: string, to: string): number {
 }
 
 /** The trading day `n` trading days after `from` (YYYY-MM-DD, ET). */
-function tradingDayAfter(from: string, n: number): string {
+export function tradingDayAfter(from: string, n: number): string {
   const d = new Date(`${from}T12:00:00Z`);
   let left = n;
   while (left > 0) {

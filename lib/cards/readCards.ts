@@ -11,7 +11,18 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { CARD_KIND_LABELS, CARD_KIND_MODE, CARD_RECORDS, cardKindShown, type CardKind, type CardRecord } from "@/lib/setups/cardRecords";
+import {
+  CARD_KIND_GRADE,
+  CARD_KIND_LABELS,
+  CARD_KIND_MODE,
+  CARD_RECORDS,
+  cardKindOrder,
+  cardKindShown,
+  type CardGrade,
+  type CardKind,
+  type CardOrder,
+  type CardRecord,
+} from "@/lib/setups/cardRecords";
 import { tallyGoodCalls, type GoodCallTally } from "@/lib/shadow/goodCall";
 import { CARD_KINDS } from "@/lib/cards/cardCalls";
 import { isStrategyModeAllowedForPolicy } from "@/lib/strategies/access";
@@ -28,6 +39,10 @@ export interface TradeCard {
   /** Second target and master take profit, where the kind has them. */
   tp2: number | null;
   mtp: number | null;
+  /** "alert": a higher-risk card, labelled as an alert and not a verified setup. */
+  grade: CardGrade;
+  /** The order the entry is: a buy stop at it, a buy at the open (the entry is then the last close), or a buy limit at it. */
+  order: CardOrder;
 }
 
 export interface TradeCardKindRecord {
@@ -56,12 +71,18 @@ export interface TradeCards {
    * the Dashboard shows only the chosen mode's cards and says where to choose.
    */
   unchosen: { label: string; count: number }[];
+  /**
+   * Of `heldBack`, the higher-risk alerts the member's tier does not carry
+   * (`higherRiskAlertsEnabled`, Expert and Wall Street), counted apart so the
+   * Dashboard can say which tiers carry them.
+   */
+  alertsHeldBack: number;
   kinds: TradeCardKindRecord[];
 }
 
 /** Who is reading: their tier's policy and the strategy mode they chose ("gsps" or none: no mode). */
 export interface TradeCardViewer {
-  policy: Pick<EntitlementPolicy, "allowedStrategyModes">;
+  policy: Pick<EntitlementPolicy, "allowedStrategyModes" | "higherRiskAlertsEnabled">;
   mode: string | null;
 }
 
@@ -95,7 +116,18 @@ export function shownTo(kind: CardKind, viewer: TradeCardViewer | null): boolean
 /** Most forward rows read for a kind's tally; an engineering bound for one request. */
 const FORWARD_ROWS = 5000;
 
-export const NO_TRADE_CARDS: TradeCards = { signalDate: null, cards: [], heldBack: 0, unchosen: [], kinds: [] };
+export const NO_TRADE_CARDS: TradeCards = { signalDate: null, cards: [], heldBack: 0, unchosen: [], alertsHeldBack: 0, kinds: [] };
+
+/**
+ * Pure. Whether the member's tier carries cards of this kind: its strategy
+ * mode is allowed (`allowedStrategyModes`) and, for a higher-risk alert, the
+ * tier carries alerts (`higherRiskAlertsEnabled`). Server-side, from the
+ * resolved policy only.
+ */
+export function tierCarries(kind: CardKind, policy: TradeCardViewer["policy"]): boolean {
+  if (!isStrategyModeAllowedForPolicy(policy, CARD_KIND_MODE[kind])) return false;
+  return CARD_KIND_GRADE[kind] !== "alert" || policy.higherRiskAlertsEnabled === true;
+}
 
 /**
  * Whether cards read on the close of `signalDate` still trade: they are good
@@ -138,6 +170,7 @@ export async function getTradeCards(
 
   let cards: TradeCard[] = [];
   let heldBack = 0;
+  let alertsHeldBack = 0;
   const unchosen: { label: string; count: number }[] = [];
   if (signalDate) {
     const { data } = await service
@@ -158,10 +191,15 @@ export async function getTradeCards(
       tp1: Number(r.tp1),
       tp2: opt(r.tp2),
       mtp: opt(r.mtp),
+      grade: CARD_KIND_GRADE[r.kind],
+      order: cardKindOrder(r.kind),
     }));
     cards = withoutDuplicateCards(cards);
     const all = cards.length;
-    const allowed = viewer ? cards.filter((c) => isStrategyModeAllowedForPolicy(viewer.policy, CARD_KIND_MODE[c.kind])) : [];
+    const allowed = viewer ? cards.filter((c) => tierCarries(c.kind, viewer.policy)) : [];
+    alertsHeldBack = viewer
+      ? cards.filter((c) => c.grade === "alert" && isStrategyModeAllowedForPolicy(viewer.policy, CARD_KIND_MODE[c.kind]) && !tierCarries(c.kind, viewer.policy)).length
+      : 0;
     cards = allowed.filter((c) => shownTo(c.kind, viewer));
     heldBack = all - cards.length;
     for (const c of allowed) {
@@ -206,5 +244,5 @@ export async function getTradeCards(
     return { kind, label: CARD_KIND_LABELS[kind], heldOut, forward, since: rows.length ? rows[rows.length - 1].signal_date : null };
   };
   const records = (await Promise.all(kinds.map(readKind))).filter((r): r is TradeCardKindRecord => r != null);
-  return { signalDate, cards, heldBack, unchosen, kinds: records };
+  return { signalDate, cards, heldBack, unchosen, alertsHeldBack, kinds: records };
 }

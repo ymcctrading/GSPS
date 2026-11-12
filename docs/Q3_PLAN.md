@@ -59,6 +59,18 @@ items.
 
 ### 2. Notes on closed trades, and the trader's own record read back
 
+**Built 2026-11-12** (out of phase, on Chuck's 2026-11-12 ask to finish the open
+Q1 to Q3 items): a "Your record" card on the Portfolio page
+(`components/portfolio/trade-record.tsx`, `/api/trade-record`,
+`lib/portfolio/tradeRecord.ts`) and a member's note on any closed trade
+(`/api/trade-notes`, migration 0151 `trade_notes`). The note is its own table
+written on the member's session under row security, not a ledger column, so the
+ledger stays server-written (R-029). The record reads the trades the loss-series
+pause reads (paper and live closes, not journal entries), counts a series and
+honours an operator's reset the same way, and dates the pause on the same trading
+calendar, so the card can't disagree with the rule. Notes also ride in the daily
+journal workbook ("Your note" column). No win rate or expectancy is shown.
+
 **The method:** keep a record of every trade and read it back to find your own good
 and bad runs, and quit after 2 or 3 losses then restart small (*Truth of the
 Stock Tape*, PDF 246-247, `/mnt/project-files/private-research/sources/A02_A04_truth_of_stock_tape_1923_and_stock_selector_1930.md`). The loss
@@ -147,7 +159,14 @@ each with its publisher and link, beside the close of the session it fell on and
 that session's change (after the 4 PM close it counts on the next session, as
 `badNews.ts` reads it; crypto by its UTC day). Signed-in members, every tier.
 Read once a symbol an hour per server instance, not once a day: a page a person
-opens needs the day's headlines. The macro calendar is still held for a source.
+opens needs the day's headlines. **Macro calendar built 2026-11-12** (out of phase, on Chuck's 2026-11-12 ask):
+the Fed's scheduled policy meetings, read from federalreserve.gov's FOMC calendar
+(public domain, kept as data in `lib/macro/fomc.ts` with its read date;
+`scripts/fetch-fomc-calendar.mjs` re-reads it). A "Fed policy meetings" card in
+the Dashboard's calendar section, and a one-line note on the symbol page when a
+meeting is under way or within the week. Dates only, never an expectation, and
+it feeds no score. BLS release dates (CPI, jobs) are left out: bls.gov refuses
+automated reads.
 
 **The method:** he read the market's response to news, not the news itself: tops on
 bullish news, bottoms on bearish (*Commodities* p. 8; W006 p. 14), which is how
@@ -162,6 +181,20 @@ bullish news, bottoms on bearish (*Commodities* p. 8; W006 p. 14), which is how
   Held until a source is chosen.
 
 ### 7. Community, the method's way
+
+**Shared watchlists built 2026-11-12** (out of phase, on Chuck's 2026-11-12 ask;
+his 2026-11-09 answer to the open question was "Both", so the list's owner
+chooses): the Dashboard list's owner turns sharing on from the card's Share
+button, for anyone with the link or only members they approve, and can issue a
+new link that stops the old one (`lib/watchlist/share.ts`,
+`lib/watchlist/shareServer.ts`, `/api/watchlist-share`,
+`/api/shared-watchlist/[token]`, the page `/shared/watchlist/[token]`, migration
+0152). The page shows symbols only, says they are not a recommendation, and
+lets a signed-in viewer keep them as their own Dashboard list. A requester is
+shown to the owner by display name or a masked email, and is told so before
+asking. The list is read live; a list reset to the default stops answering
+until it is saved again. Not indexed by search engines. The leaderboard stays
+held, as above.
 
 **The method:** losses come from hope, tips and opinions; trade only on definite rules
 (SRC-004, `/mnt/project-files/private-research/sources/A05_new_stock_trend_detector.md`; SRC-012, A11:

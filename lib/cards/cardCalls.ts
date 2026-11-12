@@ -40,7 +40,8 @@ import { evaluateStrategyMode, NON_GANN_STRATEGY_EVALUATORS, type NonGannStrateg
 import { etDateKey } from "@/lib/market/session";
 import { walkGoodCall, GOOD_CALL_MAX_SESSIONS, type CallOutcome } from "@/lib/shadow/goodCall";
 import { changeInTrend, CHANGE_IN_TREND_FIRST_SESSION } from "@/lib/gann/changeInTrend";
-import type { CardKind } from "@/lib/setups/cardRecords";
+import type { CardKind, CardOrder } from "@/lib/setups/cardRecords";
+import { activeFlags, activityMedians, rangeBreakoutCard, rangeLowCard, RANGE_MIN_BARS } from "@/lib/cards/rangeCards";
 
 /** Daily bars a mode reads, as the held-out read ran it (`--window 250`). */
 export const CARD_WINDOW_BARS = 250;
@@ -53,9 +54,10 @@ export const CARD_MODES: readonly NonGannStrategyModeId[] = (Object.keys(NON_GAN
 /**
  * Every kind recorded each night: the modes' own cards, the RSI reversal
  * card on a day Gann's Rule 10 also holds (`timedCards`), and the engine's
- * own card (lib/cards/edgeCard.ts, written by /api/cards/edge).
+ * own card (lib/cards/edgeCard.ts, written by /api/cards/edge), and the
+ * range cards (lib/cards/rangeCards.ts, `rangeCardCalls`).
  */
-export const CARD_KINDS: readonly CardKind[] = [...CARD_MODES, "rsiReversalTimed", "edgeBottom"];
+export const CARD_KINDS: readonly CardKind[] = [...CARD_MODES, "rsiReversalTimed", "edgeBottom", "rangeLow", "rangeBreakout"];
 
 /** Where the long history `timedCards` reads begins (the research data's first session). */
 export const TIMED_HISTORY_START = CHANGE_IN_TREND_FIRST_SESSION;
@@ -146,6 +148,30 @@ export function timedCards(cards: readonly CardCall[], history: readonly Bar[]):
   return out;
 }
 
+/**
+ * Pure. Tonight's range cards ("rangeLow" for every member, "rangeBreakout"
+ * the higher-risk alert; lib/cards/rangeCards.ts) across the universe. A
+ * stock counts as active against the day's median over every stock read, so
+ * the whole universe's completed daily bars go in together; only stocks
+ * whose last bar is `basisDate` and that hold `RANGE_MIN_BARS` get a card.
+ */
+export function rangeCardCalls(universe: ReadonlyMap<string, readonly Bar[]>, basisDate: string): CardCall[] {
+  const medians = activityMedians(universe.values());
+  const out: CardCall[] = [];
+  for (const [symbol, daily] of universe) {
+    if (daily.length < RANGE_MIN_BARS) continue;
+    const last = daily[daily.length - 1];
+    if (dateOf(last) !== basisDate) continue;
+    const active = activeFlags(daily, medians);
+    for (const card of [rangeLowCard(daily, active), rangeBreakoutCard(daily, active)]) {
+      if (!card) continue;
+      if (![card.entry, card.stop, card.tp1].every(Number.isFinite) || !(card.tp1 > card.stop)) continue;
+      out.push({ kind: card.kind, symbol, signalDate: basisDate, entry: card.entry, stop: card.stop, tp1: card.tp1, mtp: card.mtp, signalClose: last.c });
+    }
+  }
+  return out;
+}
+
 export interface CardCallResult {
   call: CallOutcome | "no_fill" | "pending" | "unresolved";
   fill: number | null;
@@ -161,6 +187,13 @@ export interface CardCallResult {
  * after its signal bar in the data (the next session the stock traded), as
  * the held-out read did.
  *
+ * How it fills follows the card's order (`cardKindOrder`): a buy stop fills
+ * at the entry, or at the open when the session opens through it; a buy at
+ * the open fills at the open when it lies between the stop and TP1 (the
+ * entry shown is only the signal close); a buy limit fills at the open when
+ * the session opens at or under the entry, else at the entry when the low
+ * reaches it. A fill at or under the stop, or at or over TP1, is no fill.
+ *
  * The bars are re-read each night split-adjusted, while the card's levels
  * were priced on the bars of its night. When the signal bar is in the bars
  * read and its close differs from `signalClose`, the levels are scaled by
@@ -170,6 +203,7 @@ export interface CardCallResult {
 export function walkCardCall(
   card: Pick<CardCall, "signalDate" | "entry" | "stop" | "tp1"> & { signalClose?: number | null },
   daily: readonly Bar[],
+  order: CardOrder = "buyStop",
 ): CardCallResult {
   const signalBar = daily.find((b) => dateOf(b) === card.signalDate);
   const ratio =
@@ -183,8 +217,17 @@ export function walkCardCall(
   if (after.length === 0) return { call: "pending", fill: null, session: null };
   const first = after[0];
   const session = dateOf(first);
-  if (first.h < entry) return { call: "no_fill", fill: null, session };
-  const fill = Math.max(first.o, entry);
+  let fill: number;
+  if (order === "buyAtOpen") fill = first.o;
+  else if (order === "buyLimit") {
+    if (first.o <= entry) fill = first.o;
+    else if (first.l <= entry) fill = entry;
+    else return { call: "no_fill", fill: null, session };
+  } else {
+    if (first.h < entry) return { call: "no_fill", fill: null, session };
+    fill = Math.max(first.o, entry);
+  }
+  if (!(fill > 0)) return { call: "no_fill", fill: null, session };
   if (fill <= stop || fill >= tp1) return { call: "no_fill", fill: null, session };
   const call = walkGoodCall({ long: true, fill, stop, tp1, bars: after.slice(0, GOOD_CALL_MAX_SESSIONS + 1) });
   return { call: call === "open" && after.length > GOOD_CALL_MAX_SESSIONS ? "unresolved" : call, fill: fill / k, session };
