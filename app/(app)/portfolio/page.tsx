@@ -147,6 +147,14 @@ export default function PortfolioPage() {
       <div className="flex items-center gap-3">
         <h1 className="text-xl font-semibold sm:text-2xl">Portfolio</h1>
         <Badge variant="muted">Paper account</Badge>
+        <a
+          href="/api/audit/orders"
+          download
+          className="ml-auto text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          title="Every order you placed, the plan behind it, what the broker did and how it closed"
+        >
+          Download audit trail (CSV)
+        </a>
       </div>
 
       {error && (

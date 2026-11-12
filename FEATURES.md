@@ -88,6 +88,12 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - **Ended-Order Dispositions**: Orders that never became a position group by
   how each one ended — canceled, expired, replaced, done for day
 - **Position Tracking**: Real-time position monitoring
+- **Order Audit Trail (CSV)**: Portfolio's "Download audit trail (CSV)" exports
+  every order you placed (up to 5,000, newest first): its levels and where they
+  came from, the rules version, what the broker did with it and why it refused,
+  the fill, the plan it was placed on, and how the trade closed with its P/L.
+  Read with your own session, so it holds only your rows; cells a spreadsheet
+  could run as a formula are written as text
 
 ### 5. Trading Interface
 - **Guided Decision Mode**: One recommended action per symbol, in plain English,
