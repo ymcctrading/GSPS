@@ -36,6 +36,7 @@ import { priceText } from "@/lib/strat/priceText";
 import type { AlertRuleText } from "@/lib/notifications/resend-handler";
 import { tickerHref } from "@/lib/routes";
 import { heldOffPlanNote } from "@/lib/trade/level-source";
+import { termInSentence } from "@/lib/school/terms";
 
 export interface PushMessage {
   title: string;
@@ -78,9 +79,10 @@ export function deliveryPushMessage(payload: NotificationPayload): PushMessage {
   }
   const score = `${formatScore(payload.score, payload.exactScoreDisplayEnabled)}/${SCORE_MAX}`;
   const side = payload.direction === "bullish" ? "Buy" : "Sell";
+  const tier = payload.vocabularyTier ?? null;
   return {
     title: `${payload.symbol}: ${payload.verdict} (${score})`,
-    body: `${side} setup confirmed at ${score}. Entry ${priceText(payload.entry)}, stop ${priceText(payload.stopLoss)}, target ${priceText(payload.takeProfit)}.`,
+    body: `${side} setup confirmed at ${score}. Entry ${priceText(payload.entry)}, ${termInSentence("stopLoss", tier)} ${priceText(payload.stopLoss)}, ${termInSentence("tp1", tier)} ${priceText(payload.takeProfit)}.`,
     url: tickerHref(payload.symbol),
     tag: `setup-${payload.symbol}`,
   };

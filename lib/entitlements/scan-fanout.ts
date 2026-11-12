@@ -24,6 +24,8 @@ import {
 } from "@/lib/entitlements/delivery";
 import { toPublicSignalSummary } from "@/lib/signals/publicSummary";
 import { getUserEntitlementPolicy, type Limit } from "@/lib/entitlements/policy";
+import { getUserTier } from "@/lib/tiers";
+import type { VocabularyTier } from "@/lib/school/terms";
 import { SCORE_MAX } from "@/lib/scoring/display";
 import type { ScanResult } from "@/lib/types";
 import { STRATEGY_VERSION } from "@/lib/backtest/strategyVersion";
@@ -293,6 +295,9 @@ export async function evaluateMonitorsAndNotify(
   const exactScoreDisplayEnabled = await getUserEntitlementPolicy(service, args.profileId)
     .then((p) => p.exactScoreDisplayEnabled)
     .catch(() => false);
+  // The recipient's tier for trading vocabulary (lib/school/terms.ts); a failed
+  // read glosses every term rather than withholding the gloss.
+  const vocabularyTier = await getUserTier(service, args.profileId).catch(() => null);
 
   // Email/sms/push are opt-in per profile (notification_preferences); the
   // in-app ("on the platform itself") notification below is not -- it has no
@@ -313,7 +318,7 @@ export async function evaluateMonitorsAndNotify(
       console.error(`evaluateMonitorsAndNotify: trade plan not created for ${setup.value.symbol} — ${String(err)}`);
     });
 
-    const payload = buildAlertPayload(setup, exactScoreDisplayEnabled);
+    const payload = buildAlertPayload(setup, exactScoreDisplayEnabled, vocabularyTier);
     await recordInAppNotification(service, { transitionId, profileId: args.profileId, payload }).catch((err) => {
       console.error(`evaluateMonitorsAndNotify: in-app notification not recorded for ${setup.value.symbol} — ${String(err)}`);
     });
@@ -428,6 +433,7 @@ async function createTradePlanForTransition(
 function buildAlertPayload(
   setup: RankedSetup<ScanResult>,
   exactScoreDisplayEnabled: boolean,
+  vocabularyTier: VocabularyTier,
 ): EntitledAlertPayload {
   const r = setup.value;
   const entry = r.levels?.entry ?? r.currentPrice;
@@ -436,6 +442,7 @@ function buildAlertPayload(
     direction: setup.side === "buy" ? "bullish" : "bearish",
     score: r.decision.score,
     exactScoreDisplayEnabled,
+    vocabularyTier,
     entry,
     stopLoss: r.levels?.stopLoss ?? entry,
     takeProfit: r.levels?.takeProfit1 ?? entry,
