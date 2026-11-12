@@ -46,9 +46,13 @@ import { STRATEGY_MODE_LABELS, type StrategyModeId } from "@/lib/strategies/type
  * ("rsiReversalTimed": the RSI reversal card's own levels, on such a day;
  * internal record RESULT-GC2.md, lib/gann/changeInTrend.ts), or the
  * platform's own engine card ("edgeBottom": a buy stop over a swing bottom,
- * with three targets; internal record RESULT-EE1-GC3.md, lib/cards/edgeCard.ts).
+ * with three targets; internal record RESULT-EE1-GC3.md, lib/cards/edgeCard.ts),
+ * or the platform's range cards (lib/cards/rangeCards.ts): "rangeLow", a
+ * held retest of the range's low bought at the open, for every member, and
+ * "rangeBreakout", a buy limit on the reaction after the range top is
+ * crossed, a labelled higher-risk alert for Expert and Wall Street only.
  */
-export type CardKind = StrategyModeId | "rsiReversalTimed" | "edgeBottom";
+export type CardKind = StrategyModeId | "rsiReversalTimed" | "edgeBottom" | "rangeLow" | "rangeBreakout";
 
 /** The strategy mode a card kind belongs to: who may see it (tier) and who chose it. */
 export const CARD_KIND_MODE: Record<CardKind, StrategyModeId> = {
@@ -56,13 +60,47 @@ export const CARD_KIND_MODE: Record<CardKind, StrategyModeId> = {
   rsiReversalTimed: "rsiReversal",
   // The platform's own plan, not an opt-in mode: shown to every member (readCards.ts).
   edgeBottom: "gsps",
+  rangeLow: "gsps",
+  rangeBreakout: "gsps",
 };
+
+/**
+ * How a card is offered. "setup": a card whose held-out record passed the
+ * gate below. "alert": a higher-risk card the owner chose to show, labelled
+ * as an alert and not a verified setup, to the tiers that carry it, until its
+ * forward record backs it (owner, 2026-11-12: the breakout "can be shown to
+ * Expert and Wall Street members as a labelled higher-risk 'breakout' alert,
+ * not as a verified setup, until the forward record backs it"). Which tiers
+ * see alerts is the server's `higherRiskAlertsEnabled` (lib/entitlements/policy.ts).
+ */
+export type CardGrade = "setup" | "alert";
+
+export const CARD_KIND_GRADE: Record<CardKind, CardGrade> = {
+  ...(Object.fromEntries((Object.keys(STRATEGY_MODE_LABELS) as StrategyModeId[]).map((m) => [m, "setup"])) as Record<StrategyModeId, CardGrade>),
+  rsiReversalTimed: "setup",
+  edgeBottom: "setup",
+  rangeLow: "setup",
+  rangeBreakout: "alert",
+};
+
+/**
+ * The order a card's entry is: a buy stop at the entry (most kinds), a buy at
+ * the next session's open (the entry shown is the last close, for reference),
+ * or a buy limit at the entry.
+ */
+export type CardOrder = "buyStop" | "buyAtOpen" | "buyLimit";
+
+export function cardKindOrder(kind: CardKind): CardOrder {
+  return kind === "rangeLow" ? "buyAtOpen" : kind === "rangeBreakout" ? "buyLimit" : "buyStop";
+}
 
 /** What a member reads as the card's kind. */
 export const CARD_KIND_LABELS: Record<CardKind, string> = {
   ...STRATEGY_MODE_LABELS,
   rsiReversalTimed: `${STRATEGY_MODE_LABELS.rsiReversal}, on a turn date`,
   edgeBottom: "Swing-low breakout, three targets",
+  rangeLow: "Range-low retest",
+  rangeBreakout: "Range breakout, higher-risk alert",
 };
 
 export interface CardRecord {
@@ -184,6 +222,26 @@ export const CARD_RECORDS: Record<CardKind, CardRecord | null> = {
     passed: true,
     summary: "On 14,088 filled cards on large-cap stocks it was never tuned on (2018-2026), 89.2% reached their first target before their stop, against 85.5% needed to break even; +0.04R a call, beating the same levels on a random day (-0.01R). The second target came first 63.7% of the time against 57.1% needed (+0.14R a call).",
   },
+  rangeLow: {
+    fills: 6417,
+    goodRate: 0.4716,
+    breakEven: 0.406,
+    expectancyR: 0.1998,
+    randomExpectancyR: 0.0868,
+    period: "2019-2026",
+    passed: false,
+    summary: "On 6,417 filled cards on 248 large-cap stocks it was never tuned on (2019-2026), 47.2% reached their first target before their stop, against 40.6% needed to break even; +0.20R a call, beating the same levels on a random day (+0.09R). Its full trade, with the runner, averaged +0.72% after costs, a figure whose range of error still includes zero, so it is tracked forward before anything more is said of it.",
+  },
+  rangeBreakout: {
+    fills: 2201,
+    goodRate: 0.4433,
+    breakEven: 0.3751,
+    expectancyR: 0.1767,
+    randomExpectancyR: 0.2412,
+    period: "2019-2026",
+    passed: false,
+    summary: "A higher-risk alert, not a verified setup. On 2,201 filled cards on 248 large-cap stocks it was never tuned on (2019-2026), 44.3% reached their first target before their stop, against 37.5% needed to break even; +0.18R a call, short of the same levels on a random day (+0.24R), and in 2019-2023 it was not profitable week by week.",
+  },
   rsiReversalTimed: {
     fills: 1307,
     goodRate: 0.5362,
@@ -206,9 +264,15 @@ export const CARD_RECORDS: Record<CardKind, CardRecord | null> = {
   },
 };
 
-/** Pure. Whether cards of this kind may be shown: positive on the held-out read (beats break-even, more than zero R). */
+/**
+ * Pure. Whether cards of this kind may be shown: positive on the held-out
+ * read (beats break-even, more than zero R). An "alert" kind is shown as an
+ * alert on its record alone, whatever it reads (owner, 2026-11-12), and only
+ * to the tiers that carry alerts (lib/cards/readCards.ts).
+ */
 export function cardKindShown(kind: CardKind, records: Record<CardKind, CardRecord | null> = CARD_RECORDS): boolean {
   const r = records[kind];
+  if (r != null && CARD_KIND_GRADE[kind] === "alert") return r.fills > 0;
   return r != null && r.fills > 0 && r.goodRate > r.breakEven && r.expectancyR > 0;
 }
 

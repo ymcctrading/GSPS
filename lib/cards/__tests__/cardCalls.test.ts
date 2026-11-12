@@ -70,7 +70,7 @@ describe("timedCards (the RSI card on a Rule 10 day)", () => {
   });
 
   it("is recorded every night beside the modes' kinds", () => {
-    expect(CARD_KINDS).toEqual([...CARD_MODES, "rsiReversalTimed", "edgeBottom"]);
+    expect(CARD_KINDS).toEqual([...CARD_MODES, "rsiReversalTimed", "edgeBottom", "rangeLow", "rangeBreakout"]);
   });
 });
 
@@ -117,5 +117,31 @@ describe("walkCardCall (buy stop for the next session only)", () => {
     for (let i = 2; i <= GOOD_CALL_MAX_SESSIONS + 2; i++) bars.push(day(sig + i, 100, 103, 99, 101));
     expect(walkCardCall(card, bars)).toMatchObject({ call: "unresolved", fill: 100 });
     expect(walkCardCall(card, bars.slice(0, GOOD_CALL_MAX_SESSIONS)).call).toBe("open");
+  });
+});
+
+describe("walkCardCall by the card's order", () => {
+  const card = { signalDate: "2025-01-10", entry: 100, stop: 96, tp1: 106 };
+  const sig = 9; // day(9) is 2025-01-10
+  it("buys at the open between the stop and TP1, the entry being only the last close", () => {
+    const r = walkCardCall(card, [day(sig, 99, 100, 97, 100), day(sig + 1, 101, 107, 100.5, 106.5)], "buyAtOpen");
+    expect(r).toEqual({ call: "good", fill: 101, session: "2025-01-11" });
+    expect(walkCardCall(card, [day(sig + 1, 95, 99, 94, 98)], "buyAtOpen").call).toBe("no_fill");
+    expect(walkCardCall(card, [day(sig + 1, 107, 108, 105, 107)], "buyAtOpen").call).toBe("no_fill");
+    // The stop on the fill bar is a bad call (the open fill is read from the bar's open on).
+    expect(walkCardCall(card, [day(sig + 1, 99, 100, 95, 96)], "buyAtOpen")).toMatchObject({ call: "bad", fill: 99 });
+  });
+  it("buys a limit at the open at or under it, else at the entry when the low reaches it, else no fill", () => {
+    expect(walkCardCall(card, [day(sig + 1, 99, 107, 98, 106)], "buyLimit")).toMatchObject({ call: "good", fill: 99 });
+    expect(walkCardCall(card, [day(sig + 1, 102, 103, 99.5, 102), day(sig + 2, 102, 106, 101, 105)], "buyLimit")).toMatchObject({
+      call: "good",
+      fill: 100,
+    });
+    expect(walkCardCall(card, [day(sig + 1, 102, 104, 100.5, 103)], "buyLimit").call).toBe("no_fill");
+    expect(walkCardCall(card, [day(sig + 1, 95, 99, 94, 98)], "buyLimit").call).toBe("no_fill");
+  });
+  it("keeps the buy stop as the default", () => {
+    expect(walkCardCall(card, [day(sig + 1, 99, 99.9, 98, 99)]).call).toBe("no_fill");
+    expect(walkCardCall(card, [day(sig + 1, 99, 99.9, 98, 99)], "buyAtOpen").call).toBe("open");
   });
 });

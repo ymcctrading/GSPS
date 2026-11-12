@@ -29,6 +29,8 @@ describe("trading vocabulary by school tier", () => {
     const needle: Record<TermId, RegExp> = {
       buyStop: /stop order/i,
       sellStop: /stop order/i,
+      buyAtOpen: /market order/i,
+      buyLimit: /limit order/i,
       stopLoss: /\bstop\b/i,
       tp1: /take-profit-1/i,
       tp2: /second target/i,

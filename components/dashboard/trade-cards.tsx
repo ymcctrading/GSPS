@@ -4,7 +4,10 @@
  * held-out record and its forward record so far, losses and no-fills
  * included. Only kinds positive on their held-out record are shown
  * (lib/setups/cardRecords.ts), and a card only to a member who chose its
- * strategy mode (opt-in, one at a time); with none, it says so.
+ * strategy mode (opt-in, one at a time); with none, it says so. A
+ * higher-risk alert (the range breakout) is labelled as an alert, not a
+ * verified setup, and reaches only the tiers that carry alerts; the others
+ * are told which tiers do.
  *
  * Three-question basis: 1. Method: none here; it shows what the nightly job
  * recorded. 2. Cycles: no periodicity claim. 3. Hermetic: Cause and Effect
@@ -29,10 +32,11 @@ export function TradeCards({ data }: { data: TradeCardsData }) {
       <CardHeader>
         <CardTitle>Trade cards for the next session</CardTitle>
         <CardDescription>
-          Each card is a buy stop at its entry, good for the next session only, with its stop and first target. A card
-          counts as a good call when price reaches the first target before the stop after the entry fills, and a bad
-          call when the stop comes first. What you do after the first target is yours to manage. Past calls do not
-          promise future ones.
+          Each card is an order for the next session only, with its stop and first target: a buy stop at its entry, a
+          buy at the open, or a buy limit at its entry, as each card says. A card counts as a good call when price
+          reaches the first target before the stop after the entry fills, and a bad call when the stop comes first. A
+          card marked as a higher-risk alert is not a verified setup. What you do after the first target is yours to
+          manage. Past calls do not promise future ones.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -45,14 +49,19 @@ export function TradeCards({ data }: { data: TradeCardsData }) {
             </Link>
             .
           </p>
-        ) : data.cards.length === 0 && data.heldBack > 0 ? (
+        ) : data.cards.length === 0 && data.heldBack - data.alertsHeldBack > 0 ? (
           <p className="text-sm text-muted">
-            {data.heldBack} card{data.heldBack === 1 ? "" : "s"} for the next session come with the Pro plan and above.
+            {data.heldBack - data.alertsHeldBack} card{data.heldBack - data.alertsHeldBack === 1 ? "" : "s"} for the next
+            session come with the Pro plan and above.
             The record below is open to every member.
           </p>
         ) : data.cards.length === 0 ? (
           <p className="text-sm text-muted">
-            {data.kinds.length > 0 ? "No card for the next session: none of the setups below fired on the last close." : NO_CARD_NOTE}
+            {data.kinds.length === 0
+              ? NO_CARD_NOTE
+              : data.alertsHeldBack > 0
+                ? "No card on your plan for the next session."
+                : "No card for the next session: none of the setups below fired on the last close."}
           </p>
         ) : (
           <>
@@ -65,10 +74,27 @@ export function TradeCards({ data }: { data: TradeCardsData }) {
                       {c.symbol}
                     </Link>{" "}
                     <span className="text-muted">· {c.label}</span>
+                    {c.grade === "alert" && (
+                      <span
+                        className="ml-2 rounded border border-border px-1.5 py-0.5 text-xs text-muted"
+                        title="A higher-risk alert, not a verified setup: its record is shown below."
+                      >
+                        Higher-risk alert · not a verified setup
+                      </span>
+                    )}
                   </span>
                   <span className="tabular-nums">
-                    {/* Cards are long only: a buy stop at the entry (lib/cards/cardCalls.ts). */}
-                    <Term id="buyStop" /> {priceUsd(c.entry)} · <Term id="stopLoss" /> {priceUsd(c.stop)} ·{" "}
+                    {/* Cards are long only; the entry's order is the card's own (lib/cards/cardCalls.ts walkCardCall). */}
+                    {c.order === "buyAtOpen" ? (
+                      <>
+                        <Term id="buyAtOpen" /> (last close {priceUsd(c.entry)})
+                      </>
+                    ) : (
+                      <>
+                        <Term id={c.order === "buyLimit" ? "buyLimit" : "buyStop"} /> {priceUsd(c.entry)}
+                      </>
+                    )}{" "}
+                    · <Term id="stopLoss" /> {priceUsd(c.stop)} ·{" "}
                     <Term id="tp1" /> {priceUsd(c.tp1)}
                     {c.tp2 != null && (
                       <>
@@ -87,6 +113,13 @@ export function TradeCards({ data }: { data: TradeCardsData }) {
               ))}
             </ul>
           </>
+        )}
+        {data.alertsHeldBack > 0 && (
+          <p className="text-xs text-muted">
+            {data.alertsHeldBack} higher-risk breakout alert{data.alertsHeldBack === 1 ? "" : "s"} for the next session
+            come with Expert and Wall Street. The range-low retest is the patient side of the same range, and its cards
+            are open to every member.
+          </p>
         )}
         {data.kinds.map((k) => (
           <div key={k.kind} className="space-y-1 text-xs text-muted">

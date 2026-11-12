@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { CARD_KIND_LABELS, CARD_KIND_MODE, CARD_RECORDS, cardKindShown, type CardKind } from "@/lib/setups/cardRecords";
+import { CARD_KIND_GRADE, CARD_KIND_LABELS, CARD_KIND_MODE, CARD_RECORDS, cardKindOrder, cardKindShown, type CardKind } from "@/lib/setups/cardRecords";
 
 // The held-out reads the records come from (private-research/card-goodcall/RESULT-GC1.md, RESULT-GC2.md).
 type Run = Record<string, { fills: number; rate: number; breakeven: number; expR: number; random_expR_mean: number; PASS: boolean }>;
 const read = (f: string) => JSON.parse(readFileSync(path.join(process.cwd(), "docs/card-records", f), "utf8")) as Run;
-const RUN: Run = { ...read("2026-11-10-gc1-holdout.json"), ...read("2026-11-11-gc2-holdout.json"), ...read("2026-11-11-ee-gc3-holdout.json") };
+const RUN: Run = { ...read("2026-11-10-gc1-holdout.json"), ...read("2026-11-11-gc2-holdout.json"), ...read("2026-11-11-ee-gc3-holdout.json"), ...read("2026-11-12-range-cards-holdout.json") };
 
 describe("CARD_RECORDS", () => {
   it("holds each measured kind to the committed held-out run", () => {
@@ -26,7 +26,7 @@ describe("CARD_RECORDS", () => {
   it("shows every kind positive on the held-out read (owner, 2026-11-11), not the one below break-even", () => {
     const shown = (Object.keys(CARD_RECORDS) as CardKind[]).filter((k) => cardKindShown(k));
     expect(shown.sort()).toEqual(
-      ["bollinger", "donchian", "elliottWave", "maCrossover", "macdMomentum", "psarSupertrend", "rsiReversal", "rsiReversalTimed", "stochastic", "edgeBottom"].sort(),
+      ["bollinger", "donchian", "elliottWave", "maCrossover", "macdMomentum", "psarSupertrend", "rsiReversal", "rsiReversalTimed", "stochastic", "edgeBottom", "rangeLow", "rangeBreakout"].sort(),
     );
     expect(cardKindShown("saraStrat")).toBe(false);
   });
@@ -52,6 +52,21 @@ describe("CARD_RECORDS", () => {
     expect(CARD_KIND_MODE.rsiReversalTimed).toBe("rsiReversal");
     expect(CARD_KIND_MODE.donchian).toBe("donchian");
     expect(CARD_KIND_LABELS.rsiReversalTimed).toMatch(/^RSI 14 reversal/);
+  });
+
+  it("puts both range cards under the platform's own plan; the breakout is an alert shown on its record alone", () => {
+    expect(CARD_KIND_MODE.rangeLow).toBe("gsps");
+    expect(CARD_KIND_MODE.rangeBreakout).toBe("gsps");
+    expect(CARD_KIND_GRADE.rangeLow).toBe("setup");
+    expect(CARD_KIND_GRADE.rangeBreakout).toBe("alert");
+    expect(cardKindOrder("rangeLow")).toBe("buyAtOpen");
+    expect(cardKindOrder("rangeBreakout")).toBe("buyLimit");
+    expect(cardKindOrder("edgeBottom")).toBe("buyStop");
+    const losing = { ...CARD_RECORDS, rangeBreakout: { ...CARD_RECORDS.rangeBreakout!, goodRate: 0.1, expectancyR: -0.5 } };
+    expect(cardKindShown("rangeBreakout", losing)).toBe(true);
+    expect(cardKindShown("rangeBreakout", { ...CARD_RECORDS, rangeBreakout: null })).toBe(false);
+    expect(CARD_RECORDS.rangeBreakout?.summary).toMatch(/^A higher-risk alert, not a verified setup\./);
+    expect(CARD_KIND_LABELS.rangeBreakout).toMatch(/higher-risk alert/);
   });
 
   it("puts the engine card under the platform's own plan", () => {

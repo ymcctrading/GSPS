@@ -24,8 +24,8 @@ import { getMarketDataProvider } from "@/lib/data/provider";
 import { MARKET_DATA_UNAVAILABLE, syntheticDataRefusal } from "@/lib/data/feed-mode";
 import { equitySession, etDateKey } from "@/lib/market/session";
 import { LARGE_CAP_UNIVERSE } from "@/lib/scan/large-cap-universe";
-import { buildCards, timedCards, walkCardCall, CARD_WINDOW_BARS, TIMED_HISTORY_START, type CardCall } from "@/lib/cards/cardCalls";
-import { cardKindShown } from "@/lib/setups/cardRecords";
+import { buildCards, rangeCardCalls, timedCards, walkCardCall, CARD_WINDOW_BARS, TIMED_HISTORY_START, type CardCall } from "@/lib/cards/cardCalls";
+import { cardKindOrder, cardKindShown, type CardKind } from "@/lib/setups/cardRecords";
 import type { Bar } from "@/lib/types";
 
 export const maxDuration = 60;
@@ -34,9 +34,13 @@ export const maxDuration = 60;
  * Calendar days of daily bars read. Enough that a card still inside the walk's
  * reach (WALK_LOOKBACK_DAYS) can have the GOOD_CALL_MAX_SESSIONS + 1 sessions
  * after it that settle it as unresolved: 390 calendar days hold about 268
- * sessions. Also covers the modes' 250-bar window.
+ * sessions. Also covers the modes' 250-bar window, and the range cards'
+ * `RANGE_MIN_BARS` (332 sessions: a year before the range, plus the runner of
+ * any earlier trade still open), which needs about 482 calendar days; 520
+ * days hold about 358 sessions, a margin for holidays. Raised from 420 on
+ * 2026-11-12 for the range cards: about 24% more daily bars read a night.
  */
-const HISTORY_DAYS = 420;
+const HISTORY_DAYS = 520;
 /** Unresolved cards walked a run, least recently checked first. Engineering choice, sized to the 60-second budget. */
 const WALKS_PER_RUN = 2000;
 /** Rows a read asks for at once: PostgREST's default max rows. */
@@ -115,6 +119,13 @@ export async function GET(req: NextRequest) {
   }
   const timedMs = Date.now() - timedStarted;
 
+  // 1c. The range cards (lib/cards/rangeCards.ts): read across the whole
+  // universe at once, since a stock is active against the day's median.
+  const rangeStarted = Date.now();
+  const ranged = rangeCardCalls(bars, basisDate);
+  built.push(...ranged);
+  const rangeMs = Date.now() - rangeStarted;
+
   const rows = built.map((c) => ({
     kind: c.kind,
     symbol: c.symbol,
@@ -122,6 +133,8 @@ export async function GET(req: NextRequest) {
     entry: c.entry,
     stop: c.stop,
     tp1: c.tp1,
+    tp2: c.tp2 ?? null,
+    mtp: c.mtp ?? null,
     signal_close: c.signalClose,
     published: cardKindShown(c.kind),
   }));
@@ -178,6 +191,7 @@ export async function GET(req: NextRequest) {
         signalClose: row.signal_close == null ? null : Number(row.signal_close),
       },
       daily,
+      cardKindOrder(String(row.kind) as CardKind),
     );
     tally[r.call]++;
     const resolved = r.call === "good" || r.call === "bad" || r.call === "no_fill" || r.call === "unresolved";
@@ -206,6 +220,11 @@ export async function GET(req: NextRequest) {
     read: bars.size,
     issued: rows.length,
     published: rows.filter((r) => r.published).length,
+    range: {
+      rangeLow: ranged.filter((c) => c.kind === "rangeLow").length,
+      rangeBreakout: ranged.filter((c) => c.kind === "rangeBreakout").length,
+      ms: rangeMs,
+    },
     timed: { read: rsiSymbols.length, issued: built.filter((c) => c.kind === "rsiReversalTimed").length, ms: timedMs, error: timedError },
     walked: tally,
     writeFailures,
