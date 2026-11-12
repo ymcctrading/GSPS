@@ -1,4 +1,5 @@
 import { RoundNumberNotice } from "@/components/gann/round-number-notice";
+import { useTerms } from "@/components/vocabulary";
 import { PlanReadingLine } from "@/components/strategies/plan-reading-line";
 import { planFromLevels } from "@/lib/strategies/explain/params";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -54,11 +55,10 @@ function targetLabel(
   rMultiple: number,
   assetClass: AssetClass,
 ): string {
-  if (assetClass === "us_equity") {
-    const pct = (Math.abs(targetPrice - entry) / entry) * 100;
-    return `${base} (${pct.toFixed(1)}%)`;
-  }
-  return `${base} (${rMultiple.toFixed(1)}R)`;
+  const size =
+    assetClass === "us_equity" ? `${((Math.abs(targetPrice - entry) / entry) * 100).toFixed(1)}%` : `${rMultiple.toFixed(1)}R`;
+  // A glossed term already ends in its own brackets ("First target (TP1)").
+  return base.endsWith(")") ? `${base} · ${size}` : `${base} (${size})`;
 }
 
 export function SignalCard({
@@ -71,6 +71,7 @@ export function SignalCard({
   const { decision, levels, levelsError, pattern, dataLag, assetClass } = result;
   const armed = result.armedPatterns ?? (pattern ? [pattern] : []);
   const others = armed.filter((p) => p !== pattern);
+  const term = useTerms();
 
   return (
     <Card>
@@ -166,20 +167,20 @@ export function SignalCard({
           <div className={cn("grid grid-cols-2 gap-3 sm:grid-cols-4", result.stopBreach && "opacity-60")}>
             <LevelStat label="Entry" glossaryTerm="Entry (blue line)" value={formatUsd(levels.entry)} tone="accent" />
             <LevelStat
-              label="Stop loss"
+              label={term("stopLoss")}
               glossaryTerm="Stop loss (red line)"
               value={formatUsd(levels.stopLoss)}
               tone="bear"
             />
             <LevelStat
-              label={targetLabel("TP1", levels.entry, levels.takeProfit1, levels.rewardToRiskTp1, assetClass)}
+              label={targetLabel(term("tp1"), levels.entry, levels.takeProfit1, levels.rewardToRiskTp1, assetClass)}
               glossaryTerm="TP1 - Take Profit 1 (green line)"
               value={formatUsd(levels.takeProfit1)}
               tone="bull"
             />
             <LevelStat
               label={targetLabel(
-                "MTP",
+                term("mtp"),
                 levels.entry,
                 levels.masterProfit,
                 levels.rewardToRiskMaster,
@@ -243,7 +244,7 @@ export function SignalCard({
                 value={levels.pivotPlan.invalidation != null ? formatUsd(levels.pivotPlan.invalidation) : "Not defined"}
               />
               <PivotPlanLine
-                label="First target"
+                label={term("tp1")}
                 value={levels.pivotPlan.firstTarget != null ? formatUsd(levels.pivotPlan.firstTarget) : "Not defined"}
               />
               <PivotPlanLine label="Cancel if" value={levels.pivotPlan.cancelIf} />

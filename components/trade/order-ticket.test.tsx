@@ -524,7 +524,7 @@ describe("OrderTicket other techniques", () => {
     await user.click(await screen.findByRole("button", { name: "Read every technique" }));
     expect(await screen.findByText(/aligns with GSPS's plan/)).toBeTruthy();
     expect(screen.getByText(/Stop \$43\.78: a close here would put RSI 14 near 29/)).toBeTruthy();
-    expect(screen.getByText(/Entry \$49\.10 · Stop \$51\.20 · TP1 \$45\.95 · no MTP/)).toBeTruthy();
+    expect(screen.getByText(/Entry \$49\.10 · Exit if wrong \(stop loss\) \$51\.20 · First target \(TP1\) \$45\.95 · no MTP/)).toBeTruthy();
     // Only the technique that doesn't align offers its own trade.
     expect(screen.getAllByRole("button", { name: "Trade these levels" })).toHaveLength(1);
 
@@ -656,9 +656,9 @@ describe("OrderTicket level choice", () => {
     const fetchMock = mockFetch();
     render(<OrderTicket result={scanWithEntry(50)} livePrice={50} />);
     await user.click(screen.getByRole("button", { name: "My own levels" }));
-    await user.type(screen.getByLabelText("Stop loss"), "47");
-    await user.type(screen.getByLabelText("TP1"), "56");
-    await user.type(screen.getByLabelText("MTP"), "60");
+    await user.type(screen.getByLabelText("Exit if wrong (stop loss)"), "47");
+    await user.type(screen.getByLabelText("First target (TP1)"), "56");
+    await user.type(screen.getByLabelText("Master target (MTP)"), "60");
     await user.click(screen.getByRole("button", { name: /Buy DRAM/ }));
     const body = orderBody(fetchMock);
     expect(body.levelSource).toBe("own");
@@ -671,15 +671,15 @@ describe("OrderTicket level choice", () => {
     mockFetch();
     render(<OrderTicket result={scanWithEntry(50)} livePrice={50} />);
     await user.click(screen.getByRole("button", { name: "My own levels" }));
-    await user.type(screen.getByLabelText("Stop loss"), "47");
-    await user.type(screen.getByLabelText("TP1"), "56");
-    await user.type(screen.getByLabelText("MTP"), "55");
+    await user.type(screen.getByLabelText("Exit if wrong (stop loss)"), "47");
+    await user.type(screen.getByLabelText("First target (TP1)"), "56");
+    await user.type(screen.getByLabelText("Master target (MTP)"), "55");
     expect(screen.getByText(/The MTP \(\$55\.00\) has to sit above TP1 \(\$56\.00\)/)).toBeTruthy();
     expect(screen.getByRole("button", { name: /Buy DRAM/ })).toBeDisabled();
 
-    await user.clear(screen.getByLabelText("MTP"));
-    await user.clear(screen.getByLabelText("Stop loss"));
-    await user.type(screen.getByLabelText("Stop loss"), "52");
+    await user.clear(screen.getByLabelText("Master target (MTP)"));
+    await user.clear(screen.getByLabelText("Exit if wrong (stop loss)"));
+    await user.type(screen.getByLabelText("Exit if wrong (stop loss)"), "52");
     expect(screen.getByText(/The stop \(\$52\.00\) is at or above the entry price/)).toBeTruthy();
     expect(screen.getByRole("button", { name: /Buy DRAM/ })).toBeDisabled();
   });
@@ -696,8 +696,8 @@ describe("OrderTicket level choice", () => {
     );
     await user.click(screen.getByRole("button", { name: "My own levels" }));
     await user.click(screen.getByRole("button", { name: "Start from the swing plan" }));
-    expect(Number((screen.getByLabelText("Stop loss") as HTMLInputElement).value)).toBeCloseTo(44);
-    expect(Number((screen.getByLabelText("MTP") as HTMLInputElement).value)).toBeCloseTo(68);
+    expect(Number((screen.getByLabelText("Exit if wrong (stop loss)") as HTMLInputElement).value)).toBeCloseTo(44);
+    expect(Number((screen.getByLabelText("Master target (MTP)") as HTMLInputElement).value)).toBeCloseTo(68);
     await user.click(screen.getByLabelText(/Manage it as an intraday trade/));
     await user.click(screen.getByRole("button", { name: /Buy DRAM/ }));
     const body = orderBody(fetchMock);

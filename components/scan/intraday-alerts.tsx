@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Term } from "@/components/vocabulary";
 import Link from "next/link";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -345,9 +346,9 @@ function RecentList({ recent }: { recent: RecentSystemAlert[] }) {
             {r.type !== "reversal_risk" && (
               <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
                 <Field label="Entry" tone="accent" value={r.entry != null ? formatUsd(r.entry) : "—"} />
-                <Field label="Exit (S/L)" value={r.stop != null ? formatUsd(r.stop) : "—"} />
-                <Field label="TP1" value={r.firstTarget != null ? formatUsd(r.firstTarget) : "—"} />
-                <Field label="MTP" value={r.masterTarget != null ? formatUsd(r.masterTarget) : "—"} />
+                <Field label={<Term id="stopLoss" />} value={r.stop != null ? formatUsd(r.stop) : "—"} />
+                <Field label={<Term id="tp1" />} value={r.firstTarget != null ? formatUsd(r.firstTarget) : "—"} />
+                <Field label={<Term id="mtp" />} value={r.masterTarget != null ? formatUsd(r.masterTarget) : "—"} />
               </dl>
             )}
             {held && <p className="mt-1 text-xs text-warn">{held}</p>}
@@ -465,9 +466,9 @@ function AlertCard({ alert, otherSignals = [] }: { alert: Alert; otherSignals?: 
         <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-5">
           <Field label="Price" value={formatUsd(alert.move.current)} />
           <Field label="Entry" tone="accent" value={levels.entry != null ? formatUsd(levels.entry) : "—"} />
-          <Field label="Exit (S/L)" value={levels.stop != null ? formatUsd(levels.stop) : "—"} />
-          <Field label="TP1" value={levels.tp1 != null ? formatUsd(levels.tp1) : "—"} />
-          <Field label="MTP" value={levels.mtp != null ? formatUsd(levels.mtp) : "—"} />
+          <Field label={<Term id="stopLoss" />} value={levels.stop != null ? formatUsd(levels.stop) : "—"} />
+          <Field label={<Term id="tp1" />} value={levels.tp1 != null ? formatUsd(levels.tp1) : "—"} />
+          <Field label={<Term id="mtp" />} value={levels.mtp != null ? formatUsd(levels.mtp) : "—"} />
         </dl>
       )}
       {held && <p className="mt-1 text-xs text-warn">{held}</p>}
@@ -615,17 +616,17 @@ function Plan({
           value={plan.invalidation != null ? formatUsd(plan.invalidation) : "Not defined"}
         />
         <PlanLine
-          label="First target"
+          label={<Term id="tp1" />}
           value={plan.firstTarget != null ? formatUsd(plan.firstTarget) : "None fixed: the stop trails the move"}
         />
-        {plan.masterTarget != null && <PlanLine label="MTP" value={formatUsd(plan.masterTarget)} />}
+        {plan.masterTarget != null && <PlanLine label={<Term id="mtp" />} value={formatUsd(plan.masterTarget)} />}
         <PlanLine label="Cancel if" value={plan.cancelIf} />
       </dl>
     </div>
   );
 }
 
-function PlanLine({ label, value }: { label: string; value: string }) {
+function PlanLine({ label, value }: { label: ReactNode; value: string }) {
   return (
     <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
       <dt className="shrink-0 text-xs uppercase tracking-wide text-muted sm:w-28">{label}</dt>
@@ -689,7 +690,7 @@ function AuditTrail({ audit }: { audit: SymbolAudit[] }) {
   );
 }
 
-function Field({ label, value, tone }: { label: string; value: string; tone?: "accent" }) {
+function Field({ label, value, tone }: { label: ReactNode; value: string; tone?: "accent" }) {
   return (
     <div className="flex items-baseline justify-between gap-2 sm:flex-col sm:items-start sm:gap-0">
       <dt className="text-muted">{label}</dt>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Term } from "@/components/vocabulary";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -199,9 +200,9 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <ul className="grid gap-2 text-sm sm:grid-cols-2">
-            <ProtocolRule label="Stop loss" value={STOP_RULE_LABEL} detail={STOP_RULE_DETAIL} />
-            <ProtocolRule label="Take profit 1" value={TP1_RULE_LABEL} detail={TP1_RULE_DETAIL} />
-            <ProtocolRule label="MTP (master take profit)" value={MASTER_RULE_LABEL} detail={MASTER_RULE_DETAIL} />
+            <ProtocolRule label={<Term id="stopLoss" />} value={STOP_RULE_LABEL} detail={STOP_RULE_DETAIL} />
+            <ProtocolRule label={<Term id="tp1" />} value={TP1_RULE_LABEL} detail={TP1_RULE_DETAIL} />
+            <ProtocolRule label={<Term id="mtp" />} value={MASTER_RULE_LABEL} detail={MASTER_RULE_DETAIL} />
             <ProtocolRule label="Execute threshold" value={EXECUTE_RULE_LABEL} detail={EXECUTE_RULE_DETAIL} />
           </ul>
         </CardContent>
@@ -228,7 +229,7 @@ export default function SettingsPage() {
  * really means. The detail is on the page rather than behind a tooltip because
  * the headline alone is what used to be misleading.
  */
-function ProtocolRule({ label, value, detail }: { label: string; value: string; detail: string }) {
+function ProtocolRule({ label, value, detail }: { label: React.ReactNode; value: string; detail: string }) {
   return (
     <li className="rounded-lg border border-border bg-background px-4 py-3">
       <span className="text-muted">{label}:</span> <span className="font-medium">{value}</span>

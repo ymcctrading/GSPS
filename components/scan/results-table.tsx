@@ -1,5 +1,6 @@
 "use client";
 
+import { Term } from "@/components/vocabulary";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
@@ -207,11 +208,13 @@ export function ResultsTable({
           <TH className="text-right">Price</TH>
           <TH className="text-right">Entry</TH>
           <TH className="text-right" title="Exit: the stop-loss, the price that says the setup failed">
-            Exit (S/L)
+            <Term id="stopLoss" />
           </TH>
-          <TH className="text-right">TP1</TH>
+          <TH className="text-right">
+              <Term id="tp1" />
+            </TH>
           <TH className="text-right" title="Master take profit">
-            MTP
+            <Term id="mtp" />
           </TH>
           <TH className="w-8" aria-label="Save" />
           {onRemove && <TH className="w-8" aria-label="Remove" />}
@@ -280,9 +283,15 @@ export function ResultsTable({
               <TH>Score</TH>
               <TH className="text-right">Price</TH>
               <TH className="text-right">Entry</TH>
-              <TH className="text-right">Exit (S/L)</TH>
-              <TH className="text-right">TP1</TH>
-              <TH className="text-right">MTP</TH>
+              <TH className="text-right">
+              <Term id="stopLoss" />
+            </TH>
+              <TH className="text-right">
+              <Term id="tp1" />
+            </TH>
+              <TH className="text-right">
+              <Term id="mtp" />
+            </TH>
               <TH className="w-8" aria-label="Save" />
               {onRemove && <TH className="w-8" aria-label="Remove" />}
             </TR>
@@ -320,9 +329,15 @@ export function ResultsTable({
               <TH>Score</TH>
               <TH className="text-right">Price</TH>
               <TH className="text-right">Entry</TH>
-              <TH className="text-right">Exit (S/L)</TH>
-              <TH className="text-right">TP1</TH>
-              <TH className="text-right">MTP</TH>
+              <TH className="text-right">
+              <Term id="stopLoss" />
+            </TH>
+              <TH className="text-right">
+              <Term id="tp1" />
+            </TH>
+              <TH className="text-right">
+              <Term id="mtp" />
+            </TH>
               <TH className="w-8" aria-label="Save" />
               {onRemove && <TH className="w-8" aria-label="Remove" />}
             </TR>
@@ -383,9 +398,15 @@ function MarketSection({
             <TH>Score</TH>
             <TH className="text-right">Price</TH>
             <TH className="text-right">Entry</TH>
-            <TH className="text-right">Exit (S/L)</TH>
-            <TH className="text-right">TP1</TH>
-            <TH className="text-right">MTP</TH>
+            <TH className="text-right">
+              <Term id="stopLoss" />
+            </TH>
+            <TH className="text-right">
+              <Term id="tp1" />
+            </TH>
+            <TH className="text-right">
+              <Term id="mtp" />
+            </TH>
             <TH className="w-8" aria-label="Save" />
             {onRemove && <TH className="w-8" aria-label="Remove" />}
           </TR>

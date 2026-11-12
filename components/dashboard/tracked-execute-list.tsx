@@ -1,5 +1,6 @@
 "use client";
 
+import { Term } from "@/components/vocabulary";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -210,9 +211,9 @@ function TrackedRow({
 
       <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-muted">
         <span className="text-accent">Entry {formatUsd(row.entry)}</span>
-        {row.stopLoss != null && <span className="text-bear">Exit {formatUsd(row.stopLoss)}</span>}
-        {row.takeProfit1 != null && <span className="text-bull">TP1 {formatUsd(row.takeProfit1)}</span>}
-        {row.masterProfit != null && <span className="text-bull">MTP {formatUsd(row.masterProfit)}</span>}
+        {row.stopLoss != null && <span className="text-bear"><Term id="stopLoss" /> {formatUsd(row.stopLoss)}</span>}
+        {row.takeProfit1 != null && <span className="text-bull"><Term id="tp1" /> {formatUsd(row.takeProfit1)}</span>}
+        {row.masterProfit != null && <span className="text-bull"><Term id="mtp" /> {formatUsd(row.masterProfit)}</span>}
         <button
           onClick={() => onRemove(row.symbol)}
           title="Stop tracking this setup"

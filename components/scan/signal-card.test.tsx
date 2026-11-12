@@ -139,7 +139,7 @@ describe("SignalCard score breakdown", () => {
     expect(screen.getByText(/becomes resistance/)).toBeInTheDocument();
     expect(screen.getByText(/Returning to the old entry does not reinstate it/)).toBeInTheDocument();
     // The retired plan's levels stay readable, dimmed, so a person can see what broke.
-    expect(screen.getByText("Stop loss")).toBeInTheDocument();
+    expect(screen.getByText("Exit if wrong (stop loss)")).toBeInTheDocument();
   });
 
   it("shows no retirement notice on a plan whose stop stands", () => {
@@ -151,7 +151,7 @@ describe("SignalCard score breakdown", () => {
     render(<SignalCard result={resultWithFullBreakdown()} />);
 
     expect(screen.getByText("Entry")).toBeInTheDocument();
-    expect(screen.getByText("Stop loss")).toBeInTheDocument();
+    expect(screen.getByText("Exit if wrong (stop loss)")).toBeInTheDocument();
   });
 
   // 2026-09-11: us_equity prices targets as a percentage of purchase price,
@@ -164,8 +164,8 @@ describe("SignalCard score breakdown", () => {
   it("labels equity targets by percentage of entry, not by R-multiple", () => {
     render(<SignalCard result={resultWithFullBreakdown()} />);
     // entry 100, takeProfit1 124 -> 24.0%; masterProfit 136 -> 36.0%.
-    expect(screen.getByText("TP1 (24.0%)")).toBeInTheDocument();
-    expect(screen.getByText("MTP (36.0%)")).toBeInTheDocument();
+    expect(screen.getByText("First target (TP1) · 24.0%")).toBeInTheDocument();
+    expect(screen.getByText("Master target (MTP) · 36.0%")).toBeInTheDocument();
     expect(screen.queryByText(/TP1 \(.*R\)/)).not.toBeInTheDocument();
   });
 
@@ -188,7 +188,7 @@ describe("SignalCard score breakdown", () => {
     const result = resultWithFullBreakdown();
     result.assetClass = "crypto";
     render(<SignalCard result={result} />);
-    expect(screen.getByText("TP1 (2.0R)")).toBeInTheDocument();
-    expect(screen.getByText("MTP (3.0R)")).toBeInTheDocument();
+    expect(screen.getByText("First target (TP1) · 2.0R")).toBeInTheDocument();
+    expect(screen.getByText("Master target (MTP) · 3.0R")).toBeInTheDocument();
   });
 });

@@ -42,7 +42,7 @@ describe("ResultsTable", () => {
     render(<ResultsTable rows={[{ ...BASE_ROW, currentPrice: 101.5 }]} />);
 
     const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
-    expect(headers.slice(0, 7)).toEqual(["Symbol", "Score", "Price", "Entry", "Exit (S/L)", "TP1", "MTP"]);
+    expect(headers.slice(0, 7)).toEqual(["Symbol", "Score", "Price", "Entry", "Exit if wrong (stop loss)", "First target (TP1)", "Master target (MTP)"]);
     // The owner's 2026-10-29 ask: the entry in the chart's entry-line blue.
     expect(screen.getByText("$100.00")).toHaveClass("text-accent");
     expect(screen.getByText("$100.00")).toBeInTheDocument();
@@ -193,8 +193,8 @@ describe("ResultsTable", () => {
     expect(screen.getByText("Trend")).toBeInTheDocument();
     expect(screen.getByText("Timing")).toBeInTheDocument();
     expect(screen.getByText("Higher timeframes: Monthly rising, Daily falling.")).toBeInTheDocument();
-    expect(screen.getByText("MTP", { selector: "dt" })).toBeInTheDocument();
-    expect(screen.getByText("Exit (S/L)", { selector: "dt" })).toBeInTheDocument();
+    expect(screen.getByText("Master target (MTP)", { selector: "dt" })).toBeInTheDocument();
+    expect(screen.getByText("Exit if wrong (stop loss)", { selector: "dt" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Collapse/ }));
     expect(screen.queryByText("What lined up")).not.toBeInTheDocument();

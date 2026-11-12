@@ -5,8 +5,11 @@ import { BriefSections } from "@/components/setups/setup-card";
 import { briefMatchesLevels, briefVoiceOf, voiced } from "@/lib/setups/card";
 import type { PublicScanResult } from "@/lib/types";
 import { formatUsd } from "@/lib/utils";
+import { useTerms } from "@/components/vocabulary";
+import type { TermId } from "@/lib/school/terms";
 
-const ROLE_LABEL = { entry: "Entry", stop: "Exit (S/L)", tp1: "TP1", tp2: "TP2", mtp: "MTP" } as const;
+// The entry stays "Entry"; every other level reads in the member's words (lib/school/terms.ts).
+const ROLE_TERM = { stop: "stopLoss", tp1: "tp1", tp2: "tp2", mtp: "mtp" } as const satisfies Record<string, TermId>;
 
 /**
  * The setup brief on the ticker page (owner, 2026-11-11): the same reading
@@ -16,6 +19,7 @@ const ROLE_LABEL = { entry: "Entry", stop: "Exit (S/L)", tp1: "TP1", tp2: "TP2",
  * another scan's brief.
  */
 export function SetupBriefCard({ result, exactScoreDisplayEnabled }: { result: PublicScanResult; exactScoreDisplayEnabled: boolean }) {
+  const term = useTerms();
   const brief = result.brief;
   if (!brief || !result.levels) return null;
   const { entry, stopLoss, takeProfit1, masterProfit } = result.levels;
@@ -32,7 +36,7 @@ export function SetupBriefCard({ result, exactScoreDisplayEnabled }: { result: P
         <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {brief.plan.map((l) => (
             <div key={l.role}>
-              <dt className="text-[11px] uppercase tracking-wide text-muted">{ROLE_LABEL[l.role]}</dt>
+              <dt className="text-[11px] uppercase tracking-wide text-muted">{l.role === "entry" ? "Entry" : term(ROLE_TERM[l.role])}</dt>
               <dd className="font-mono text-sm">
                 {formatUsd(l.price)}
                 {l.multiple != null && <span className="ml-1.5 text-[11px] text-muted">{l.multiple.toFixed(1)}× risk</span>}

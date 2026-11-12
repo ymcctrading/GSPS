@@ -1,5 +1,6 @@
 "use client";
 
+import { Term } from "@/components/vocabulary";
 import { useState } from "react";
 import { ArrowRight, TriangleAlert, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -171,9 +172,9 @@ function SavedRow({
 
       <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-muted">
         {row.entry != null && <span className="text-accent">Entry {formatUsd(row.entry)}</span>}
-        {row.stop_loss != null && <span className="text-bear">Exit {formatUsd(row.stop_loss)}</span>}
-        {row.take_profit1 != null && <span className="text-bull">TP1 {formatUsd(row.take_profit1)}</span>}
-        {row.master_profit != null && <span className="text-bull">MTP {formatUsd(row.master_profit)}</span>}
+        {row.stop_loss != null && <span className="text-bear"><Term id="stopLoss" /> {formatUsd(row.stop_loss)}</span>}
+        {row.take_profit1 != null && <span className="text-bull"><Term id="tp1" /> {formatUsd(row.take_profit1)}</span>}
+        {row.master_profit != null && <span className="text-bull"><Term id="mtp" /> {formatUsd(row.master_profit)}</span>}
         <button
           onClick={() => onRemove(row.id)}
           title="Remove from saved setups"

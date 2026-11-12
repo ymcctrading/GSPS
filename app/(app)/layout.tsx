@@ -2,6 +2,26 @@ import { AppNav } from "@/components/app/nav";
 import { TourProvider } from "@/components/onboarding/tour-provider";
 import { PracticeBanner } from "@/components/app/practice-banner";
 import { ServiceWorkerRegistrar } from "@/components/app/service-worker-registrar";
+import { VocabularyProvider } from "@/components/vocabulary";
+import { createClient } from "@/lib/supabase/server";
+import { getUserTier } from "@/lib/tiers";
+import type { VocabularyTier } from "@/lib/school/terms";
+
+/**
+ * The signed-in member's tier for trading vocabulary (lib/school/terms.ts),
+ * from `profiles.tier`. A visitor or a failed read is null, which reads every
+ * term as introduced: the gloss is never withheld from someone who may not
+ * have been taught the term.
+ */
+async function vocabularyTier(): Promise<VocabularyTier> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    return data.user ? await getUserTier(supabase, data.user.id) : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * App shell. The container widens by device class — a phone gets edge-to-edge
@@ -12,20 +32,23 @@ import { ServiceWorkerRegistrar } from "@/components/app/service-worker-registra
  * The bottom padding clears the phone tab bar; from `md` up that bar is gone
  * and the padding relaxes.
  */
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const tier = await vocabularyTier();
   return (
     // The tour provider wraps the shell rather than sitting inside a page: one
     // overlay serves every destination, and following a step's link navigates
     // the app underneath it instead of unmounting the tour mid-sentence.
-    <TourProvider>
-      <div className="flex min-h-screen flex-col">
-        <ServiceWorkerRegistrar />
-        <PracticeBanner />
-        <AppNav />
-        <main className="pb-tabbar mx-auto w-full min-w-0 max-w-6xl flex-1 px-3 pt-4 sm:px-4 sm:pt-5 lg:px-6 lg:pt-6 2xl:max-w-7xl">
-          {children}
-        </main>
-      </div>
-    </TourProvider>
+    <VocabularyProvider tier={tier}>
+      <TourProvider>
+        <div className="flex min-h-screen flex-col">
+          <ServiceWorkerRegistrar />
+          <PracticeBanner />
+          <AppNav />
+          <main className="pb-tabbar mx-auto w-full min-w-0 max-w-6xl flex-1 px-3 pt-4 sm:px-4 sm:pt-5 lg:px-6 lg:pt-6 2xl:max-w-7xl">
+            {children}
+          </main>
+        </div>
+      </TourProvider>
+    </VocabularyProvider>
   );
 }

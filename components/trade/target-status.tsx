@@ -3,6 +3,7 @@
 import { Check, X, Minus } from "lucide-react";
 import { isReached, type TargetState, type TargetStatus } from "@/lib/trade/targets";
 import { cn } from "@/lib/utils";
+import { useTerms } from "@/components/vocabulary";
 
 /**
  * Three-state target tracker for an order row: TP1, MTP (master take profit) and SL.
@@ -13,27 +14,32 @@ import { cn } from "@/lib/utils";
  * so a live position isn't mistaken for a settled result.
  */
 export function TargetStatusCells({ status }: { status: TargetStatus }) {
+  // The badge keeps its short mark to fit the cell; its title and screen
+  // reader name read in the member's words (lib/school/terms.ts).
+  const term = useTerms();
   return (
     <div className="flex items-center justify-center gap-1">
-      <Marker label="TP1" state={status.tp1} tone="bull" />
-      <Marker label="MTP" state={status.mp} tone="bull" />
-      <Marker label="SL" state={status.sl} tone="bear" />
+      <Marker label="TP1" name={term("tp1")} state={status.tp1} tone="bull" />
+      <Marker label="MTP" name={term("mtp")} state={status.mp} tone="bull" />
+      <Marker label="SL" name={term("stopLoss")} state={status.sl} tone="bear" />
     </div>
   );
 }
 
 function Marker({
   label,
+  name,
   state,
   tone,
 }: {
   label: string;
+  name: string;
   state: TargetState;
   tone: "bull" | "bear";
 }) {
   const reached = isReached(state);
   const recorded = state === "hit";
-  const title = `${label}: ${
+  const title = `${name}: ${
     {
       hit: "hit",
       reached: "currently through this level",

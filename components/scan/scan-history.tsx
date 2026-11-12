@@ -1,5 +1,6 @@
 "use client";
 
+import { Term } from "@/components/vocabulary";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -229,9 +230,12 @@ function RankedByExecutability({
             </span>
             <div className="ml-auto flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
               <span>Price {s.currentPrice != null ? formatUsd(s.currentPrice) : "—"}</span>
-              <span>TP1 {s.takeProfit1 != null ? formatUsd(s.takeProfit1) : "—"}</span>
-              <span>MTP {s.masterProfit != null ? formatUsd(s.masterProfit) : "—"}</span>
-              <span>S/L {s.stopLoss != null ? formatUsd(s.stopLoss) : "—"}</span>
+              <span>
+                <Term id="tp1" /> {s.takeProfit1 != null ? formatUsd(s.takeProfit1) : "—"}</span>
+              <span>
+                <Term id="mtp" /> {s.masterProfit != null ? formatUsd(s.masterProfit) : "—"}</span>
+              <span>
+                <Term id="stopLoss" /> {s.stopLoss != null ? formatUsd(s.stopLoss) : "—"}</span>
             </div>
           </div>
         ))}

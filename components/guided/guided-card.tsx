@@ -1,5 +1,6 @@
 "use client";
 
+import { useTerms } from "@/components/vocabulary";
 import { RoundNumberNotice } from "@/components/gann/round-number-notice";
 import { PlanReadingLine } from "@/components/strategies/plan-reading-line";
 import { planFromLevels } from "@/lib/strategies/explain/params";
@@ -143,6 +144,7 @@ export function GuidedCard({
 /** The work, shown rather than removed: the same score rollup and levels the ticker page uses. */
 function WhyPanel({ rec }: { rec: Recommendation }) {
   const { why } = rec;
+  const term = useTerms();
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-background px-4 py-3 text-sm">
       <p>
@@ -169,9 +171,9 @@ function WhyPanel({ rec }: { rec: Recommendation }) {
             the stop the bad one on either side, even though a short's targets
             sit below its entry rather than above. */}
         <Level label="Entry" value={why.entry} tone="accent" />
-        <Level label="Stop" value={why.stopLoss} tone="bear" />
-        <Level label="Target 1" value={why.takeProfit1} tone="bull" />
-        <Level label="MTP (next level)" value={why.masterProfit} tone="bull" />
+        <Level label={term("stopLoss")} value={why.stopLoss} tone="bear" />
+        <Level label={term("tp1")} value={why.takeProfit1} tone="bull" />
+        <Level label={term("mtp")} value={why.masterProfit} tone="bull" />
       </div>
       <PlanReadingLine
         symbol={rec.symbol}

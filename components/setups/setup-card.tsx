@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Check, ChevronDown, ChevronUp, Minus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatUsd } from "@/lib/utils";
+import { useTerms } from "@/components/vocabulary";
 import { rewardToRisk, voiced, type SetupCardModel, type SetupCheck } from "@/lib/setups/card";
 import type { BriefLevelRole, BriefVoice, SetupBrief } from "@/lib/setups/brief";
 import { PlanReadingLine } from "@/components/strategies/plan-reading-line";
@@ -114,6 +115,8 @@ export function SetupCardPanel({
   };
   const tp2 = brief?.plan.find((l) => l.role === "tp2") ?? null;
   const { levels } = model;
+  // Level names in the member's words (lib/school/terms.ts).
+  const term = useTerms();
   // A target already behind price on a resting order counts only once the
   // entry fills (lib/setups/resting.ts), so it is not shown as reachable now.
   const behind = (t: "TP1" | "MTP") => model.resting?.targetsBehindPrice.includes(t) ?? false;
@@ -150,14 +153,14 @@ export function SetupCardPanel({
           <dl className={cn("grid grid-cols-2 gap-3", tp2 ? "sm:grid-cols-5" : "sm:grid-cols-4")}>
             <Level label="Entry" value={levels.entry} tone="accent" hint="Where the setup turns on." reason={reasonOf("entry")} />
             <Level
-              label="Exit (S/L)"
+              label={term("stopLoss")}
               value={levels.stop}
               tone="bear"
               hint="The stop-loss: the price that says the setup failed."
               reason={reasonOf("stop")}
             />
             <Level
-              label="TP1"
+              label={term("tp1")}
               value={levels.tp1}
               tone="bull"
               hint="First take-profit."
@@ -167,7 +170,7 @@ export function SetupCardPanel({
             />
             {tp2 && (
               <Level
-                label="TP2"
+                label={term("tp2")}
                 value={tp2.price}
                 tone="bull"
                 hint="Second take-profit: the strongest level between TP1 and the MTP."
@@ -176,7 +179,7 @@ export function SetupCardPanel({
               />
             )}
             <Level
-              label="MTP"
+              label={term("mtp")}
               value={levels.mtp}
               tone="bull"
               hint="Master take profit: the further target the runner works toward."
