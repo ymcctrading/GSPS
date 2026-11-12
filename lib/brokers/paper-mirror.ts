@@ -73,7 +73,7 @@ import { tradingDisabled } from "@/lib/trade/kill-switch";
 import { OWNER_EMAILS } from "@/lib/auth/owner";
 
 /** Positions opened before this are never mirrored (they'd be bought at today's price). */
-export const MIRROR_START = "2026-11-13T00:00:00Z";
+export const MIRROR_START = "2026-11-12T15:45:00Z";
 /** Most mirrored lines open at once (ref: SRC-004 p.46, five stocks). */
 export const MAX_OPEN_LINES = 5;
 /** Engineering choice: no new opens once the paper account is down this much on the day. */
