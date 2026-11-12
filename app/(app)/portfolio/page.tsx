@@ -20,6 +20,7 @@ import { RiskPanel } from "@/components/portfolio/risk-panel";
 import type { ExitsState, OrderRow, Portfolio, SyncState } from "@/components/portfolio/types";
 import { countOpenLegs, groupByDisposition, sectionOrders } from "@/lib/portfolio/sections";
 import { formatUsd, formatPct, cn } from "@/lib/utils";
+import { lastTradeNote } from "@/lib/portfolio/close-note";
 import { intradayChartPlan } from "@/lib/setups/intraday";
 import { LEVEL_SOURCE_PLACED_ON } from "@/lib/trade/level-source";
 import { intradayPlanForSide, planStopForEdit, swingPlanForSide, type PlanPick } from "@/lib/portfolio/plan-levels";
@@ -407,6 +408,9 @@ function ClosePositionModal({
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Set when an option leg closed at its last real trade rather than a live
+  // quote, so the person sees which price was used before the dialog goes.
+  const [closedNote, setClosedNote] = useState<string | null>(null);
 
   // Retain the last target (rather than clearing to null with `position`) so
   // the confirmation stays legible while the modal plays its exit transition,
@@ -419,6 +423,7 @@ function ClosePositionModal({
     if (position) {
       setActive(position);
       setErr(null);
+      setClosedNote(null);
     }
   }
 
@@ -435,7 +440,9 @@ function ClosePositionModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       onClosed();
-      onClose();
+      const note = lastTradeNote(data);
+      if (note) setClosedNote(note);
+      else onClose();
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -451,14 +458,23 @@ function ClosePositionModal({
       description="Liquidates the whole position at market and cancels any resting orders on the symbol."
       footer={
         <div className="flex flex-col gap-2">
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={onClose} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button variant="bear" className="flex-1" onClick={confirm} disabled={submitting}>
-              {submitting ? "Closing…" : "Close position"}
-            </Button>
-          </div>
+          {closedNote ? (
+            <>
+              <p className="text-sm text-muted">{closedNote}</p>
+              <Button variant="outline" className="w-full" onClick={onClose}>
+                Done
+              </Button>
+            </>
+          ) : (
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={onClose} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button variant="bear" className="flex-1" onClick={confirm} disabled={submitting}>
+                {submitting ? "Closing…" : "Close position"}
+              </Button>
+            </div>
+          )}
           {err && <p className="text-sm text-bear">{err}</p>}
         </div>
       }

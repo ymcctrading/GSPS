@@ -28,7 +28,8 @@
 
 import { getMarketDataProvider } from "@/lib/data/provider";
 import { syntheticDataRefusal } from "@/lib/data/feed-mode";
-import { isCryptoSymbol, fetchOptionLatestTrade } from "@/lib/data/alpaca";
+import { isCryptoSymbol, fetchOptionLatestTrade, fetchOptionQuoteSnapshot, type OptionQuoteSnapshot } from "@/lib/data/alpaca";
+import { equitySession } from "@/lib/market/session";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import {
   isInvalidatedByStop,
@@ -273,6 +274,48 @@ export async function quoteOptionPrice(occSymbol: string): Promise<number | null
   return fetchOptionLatestTrade(occSymbol);
 }
 
+/** How old an option quote may be and still close a paper leg (the free feed runs about 15 minutes late). */
+export const OPTION_QUOTE_FRESH_MS = 20 * 60_000;
+
+/** The price a paper option leg closes at, and where it came from. */
+export interface OptionCloseMark {
+  price: number;
+  /** "quote": the live bid (selling) or ask (buying); "last_trade": the contract's last real trade. */
+  source: "quote" | "last_trade";
+  /** When that quote or trade printed (ISO). */
+  asOf: string;
+}
+
+/**
+ * Where a paper option leg closes, from real data only ("Only the real").
+ * A real close at market sells into the bid or buys from the ask, so a fresh
+ * one-sided price on the side the close trades against is used first: fresh
+ * means the regular session is open (options trade then only) and the quote
+ * is under `OPTION_QUOTE_FRESH_MS` old. With no such quote (market closed, or
+ * nobody bidding, as on a far out-of-the-money contract) the leg closes at
+ * the contract's last real trade, whatever its age, and says so. With
+ * neither, null: never an invented price, never the entry premium.
+ */
+export function optionClosePrice(
+  snap: OptionQuoteSnapshot | null,
+  closingSide: "buy" | "sell",
+  now: Date = new Date(),
+): OptionCloseMark | null {
+  if (!snap) return null;
+  const side = closingSide === "sell" ? snap.bid : snap.ask;
+  const quoteMs = snap.quoteAt ? Date.parse(snap.quoteAt) : NaN;
+  const fresh =
+    equitySession(now) === "regular" &&
+    Number.isFinite(quoteMs) &&
+    now.getTime() - quoteMs <= OPTION_QUOTE_FRESH_MS &&
+    quoteMs - now.getTime() <= 60_000;
+  if (fresh && side != null && side > 0) return { price: side, source: "quote", asOf: snap.quoteAt! };
+  if (snap.lastTrade != null && snap.lastTrade > 0 && snap.lastTradeAt) {
+    return { price: snap.lastTrade, source: "last_trade", asOf: snap.lastTradeAt };
+  }
+  return null;
+}
+
 /**
  * The result of matching a fill against the position that was open before it.
  * A fill only ever does one of three things to a position: opens/adds to one
@@ -372,6 +415,10 @@ export interface ExecutedFill {
   positionId: string | null;
   /** The closed portion's realized P/L, plus when the position that produced it was opened. */
   closed: (NonNullable<FillOutcome["closed"]> & { openedAt: string }) | null;
+  /** Option closes only: whether the price was a live quote or the contract's last real trade. */
+  priceSource?: OptionCloseMark["source"];
+  /** Option closes only: when that quote or trade printed (ISO). */
+  priceAsOf?: string;
 }
 
 /**
@@ -510,17 +557,31 @@ export async function closePositionSim(
 ): Promise<ExecutedFill | null> {
   const existing = await getOpenPosition(supabase, userId, symbol.toUpperCase());
   if (!existing) return null;
-  const price = await quotePrice(symbol, assetClassOf(symbol));
-  if (price == null) throw new Error(`No live price available for ${symbol} — the close wasn't simulated.`);
   const closingSide: "buy" | "sell" = existing.side === "long" ? "sell" : "buy";
+  // An option leg reads its own contract's quote, never the stock feed: an
+  // OCC symbol on the stock feed has no price, which left every paper option
+  // position impossible to close (fixed 2026-11-12).
+  let optionMark: OptionCloseMark | null = null;
+  let price: number | null;
+  if (isOption(symbol)) {
+    optionMark = optionClosePrice(await fetchOptionQuoteSnapshot(symbol), closingSide);
+    price = optionMark?.price ?? null;
+    if (price == null) {
+      throw new Error(`No real price for ${symbol.toUpperCase()}: no live quote, and the contract has no recorded trade. The close wasn't simulated.`);
+    }
+  } else {
+    price = await quotePrice(symbol, assetClassOf(symbol));
+    if (price == null) throw new Error(`No live price available for ${symbol} — the close wasn't simulated.`);
+  }
   const closeQty = qty ? Math.min(qty, existing.qty) : existing.qty;
-  return executeFill(supabase, userId, {
+  const fill = await executeFill(supabase, userId, {
     symbol,
     assetClass: assetClassOf(symbol),
     side: closingSide,
     qty: closeQty,
     price,
   });
+  return optionMark ? { ...fill, priceSource: optionMark.source, priceAsOf: optionMark.asOf } : fill;
 }
 
 /**
