@@ -20,6 +20,7 @@ import { FIELD_LABELS, PRICE_FIELDS, comparatorOf, type StoredAlert } from "@/li
 import { ChartTradeWidget } from "@/components/trade/chart-trade-widget";
 import { CandleReadoutPanel } from "@/components/chart/candle-readout";
 import { buildReadout, indexAtTime, type ReadoutBar } from "@/lib/chart/readout";
+import { movedPastThreshold, resolveDrawGesture } from "@/lib/chart/drawGesture";
 import type { Bar, Timeframe } from "@/lib/types";
 import {
   DEFAULT_VISIBLE_BARS,
@@ -105,6 +106,10 @@ function syncPriceAlert(symbol: string, targetPrice: number): void {
   }).catch(() => {
     /* best-effort — the local alert still works even if this fails */
   });
+}
+
+function formatAlertPrice(price: number): string {
+  return price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 });
 }
 
 function clearPersistedPriceAlert(symbol: string): void {
@@ -405,6 +410,10 @@ export function CandleChart({
   const [alertPrice, setAlertPrice] = useState<number | null>(null);
   const [alertHit, setAlertHit] = useState<string | null>(null);
   const [alertInput, setAlertInput] = useState("");
+  // The last change to the alert line, so a slip of the finger or mouse can
+  // be put back (owner, 2026-11-12: a saved SPY alert was dragged away by
+  // accident while drawing, and its old price was gone).
+  const [alertUndo, setAlertUndo] = useState<{ from: number; to: number | null } | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [ruleAlerts, setRuleAlerts] = useState<StoredAlert[]>([]);
 
@@ -413,6 +422,7 @@ export function CandleChart({
   const pendingRef = useRef<Point | null>(pending);
   const alertRef = useRef<number | null>(alertPrice);
   const draggingRef = useRef(false);
+  const dragFromRef = useRef<number | null>(null);
   const lastPriceRef = useRef<number | null>(null);
   useEffect(() => void (toolRef.current = tool), [tool]);
   useEffect(() => void (pendingRef.current = pending), [pending]);
@@ -465,31 +475,8 @@ export function CandleChart({
     chartRef.current = chart;
     seriesRef.current = series;
 
-    // Click-to-draw. Reads the active tool via ref to avoid stale closures.
-    const onClick = (param: { time?: Time; point?: { x: number; y: number } }) => {
-      const activeTool = toolRef.current;
-      if (activeTool === "none" || !param.point || !seriesRef.current) return;
-      const price = seriesRef.current.coordinateToPrice(param.point.y);
-      if (price == null) return;
-
-      if (activeTool === "hline") {
-        setHlines((prev) => [...prev, roundPrice(price)]);
-        setTool("none");
-        return;
-      }
-      // Trendline: two clicks. param.time can be null outside the data range.
-      if (param.time == null) return;
-      const point: Point = { time: param.time, price };
-      const first = pendingRef.current;
-      if (!first) {
-        setPending(point);
-      } else {
-        setTrendlines((prev) => [...prev, { a: first, b: point }]);
-        setPending(null);
-        setTool("none");
-      }
-    };
-    chart.subscribeClick(onClick);
+    // Drawing reads the pointer itself (the effect below), not the chart's
+    // click, so it works the same with a finger as with a mouse.
 
     // Track which bar the crosshair is over. `time` is absent once the pointer
     // leaves the data area, which resets the readout to the latest bar.
@@ -585,6 +572,7 @@ export function CandleChart({
     setPending(null);
     setTool("none");
     setAlertHit(null);
+    setAlertUndo(null);
     let stored: number | null = null;
     try {
       const raw = localStorage.getItem(`gsps.alert.${symbol.toUpperCase()}`);
@@ -697,12 +685,17 @@ export function CandleChart({
     };
 
     const onHover = (e: PointerEvent) => {
-      if (draggingRef.current || toolRef.current !== "none") return;
+      if (draggingRef.current || toolRef.current !== "none" || e.pointerType === "touch") return;
       el.style.cursor = nearAlert(localY(e.clientY)) ? "ns-resize" : "";
     };
     const onDown = (e: PointerEvent) => {
+      // A finger moves the alert through the price box beside the bell, never
+      // by dragging: on a phone a press that meant to pan or draw lands on the
+      // line too easily, and the move is saved at once.
+      if (e.pointerType === "touch" || e.button > 0) return;
       if (toolRef.current !== "none" || !nearAlert(localY(e.clientY))) return;
       draggingRef.current = true;
+      dragFromRef.current = alertRef.current;
       el.style.cursor = "ns-resize";
       e.stopPropagation();
       e.preventDefault();
@@ -727,7 +720,11 @@ export function CandleChart({
       } catch {
         /* ignore */
       }
-      if (a != null) syncPriceAlert(symbol.toUpperCase(), a);
+      const from = dragFromRef.current;
+      dragFromRef.current = null;
+      if (a == null || a === from) return;
+      if (from != null) setAlertUndo({ from, to: a });
+      syncPriceAlert(symbol.toUpperCase(), a);
     };
 
     el.addEventListener("pointermove", onHover);
@@ -741,6 +738,119 @@ export function CandleChart({
       window.removeEventListener("pointerup", onUp, true);
     };
   }, [symbol]);
+
+  // ---- Drawing with the pointer (mouse, pen or finger) while a tool is armed.
+  // The chart doesn't pan or zoom meanwhile, so a press-and-drag draws a trend
+  // line rather than scrolling, and two taps draw one however quickly they
+  // come (lib/chart/drawGesture.ts).
+  useEffect(() => {
+    const chart = chartRef.current;
+    const el = containerRef.current;
+    if (!chart || !el || tool === "none") return;
+    chart.applyOptions({ handleScroll: false, handleScale: false });
+    el.style.touchAction = "none";
+    el.style.cursor = "crosshair";
+
+    const local = (e: PointerEvent) => {
+      const r = el.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    };
+    const at = (x: number, y: number) => ({
+      time: chartRef.current?.timeScale().coordinateToTime(x) ?? null,
+      price: seriesRef.current?.coordinateToPrice(y) ?? null,
+    });
+    let down: { id: number; x: number; y: number } | null = null;
+    let dragged = false;
+    let preview: ISeriesApi<"Line"> | null = null;
+    const clearPreview = () => {
+      if (preview) chartRef.current?.removeSeries(preview);
+      preview = null;
+    };
+
+    const onDown = (e: PointerEvent) => {
+      if (e.button > 0 || down) return;
+      const p = local(e);
+      down = { id: e.pointerId, ...p };
+      dragged = false;
+      e.stopPropagation();
+      e.preventDefault();
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!down || e.pointerId !== down.id) return;
+      const p = local(e);
+      if (!dragged && movedPastThreshold(p.x - down.x, p.y - down.y)) dragged = true;
+      if (dragged && toolRef.current === "trend") {
+        const a = at(down.x, down.y);
+        const b = at(p.x, p.y);
+        if (a.time != null && b.time != null && a.price != null && b.price != null && a.time !== b.time) {
+          if (!preview) {
+            preview = chart.addSeries(LineSeries, {
+              color: DRAW_COLOR,
+              lineWidth: 2,
+              lineStyle: 2,
+              priceLineVisible: false,
+              lastValueVisible: false,
+              crosshairMarkerVisible: false,
+            });
+          }
+          preview.setData(
+            [
+              { time: a.time, value: a.price },
+              { time: b.time, value: b.price },
+            ].sort((x, y) => (x.time as number) - (y.time as number)),
+          );
+        }
+      }
+      e.stopPropagation();
+      e.preventDefault();
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!down || e.pointerId !== down.id) return;
+      const p = local(e);
+      const start = down;
+      down = null;
+      clearPreview();
+      const outcome = resolveDrawGesture({
+        tool: toolRef.current,
+        down: at(start.x, start.y),
+        up: at(p.x, p.y),
+        dragged,
+        pending: pendingRef.current,
+      });
+      if (outcome.kind === "hline") {
+        setHlines((prev) => [...prev, roundPrice(outcome.price)]);
+        setTool("none");
+      } else if (outcome.kind === "pending") {
+        setPending(outcome.point);
+      } else if (outcome.kind === "trend") {
+        setTrendlines((prev) => [...prev, { a: outcome.a, b: outcome.b }]);
+        setPending(null);
+        setTool("none");
+      }
+      e.stopPropagation();
+      e.preventDefault();
+    };
+    const onCancel = (e: PointerEvent) => {
+      if (!down || e.pointerId !== down.id) return;
+      down = null;
+      clearPreview();
+    };
+
+    el.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("pointermove", onMove, true);
+    window.addEventListener("pointerup", onUp, true);
+    window.addEventListener("pointercancel", onCancel, true);
+    return () => {
+      el.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerup", onUp, true);
+      window.removeEventListener("pointercancel", onCancel, true);
+      clearPreview();
+      el.style.touchAction = "";
+      el.style.cursor = "";
+      chartRef.current?.applyOptions({ handleScroll: true, handleScale: true });
+    };
+  }, [tool]);
 
   // Price-line overlays for scan markers. Structural (Gann/harmonic) levels
   // and entry/stop/target levels are each independently toggleable, since
@@ -1282,6 +1392,7 @@ export function CandleChart({
 
   function toggleAlert() {
     if (alertPrice != null) {
+      setAlertUndo({ from: alertPrice, to: null });
       setAlertPrice(null);
       setAlertHit(null);
       try {
@@ -1294,6 +1405,7 @@ export function CandleChart({
     }
     const seed = lastBarRef.current?.close ?? markers[0]?.price ?? 0;
     const price = roundPrice(seed);
+    setAlertUndo(null);
     setAlertPrice(price);
     try {
       if (typeof Notification !== "undefined" && Notification.permission === "default") {
@@ -1312,6 +1424,7 @@ export function CandleChart({
   function setAlertAt(price: number) {
     if (!(price > 0)) return;
     const rounded = roundPrice(price);
+    if (alertPrice != null && alertPrice !== rounded) setAlertUndo({ from: alertPrice, to: rounded });
     setAlertHit(null);
     setAlertPrice(rounded);
     try {
@@ -1323,6 +1436,21 @@ export function CandleChart({
       /* ignore */
     }
     syncPriceAlert(symbol.toUpperCase(), rounded);
+  }
+
+  // Puts the alert line back where it was before its last move or removal.
+  function undoAlertChange() {
+    if (!alertUndo) return;
+    const price = alertUndo.from;
+    setAlertUndo(null);
+    setAlertHit(null);
+    setAlertPrice(price);
+    try {
+      localStorage.setItem(`gsps.alert.${symbol.toUpperCase()}`, String(price));
+    } catch {
+      /* ignore */
+    }
+    syncPriceAlert(symbol.toUpperCase(), price);
   }
 
   function clearDrawings() {
@@ -1369,7 +1497,7 @@ export function CandleChart({
           <ToolButton
             active={tool === "trend"}
             onClick={() => setTool(tool === "trend" ? "none" : "trend")}
-            title="Trend line (click two points)"
+            title="Trend line (drag, or tap two points)"
           >
             <TrendingUp className="h-3.5 w-3.5" />
           </ToolButton>
@@ -1582,10 +1710,10 @@ export function CandleChart({
       {tool !== "none" && (
         <div className="text-xs text-accent">
           {tool === "hline"
-            ? "Click a price level to drop a horizontal line."
+            ? "Tap or click a price level to drop a horizontal line."
             : pending
-              ? "Click the second point to finish the trend line."
-              : "Click the first point of the trend line."}
+              ? "Tap or click the second point to finish the trend line."
+              : "Drag from one point to another, or tap or click two points, to draw the trend line."}
         </div>
       )}
       {enableTrading && (
@@ -1606,6 +1734,20 @@ export function CandleChart({
             }
           }}
         />
+      )}
+      {alertUndo && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md bg-accent/10 px-2.5 py-1 text-xs text-accent" role="status">
+          <Bell className="h-3.5 w-3.5" />
+          {alertUndo.to == null
+            ? `Price alert at ${formatAlertPrice(alertUndo.from)} removed.`
+            : `Price alert moved from ${formatAlertPrice(alertUndo.from)} to ${formatAlertPrice(alertUndo.to)}.`}
+          <button className="cursor-pointer font-medium underline" onClick={undoAlertChange}>
+            Undo
+          </button>
+          <button className="ml-auto cursor-pointer underline" onClick={() => setAlertUndo(null)}>
+            dismiss
+          </button>
+        </div>
       )}
       {alertHit && (
         <div className="flex items-center gap-2 rounded-md bg-warn/10 px-2.5 py-1 text-xs text-warn">
