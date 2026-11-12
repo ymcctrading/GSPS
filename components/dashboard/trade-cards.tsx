@@ -18,6 +18,7 @@ import { tickerHref } from "@/lib/routes";
 import { NO_CARD_NOTE } from "@/lib/setups/cardRecords";
 import type { TradeCards as TradeCardsData } from "@/lib/cards/readCards";
 import Link from "next/link";
+import { Term } from "@/components/vocabulary";
 
 const pct = (x: number | null) => (x == null ? "—" : `${(x * 100).toFixed(1)}%`);
 const r = (x: number | null) => (x == null ? "—" : `${x >= 0 ? "+" : ""}${x.toFixed(2)}R`);
@@ -66,9 +67,21 @@ export function TradeCards({ data }: { data: TradeCardsData }) {
                     <span className="text-muted">· {c.label}</span>
                   </span>
                   <span className="tabular-nums">
-                    Buy stop {priceUsd(c.entry)} · Stop {priceUsd(c.stop)} · First target {priceUsd(c.tp1)}
-                    {c.tp2 != null && <> · Second target {priceUsd(c.tp2)}</>}
-                    {c.mtp != null && <> · MTP {priceUsd(c.mtp)}</>}
+                    {/* Cards are long only: a buy stop at the entry (lib/cards/cardCalls.ts). */}
+                    <Term id="buyStop" /> {priceUsd(c.entry)} · <Term id="stopLoss" /> {priceUsd(c.stop)} ·{" "}
+                    <Term id="tp1" /> {priceUsd(c.tp1)}
+                    {c.tp2 != null && (
+                      <>
+                        {" "}
+                        · <Term id="tp2" /> {priceUsd(c.tp2)}
+                      </>
+                    )}
+                    {c.mtp != null && (
+                      <>
+                        {" "}
+                        · <Term id="mtp" /> {priceUsd(c.mtp)}
+                      </>
+                    )}
                   </span>
                 </li>
               ))}

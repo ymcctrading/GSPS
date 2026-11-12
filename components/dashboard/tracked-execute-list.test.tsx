@@ -38,10 +38,10 @@ describe("TrackedExecuteList", () => {
     expect(within(screen.getByTitle("Score when this setup entered Execute")).getByText("7")).toBeInTheDocument();
     expect(within(screen.getByTitle("Score now")).getByText("6")).toBeInTheDocument();
     expect(screen.getByText("Entry $23.81")).toBeInTheDocument();
-    // Exit is the stop-loss; TP1 and MTP (master take profit) close the plan.
-    expect(screen.getByText("Exit $22.69")).toBeInTheDocument();
-    expect(screen.getByText("TP1 $25.00")).toBeInTheDocument();
-    expect(screen.getByText("MTP $26.00")).toBeInTheDocument();
+    // Rendered with no member shell, so the levels read in Novice words (lib/school/terms.ts).
+    expect(screen.getByText("Exit if wrong (stop loss) $22.69")).toBeInTheDocument();
+    expect(screen.getByText("First target (TP1) $25.00")).toBeInTheDocument();
+    expect(screen.getByText("Master target (MTP) $26.00")).toBeInTheDocument();
     expect(screen.queryByText("Invalidated")).not.toBeInTheDocument();
   });
 

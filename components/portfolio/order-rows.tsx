@@ -1,5 +1,6 @@
 "use client";
 
+import { Term } from "@/components/vocabulary";
 import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -107,9 +108,15 @@ function EquityOrders({
               <TH className="text-right">Avg fill</TH>
               <TH className="text-right">P/L today</TH>
               <TH className="text-right">P/L %</TH>
-              <TH className="text-right">TP1</TH>
-              <TH className="text-right" title="Master take profit">MTP</TH>
-              <TH className="text-right">SL</TH>
+              <TH className="text-right">
+                <Term id="tp1" />
+              </TH>
+              <TH className="text-right" title="Master take profit">
+                <Term id="mtp" />
+              </TH>
+              <TH className="text-right">
+                <Term id="stopLoss" />
+              </TH>
               <TH className="text-center">Target hit</TH>
               <TH>Status</TH>
             </TR>
@@ -193,9 +200,15 @@ function OptionOrders({
               )}
               <TH className="text-right">P/L today</TH>
               <TH className="text-right">P/L %</TH>
-              <TH className="text-right">TP1</TH>
-              <TH className="text-right" title="Master take profit">MTP</TH>
-              <TH className="text-right">SL</TH>
+              <TH className="text-right">
+                <Term id="tp1" />
+              </TH>
+              <TH className="text-right" title="Master take profit">
+                <Term id="mtp" />
+              </TH>
+              <TH className="text-right">
+                <Term id="stopLoss" />
+              </TH>
               <TH className="text-center">Target hit</TH>
               <TH>Status</TH>
             </TR>

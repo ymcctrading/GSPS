@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GlossaryTerm } from "@/components/glossary-term";
+import { Term } from "@/components/vocabulary";
 import { bracketMinGap, checkBracket } from "@/lib/trade/bracket";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import { LIVE_EXIT_RULE, planProtocolExit } from "@/lib/trade/protocol-exit";
@@ -1166,7 +1167,7 @@ export function OrderTicket({
 
                 <div className="grid grid-cols-3 gap-2">
                   <label className="flex flex-col gap-1 text-xs text-muted">
-                    Stop loss
+                    <Term id="stopLoss" />
                     <Input
                       type="number"
                       inputMode="decimal"
@@ -1178,7 +1179,7 @@ export function OrderTicket({
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-xs text-muted">
-                    TP1
+                    <Term id="tp1" />
                     <Input
                       type="number"
                       inputMode="decimal"
@@ -1190,7 +1191,7 @@ export function OrderTicket({
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-xs text-muted">
-                    MTP
+                    <Term id="mtp" />
                     <Input
                       type="number"
                       inputMode="decimal"
@@ -1465,7 +1466,7 @@ function TechniqueRow({
       {own && (
         <>
           <p>
-            Entry {formatUsd(own.entry)} · Stop {formatUsd(own.stopLoss)} · TP1{" "}
+            Entry {formatUsd(own.entry)} · <Term id="stopLoss" /> {formatUsd(own.stopLoss)} · <Term id="tp1" />{" "}
             {formatUsd(own.takeProfit1)} · no MTP
           </p>
           <p className="text-muted">{own.rationale}</p>

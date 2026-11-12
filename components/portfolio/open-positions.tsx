@@ -1,5 +1,6 @@
 "use client";
 
+import { Term } from "@/components/vocabulary";
 import { PyramidHint } from "@/components/portfolio/pyramid-hint";
 import { useState } from "react";
 import Link from "next/link";
@@ -299,11 +300,17 @@ function ProtectionCell({ leg }: { leg: EquityLeg }) {
   }
   return (
     <TD className="whitespace-nowrap text-xs text-muted">
-      {leg.stopLoss != null && <>Stop {formatUsd(leg.stopLoss)}</>}
+      {leg.stopLoss != null && <>
+          <Term id="stopLoss" /> {formatUsd(leg.stopLoss)}
+        </>}
       {leg.stopLoss != null && leg.takeProfit != null && " · "}
-      {leg.takeProfit != null && <>TP1 {formatUsd(leg.takeProfit)}</>}
+      {leg.takeProfit != null && <>
+          <Term id="tp1" /> {formatUsd(leg.takeProfit)}
+        </>}
       {(leg.stopLoss != null || leg.takeProfit != null) && leg.masterProfit != null && " · "}
-      {leg.masterProfit != null && <>MTP {formatUsd(leg.masterProfit)}</>}
+      {leg.masterProfit != null && <>
+          <Term id="mtp" /> {formatUsd(leg.masterProfit)}
+        </>}
       {leg.levelSource && <> · {LEVEL_SOURCE_PLACED_ON[leg.levelSource].toLowerCase()}</>}
     </TD>
   );
@@ -315,11 +322,17 @@ function ProtectionLine({ leg }: { leg: EquityLeg }) {
   }
   return (
     <p className="mt-1 text-xs text-muted">
-      {leg.stopLoss != null && <>Stop {formatUsd(leg.stopLoss)}</>}
+      {leg.stopLoss != null && <>
+          <Term id="stopLoss" /> {formatUsd(leg.stopLoss)}
+        </>}
       {leg.stopLoss != null && leg.takeProfit != null && " · "}
-      {leg.takeProfit != null && <>TP1 {formatUsd(leg.takeProfit)}</>}
+      {leg.takeProfit != null && <>
+          <Term id="tp1" /> {formatUsd(leg.takeProfit)}
+        </>}
       {(leg.stopLoss != null || leg.takeProfit != null) && leg.masterProfit != null && " · "}
-      {leg.masterProfit != null && <>MTP {formatUsd(leg.masterProfit)}</>}
+      {leg.masterProfit != null && <>
+          <Term id="mtp" /> {formatUsd(leg.masterProfit)}
+        </>}
       {leg.levelSource && <> · {LEVEL_SOURCE_PLACED_ON[leg.levelSource].toLowerCase()}</>}
     </p>
   );

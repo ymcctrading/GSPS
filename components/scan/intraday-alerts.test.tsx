@@ -410,7 +410,7 @@ describe("IntradayAlerts — the setup card", () => {
     render(<IntradayAlerts />);
 
     await screen.findByRole("button", { name: "SPY" });
-    for (const label of ["Price", "Entry", "Exit (S/L)", "TP1", "MTP"]) {
+    for (const label of ["Price", "Entry", "Exit if wrong (stop loss)", "First target (TP1)", "Master target (MTP)"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     // Entry is the level the alert's plan waits on; exit its invalidation; TP1 the plan's first target.

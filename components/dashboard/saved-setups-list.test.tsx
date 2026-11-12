@@ -29,9 +29,9 @@ describe("SavedSetupsList", () => {
     render(<SavedSetupsList initialRows={[base]} />);
 
     expect(screen.getByText("Entry $60.00")).toBeInTheDocument();
-    expect(screen.getByText("Exit $57.00")).toBeInTheDocument();
-    expect(screen.getByText("TP1 $66.00")).toBeInTheDocument();
-    expect(screen.getByText("MTP $72.00")).toBeInTheDocument();
+    expect(screen.getByText("Exit if wrong (stop loss) $57.00")).toBeInTheDocument();
+    expect(screen.getByText("First target (TP1) $66.00")).toBeInTheDocument();
+    expect(screen.getByText("Master target (MTP) $72.00")).toBeInTheDocument();
     expect(screen.getByTitle("Score when saved")).toBeInTheDocument();
     expect(screen.getByTitle("Score in today's scan")).toBeInTheDocument();
   });

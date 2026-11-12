@@ -1,5 +1,6 @@
 "use client";
 
+import { Term } from "@/components/vocabulary";
 /**
  * The risk dashboard (lib/risk/dashboard.ts, /api/risk/dashboard): the
  * account's money rules on one card, read the way an order is checked. It
@@ -208,7 +209,9 @@ export function RiskPanel({ refreshKey }: { refreshKey?: unknown }) {
                       <th className="py-1 pr-3 font-medium">Symbol</th>
                       <th className="py-1 pr-3 font-medium">Side</th>
                       <th className="py-1 pr-3 text-right font-medium">Entry</th>
-                      <th className="py-1 pr-3 text-right font-medium">Stop</th>
+                      <th className="py-1 pr-3 text-right font-medium">
+                        <Term id="stopLoss" />
+                      </th>
                       <th className="py-1 pr-3 text-right font-medium">At risk</th>
                       <th className="py-1 text-right font-medium">Of capital</th>
                     </tr>

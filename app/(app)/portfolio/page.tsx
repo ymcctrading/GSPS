@@ -1,5 +1,6 @@
 "use client";
 
+import { Term } from "@/components/vocabulary";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -563,7 +564,9 @@ function ProtectPositionModal({
         <div className="flex flex-col gap-3 text-sm">
           <p className="text-muted">Current price: {formatUsd(position.currentPrice)}</p>
           <label className="flex flex-col gap-1">
-            <span className="text-muted">Stop-loss</span>
+            <span className="text-muted">
+              <Term id="stopLoss" />
+            </span>
             <Input
               type="number"
               min="0.01"
@@ -788,7 +791,9 @@ function EditExitLevelsModal({
             {planNote && <p className="text-xs">{planNote}</p>}
           </div>
           <label className="flex flex-col gap-1">
-            <span className="text-muted">Stop-loss</span>
+            <span className="text-muted">
+              <Term id="stopLoss" />
+            </span>
             <Input
               type="number"
               min="0.01"
@@ -806,7 +811,9 @@ function EditExitLevelsModal({
             </span>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-muted">TP1</span>
+            <span className="text-muted">
+              <Term id="tp1" />
+            </span>
             <Input
               type="number"
               min="0.01"
@@ -816,7 +823,9 @@ function EditExitLevelsModal({
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-muted">MTP (master take profit)</span>
+            <span className="text-muted">
+              <Term id="mtp" />
+            </span>
             <Input
               type="number"
               min="0.01"
