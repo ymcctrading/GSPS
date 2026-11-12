@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const alpaca = vi.hoisted(() => ({
   envCreds: vi.fn(() => ({ key: "k", secret: "s", mode: "paper" })),
-  getAccount: vi.fn(async () => ({ equity: "100000", last_equity: "100000", cash: "100000" })),
+  getAccount: vi.fn(async () => ({ equity: "100000", last_equity: "100000", cash: "100000" }) as Record<string, unknown>),
   getPositions: vi.fn(async () => [] as unknown[]),
   placeOrder: vi.fn(),
   placeExitOrder: vi.fn(),
