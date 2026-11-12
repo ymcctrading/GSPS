@@ -175,6 +175,9 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - **Scan Results Table**: View latest scan signals
 - **Score Badges**: Visual display of pattern scores (1-10 scale)
 - **Signal Cards**: Quick view of the highest-scoring setups
+- **Shared Watchlists**: Share your Dashboard list by link, read-only, with
+  anyone who has the link or only members you approve; a new link stops the old
+  one. Viewers see symbols only and can keep the list as their own
 
 ### 10. Settings & Configuration
 - **User Settings**: Customize preferences
