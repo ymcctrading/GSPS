@@ -9,7 +9,7 @@ if one is exposed.
 | Secret | Where it lives | Notes |
 |---|---|---|
 | `SUPABASE_SERVICE_ROLE_KEY` | Vercel env var | Bypasses Row Level Security. Server-only, never sent to the client. |
-| `CREDENTIALS_ENCRYPTION_KEY` | Vercel env var | 32-byte base64 AES-256-GCM key. Encrypts broker credentials at rest in `broker_connections` (`lib/crypto.ts`). If this key is lost, every stored broker credential becomes unrecoverable. If it leaks, every stored broker credential must be treated as compromised. |
+| `CREDENTIALS_ENCRYPTION_KEY` | GitHub secret, written to the host on deploy | 32-byte base64 AES-256-GCM key (`openssl rand -base64 32`), or any passphrase of 16+ characters, which `lib/crypto.ts#keyFromSecret` stretches with scrypt into the key. Encrypts broker credentials at rest in `broker_connections` (`lib/crypto.ts`). If this key is lost, every stored broker credential becomes unrecoverable. If it leaks, every stored broker credential must be treated as compromised. |
 | `CREDENTIALS_ENCRYPTION_KEY_PREVIOUS` | Vercel env var | Set only during a rotation window. `decryptJson()` tries the current key first, then this one, so rows encrypted under the old key keep decrypting until `scripts/rotate-credentials-key.mjs` re-encrypts them. Remove once rotation finishes. |
 | `ALPACA_API_KEY` / `ALPACA_API_SECRET` | Vercel env var | Market-data credentials, and the paper keys for reference lookups. No longer used to trade on any user's behalf — paper trading is simulated (see below). |
 | `ALPACA_LIVE_API_KEY` / `ALPACA_LIVE_API_SECRET` | Vercel env var | Live-money trading. Treat as high-severity if leaked — real funds are reachable. |

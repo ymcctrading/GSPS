@@ -61,3 +61,32 @@ describe("encryptJson / decryptJson", () => {
     expect(() => decryptJson(payload)).toThrow();
   });
 });
+
+describe("keyFromSecret", () => {
+  it("uses 32 bytes of base64 as the key itself", async () => {
+    const { keyFromSecret } = await loadCrypto();
+    const raw = randomBytes(32);
+    expect(keyFromSecret(raw.toString("base64")).equals(raw)).toBe(true);
+    expect(keyFromSecret(`${raw.toString("base64")}\n`).equals(raw)).toBe(true);
+  });
+
+  it("stretches any other secret of 16+ characters into the same 32-byte key every time", async () => {
+    const { keyFromSecret } = await loadCrypto();
+    const a = keyFromSecret("my own passphrase 2026");
+    expect(a.length).toBe(32);
+    expect(keyFromSecret("my own passphrase 2026").equals(a)).toBe(true);
+    expect(keyFromSecret("another passphrase 2026").equals(a)).toBe(false);
+  });
+
+  it("refuses a short secret", async () => {
+    const { keyFromSecret } = await loadCrypto();
+    expect(() => keyFromSecret("short")).toThrow(/16 characters/);
+  });
+
+  it("round-trips under a passphrase-style key", async () => {
+    process.env.CREDENTIALS_ENCRYPTION_KEY = "a passphrase, not base64 at all";
+    delete process.env.CREDENTIALS_ENCRYPTION_KEY_PREVIOUS;
+    const { encryptJson, decryptJson } = await loadCrypto();
+    expect(decryptJson(encryptJson({ key: "k", secret: "s" }))).toEqual({ key: "k", secret: "s" });
+  });
+});

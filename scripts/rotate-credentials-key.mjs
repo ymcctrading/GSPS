@@ -15,7 +15,7 @@
 //      CREDENTIALS_ENCRYPTION_KEY_PREVIOUS from Vercel and redeploy.
 
 import { createClient } from "@supabase/supabase-js";
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 
 function requireEnv(name) {
   const v = process.env[name];
@@ -31,10 +31,17 @@ function serverKey() {
   return v;
 }
 
+// Same derivation as lib/crypto.ts#keyFromSecret: 32 bytes of base64 is the
+// key itself; any other value of 16+ characters is a passphrase, stretched
+// with scrypt under a fixed salt.
 function keyFromEnv(name) {
-  const buf = Buffer.from(requireEnv(name), "base64");
-  if (buf.length !== 32) throw new Error(`${name} must be 32 bytes (base64)`);
-  return buf;
+  const raw = requireEnv(name).trim();
+  if (/^[A-Za-z0-9+/]{43}=$/.test(raw)) {
+    const buf = Buffer.from(raw, "base64");
+    if (buf.length === 32) return buf;
+  }
+  if (raw.length < 16) throw new Error(`${name} must be 32 bytes of base64, or a passphrase of 16 characters or more`);
+  return scryptSync(raw, "gsps-credentials-key-v1", 32);
 }
 
 function decrypt(payload, key) {

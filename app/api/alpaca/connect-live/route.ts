@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     const why = /not configured/.test(msg)
       ? "its encryption key isn't set"
       : /32 bytes/.test(msg)
-        ? "its encryption key isn't 32 bytes of base64"
+        ? "its encryption key is too short"
         : "encryption failed";
     return NextResponse.json(
       { error: `The server can't store keys securely right now (${why}). Nothing was saved.`, code: "encryption_unavailable" },
