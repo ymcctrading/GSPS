@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DELIVERY_MAX_AGE_MS } from "@/lib/entitlements/delivery";
 import { NOTIFICATION_DEDUP_HOURS } from "@/lib/notifications/intradayDelivery";
-import { CRON_HISTORY_RETENTION_DAYS, NOTIFICATION_RETENTION_DAYS } from "@/lib/ops/retention";
+import { CRON_HISTORY_RETENTION_DAYS, ENDPOINT_CALL_RETENTION_DAYS, NOTIFICATION_RETENTION_DAYS } from "@/lib/ops/retention";
 
 /**
  * The prune (migration 0138) keeps each table as long as lib/ops/retention.ts
@@ -73,3 +73,21 @@ describe("cron run history retention (migration 0146)", () => {
   });
 });
 
+describe("scheduled call log (migration 0153)", () => {
+  const sql = readFileSync(join(root, "supabase/migrations/0153_scheduled_call_log.sql"), "utf8");
+  const body = sql.replace(/^--.*$/gm, "");
+
+  it("deletes only its own log, once, older than the figure retention.ts gives", () => {
+    const deletes = [...body.matchAll(/delete from ([\w.]+) where called_at < now\(\) - interval '(\d+) days'/g)];
+    expect(deletes.map((m) => [m[1], Number(m[2])])).toEqual([["gsps_ops.endpoint_calls", ENDPOINT_CALL_RETENTION_DAYS]]);
+    expect(body.match(/\bdelete\b/gi)).toHaveLength(1);
+    expect(body).not.toMatch(/\b(truncate|drop table)\b/i);
+  });
+
+  it("keeps every existing schedule on the same 60 seconds and adds one sweep, well inside pg_net's 6 hours", () => {
+    expect(body).toContain("select gsps_ops.call_endpoint(p_path, 60000);");
+    expect(body).toContain("select cron.schedule('gsps-sweep-endpoint-calls', '*/10 * * * *', $$select gsps_ops.sweep_endpoint_calls()$$);");
+    expect(body.match(/cron\.schedule\(/g)).toHaveLength(1);
+    expect(sql).toContain("Merging this file is not applying it.");
+  });
+});
