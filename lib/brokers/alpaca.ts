@@ -442,6 +442,8 @@ export interface AlpacaOrder {
   canceled_at?: string | null;
   expired_at?: string | null;
   failed_at?: string | null;
+  /** Set on an order in status `replaced`: the order that took its place. */
+  replaced_by?: string | null;
   legs?: AlpacaOrder[] | null;
 }
 

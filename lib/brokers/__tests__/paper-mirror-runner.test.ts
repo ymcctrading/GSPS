@@ -20,19 +20,20 @@ import { runPaperMirror } from "@/lib/brokers/paper-mirror";
 type Op = { table: string; op: string; payload?: unknown; filters: string[] };
 
 /** A chainable stand-in for the Supabase client: selects answer from `tables`, writes are recorded. */
-function fakeSupabase(tables: Record<string, unknown[]>, failWrites: string[] = []) {
+function fakeSupabase(tables: Record<string, unknown[]>, failWrites: string[] = [], lockFree = true) {
   const ops: Op[] = [];
   const from = (table: string) => {
     const rec: Op = { table, op: "select", filters: [] };
     const result = () => {
       if (rec.op !== "select") {
         ops.push(rec);
-        return { data: null, error: failWrites.includes(`${table}.${rec.op}`) ? { message: "write failed" } : null };
+        if (failWrites.includes(`${table}.${rec.op}`)) return { data: null, error: { message: "write failed" } };
+        return { data: table === "paper_mirror_lock" ? (lockFree ? [{ id: 1 }] : []) : null, error: null };
       }
       return { data: tables[table] ?? [], error: null };
     };
     const b: Record<string, unknown> = {};
-    for (const m of ["select", "eq", "neq", "gte", "in", "not", "or", "order", "limit", "is"]) {
+    for (const m of ["select", "eq", "neq", "gte", "lt", "in", "not", "or", "order", "limit", "is"]) {
       b[m] = (...args: unknown[]) => {
         rec.filters.push(`${m}:${JSON.stringify(args)}`);
         return b;
@@ -141,6 +142,55 @@ describe("runPaperMirror", () => {
     const r = await runPaperMirror(client);
     expect(alpaca.closePosition).not.toHaveBeenCalled();
     expect(r.errors.join(" ")).toMatch(/not confirmed cancelled/);
+  });
+
+  it("numbers each add, so a later add never reuses an earlier one's id", async () => {
+    const { client, ops } = fakeSupabase({
+      positions: [{ id: "p1", symbol: "AAA", side: "long", qty: "15", avg_entry_price: "100", stop_loss: "95", opened_at: opened, asset_class: "us_equity" }],
+      orders: [{ symbol: "AAA", created_at: opened }],
+      paper_mirror_lines: [{ position_id: "p1", symbol: "AAA", side: "long", status: "open", target_qty: "10", open_order_id: "o1", add_order_id: null, add_seq: "2", stop_order_id: "s1", stop_price: "95", stop_qty: "10" }],
+    });
+    alpaca.getPositions.mockResolvedValue([{ symbol: "AAA", qty: "10", side: "long" }]);
+    alpaca.placeOrder.mockResolvedValue({ id: "a3", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "a3", status: "filled", filled_qty: "5", filled_avg_price: "101" });
+    const r = await runPaperMirror(client);
+    expect(r.errors).toEqual([]);
+    expect(alpaca.placeOrder).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ qty: 5, clientOrderId: "gsps-mirror-add-p1-3" }));
+    expect(ops.some((o) => o.table === "paper_mirror_lines" && (o.payload as { add_seq?: number }).add_seq === 3)).toBe(true);
+  });
+
+  it("keeps an open that reached the broker despite an error on the way back", async () => {
+    const { client, ops } = fakeSupabase({
+      positions: [{ id: "p1", symbol: "AAA", side: "long", qty: "10", avg_entry_price: "100", stop_loss: "95", opened_at: opened, asset_class: "us_equity" }],
+      orders: [{ symbol: "AAA", created_at: opened }],
+    });
+    alpaca.placeOrder.mockRejectedValue(new Error("timeout"));
+    alpaca.getOrderByClientId.mockResolvedValue({ id: "o1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "o1", status: "filled", filled_qty: "10", filled_avg_price: "100.1" });
+    alpaca.placeExitOrder.mockResolvedValue({ id: "s1", status: "new" });
+    const r = await runPaperMirror(client);
+    expect(r.errors).toEqual([]);
+    expect(ops.some((o) => (o.payload as { status?: string })?.status === "missed")).toBe(false);
+    expect(alpaca.placeExitOrder).toHaveBeenCalled();
+  });
+
+  it("keeps the filled part of an open whose rest was cancelled", async () => {
+    const { client, ops } = fakeSupabase({
+      positions: [{ id: "p1", symbol: "AAA", side: "long", qty: "10", avg_entry_price: "100", stop_loss: "95", opened_at: opened, asset_class: "us_equity" }],
+      orders: [{ symbol: "AAA", created_at: opened }],
+    });
+    alpaca.placeOrder.mockResolvedValue({ id: "o1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "o1", status: "canceled", filled_qty: "7" });
+    await runPaperMirror(client);
+    expect(ops.some((o) => (o.payload as { status?: string })?.status === "missed")).toBe(false);
+    expect(ops.some((o) => o.table === "paper_mirror_lines" && (o.payload as { target_qty?: number }).target_qty === 7)).toBe(true);
+  });
+
+  it("skips the run while another holds the lease", async () => {
+    const { client } = fakeSupabase({}, [], false);
+    const r = await runPaperMirror(client);
+    expect(r.reason).toMatch(/in progress/);
+    expect(alpaca.getAccount).not.toHaveBeenCalled();
   });
 
   it("does nothing when switched off", async () => {

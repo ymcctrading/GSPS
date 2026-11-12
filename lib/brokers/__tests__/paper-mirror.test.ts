@@ -37,6 +37,8 @@ const line = (over: Partial<MirrorLine> = {}): MirrorLine => ({
   status: "open",
   targetQty: 10,
   openOrderId: "o1",
+  addOrderId: null,
+  addSeq: 0,
   stopOrderId: "s1",
   stopPrice: 95,
   stopQty: 10,

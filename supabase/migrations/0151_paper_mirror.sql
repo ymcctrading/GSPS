@@ -16,6 +16,7 @@
 -- (AGENTS.md ledger rule), losses included.
 --
 -- Rollback:
+--   drop table if exists public.paper_mirror_lock;
 --   drop table if exists public.paper_mirror_events;
 --   drop table if exists public.paper_mirror_lines;
 
@@ -29,6 +30,10 @@ create table if not exists public.paper_mirror_lines (
   target_qty numeric not null default 0,
   -- the broker order that opened the line (client id gsps-mirror-open-<position_id>)
   open_order_id text,
+  -- the last add's broker order, and how many adds so far (each add's client
+  -- id is gsps-mirror-add-<position_id>-<n>)
+  add_order_id text,
+  add_seq integer not null default 0,
   -- the one resting good-till-cancelled stop at the broker
   stop_order_id text,
   stop_price numeric,
@@ -47,7 +52,7 @@ create table if not exists public.paper_mirror_events (
   position_id uuid not null,
   symbol text not null,
   side text,
-  -- open | add | reduce | close | set_stop | broker_stopped | missed
+  -- open | add | reduce | close | set_stop | broker_stopped | missed | retarget | error kinds
   action text not null,
   qty numeric,
   -- the simulator's fill for the same step, where there is one
@@ -67,7 +72,16 @@ create index if not exists paper_mirror_events_created_idx
 create index if not exists paper_mirror_events_unsettled_idx
   on public.paper_mirror_events (id) where fill_price is null and broker_order_id is not null;
 
+-- One mirror run at a time: a run takes the lease only when it has lapsed.
+create table if not exists public.paper_mirror_lock (
+  id integer primary key check (id = 1),
+  held_until timestamptz not null default 'epoch'
+);
+insert into public.paper_mirror_lock (id) values (1) on conflict (id) do nothing;
+
 alter table public.paper_mirror_lines enable row level security;
 alter table public.paper_mirror_events enable row level security;
 revoke all on public.paper_mirror_lines from anon, authenticated;
 revoke all on public.paper_mirror_events from anon, authenticated;
+alter table public.paper_mirror_lock enable row level security;
+revoke all on public.paper_mirror_lock from anon, authenticated;
