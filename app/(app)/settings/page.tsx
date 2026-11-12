@@ -52,7 +52,7 @@ export default function SettingsPage() {
       .then((res) => res.json())
       .then(setSnap)
       .catch(() => setSnapError(true));
-    fetchWithTimeout("/api/portfolio")
+    fetchWithTimeout("/api/portfolio/status")
       .then((res) => setPaperOk(res.ok))
       .catch(() => setPaperError(true));
   }, []);
