@@ -29,6 +29,11 @@ export interface ClosedPosition {
   fullClose?: boolean;
   tradeLogged?: boolean;
   planRetired?: boolean;
+  /**
+   * Option closes only, so the person sees what the price was: a live quote,
+   * or the contract's last real trade when no live quote was there.
+   */
+  price?: { source: "quote" | "last_trade"; asOf: string };
 }
 
 /** A close refused before anything was sold. */
@@ -113,6 +118,7 @@ export async function closePaperPosition(
     fullClose,
     tradeLogged,
     planRetired: plan != null,
+    ...(fill.priceSource && fill.priceAsOf ? { price: { source: fill.priceSource, asOf: fill.priceAsOf } } : {}),
   };
 }
 

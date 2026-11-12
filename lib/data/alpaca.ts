@@ -669,6 +669,40 @@ export async function fetchOptionLatestTrade(occSymbol: string): Promise<number 
 }
 
 /**
+ * One option contract's latest quote and latest trade, raw from Alpaca's
+ * snapshot on the account's options feed, or null when the contract can't be
+ * read. Closing a paper option leg prices from this
+ * (`optionClosePrice` in lib/brokers/simulator.ts).
+ */
+export interface OptionQuoteSnapshot {
+  bid: number | null;
+  ask: number | null;
+  quoteAt: string | null;
+  lastTrade: number | null;
+  lastTradeAt: string | null;
+}
+
+export async function fetchOptionQuoteSnapshot(occSymbol: string): Promise<OptionQuoteSnapshot | null> {
+  try {
+    const sym = occSymbol.toUpperCase();
+    const snaps = await fetchOptionSnapshots({ symbols: [sym] });
+    const snap = snaps[sym];
+    if (!snap) return null;
+    const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+    const str = (v: unknown) => (typeof v === "string" ? v : null);
+    return {
+      bid: num(snap.latestQuote?.bp),
+      ask: num(snap.latestQuote?.ap),
+      quoteAt: str(snap.latestQuote?.t),
+      lastTrade: num(snap.latestTrade?.p),
+      lastTradeAt: str(snap.latestTrade?.t),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The options feed this account reads. "indicative" is Alpaca's free options
  * feed (delayed quotes, on every account); "opra" needs a signed OPRA
  * agreement. Override with ALPACA_OPTIONS_FEED only once that is in place.
