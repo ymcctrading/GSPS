@@ -2,7 +2,8 @@
  * GSPS — /api/cards/nightly: builds the next session's trade cards and scores
  * the earlier ones (lib/cards/cardCalls.ts).
  *
- * Run by the database's scheduler after the close (migration 0148). Reads the
+ * Run by the database's scheduler after the close (migration 0148; 22:50 UTC
+ * since 0156, after the engine card parts finish). Reads the
  * scan universe's daily bars in batched requests, arms each daily strategy
  * mode's long cards on the last completed bar, and records them, marking as
  * published only the kinds whose held-out record passed
