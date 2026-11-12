@@ -401,12 +401,12 @@ describe("Asset-aware rendering", () => {
     const open = section(/^Open Positions/);
     const toggle = await within(open).findByRole("button", { name: "Show Greeks" });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(within(open).queryByTitle("Delta")).not.toBeInTheDocument();
+    expect(within(open).queryByTitle(/^Delta/)).not.toBeInTheDocument();
 
     await user.click(toggle);
 
     expect(within(open).getByRole("button", { name: "Hide Greeks" })).toBeInTheDocument();
-    expect(within(open).getByTitle("Delta")).toBeInTheDocument();
+    expect(within(open).getByTitle(/^Delta/)).toBeInTheDocument();
     expect(within(open).getAllByText("0.54").length).toBeGreaterThan(0);
   });
 

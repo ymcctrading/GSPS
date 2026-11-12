@@ -334,6 +334,10 @@ export interface OptionContractQuery {
   limit?: number;
   /** Latest expiration to return, `YYYY-MM-DD`. Bounds the chain's horizon. */
   expirationBefore?: string;
+  /** One expiration only, `YYYY-MM-DD`. */
+  expiration?: string;
+  /** Calls or puts only. */
+  type?: "call" | "put";
 }
 
 /**
@@ -355,6 +359,8 @@ export async function listOptionContracts(
     params.set("strike_price_lte", (q.price * (1 + q.pct)).toFixed(2));
   }
   if (q.expirationBefore) params.set("expiration_date_lte", q.expirationBefore);
+  if (q.expiration) params.set("expiration_date", q.expiration);
+  if (q.type) params.set("type", q.type);
   const data = await alpacaFetch(creds, `/v2/options/contracts?${params.toString()}`);
   return (data.option_contracts ?? []) as OptionContract[];
 }

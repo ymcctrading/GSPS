@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GlossaryTerm } from "@/components/glossary-term";
-import { Term } from "@/components/vocabulary";
+import { Term, useTerms } from "@/components/vocabulary";
+import type { OptionContract as OptionQuote } from "@/lib/data/provider";
 import { bracketMinGap, checkBracket } from "@/lib/trade/bracket";
 import { isInvalidatedByStop } from "@/lib/trade/invalidate-pending";
 import { LIVE_EXIT_RULE, planProtocolExit } from "@/lib/trade/protocol-exit";
@@ -55,6 +56,8 @@ interface OptionChain {
   underlying: string;
   price: number | null;
   expirations: ExpiryGroup[];
+  /** The expiration the ticket opens on (the server's choice). */
+  defaultExpiration?: string | null;
 }
 
 export function OrderTicket({
@@ -203,6 +206,13 @@ export function OrderTicket({
   const [chainError, setChainError] = useState("");
   const [expiration, setExpiration] = useState("");
   const [contractSymbol, setContractSymbol] = useState("");
+  // The picked contract's real quote and greeks (/api/options/quote), held
+  // against the contract it describes so a stale answer never shows.
+  const [quoteState, setQuoteState] = useState<{ contract: string; quote: OptionQuote | null; error: string }>({
+    contract: "",
+    quote: null,
+    error: "",
+  });
 
   // Tradability pre-flight: knowing up front that a name can't be shorted lets
   // the ticket steer toward a put instead of letting the broker reject the
@@ -417,7 +427,13 @@ export function OrderTicket({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
         const c = data as OptionChain;
-        const first = c.expirations[0]?.expiration ?? "";
+        // Opens on the chain's default expiration, chosen on the server: the
+        // nearest listed one at least 30 days out (ref: SRC-001 Ch. 19A), the
+        // same default as the chart's options chain.
+        const first =
+          (c.defaultExpiration && c.expirations.some((e) => e.expiration === c.defaultExpiration)
+            ? c.defaultExpiration
+            : c.expirations[0]?.expiration) ?? "";
         setChain(c);
         setExpiration(first);
         setContractSymbol(pickAtm(c, first, type));
@@ -444,6 +460,27 @@ export function OrderTicket({
     setOptionType(type);
     setContractSymbol(pickAtm(chain, expiration, type));
   };
+
+  useEffect(() => {
+    if (assetType !== "options" || !contractSymbol) return;
+    let cancelled = false;
+    fetch(`/api/options/quote?contract=${encodeURIComponent(contractSymbol)}`)
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`);
+        return d.contract as OptionQuote;
+      })
+      .then((quote) => !cancelled && setQuoteState({ contract: contractSymbol, quote, error: "" }))
+      .catch(
+        (e) =>
+          !cancelled &&
+          setQuoteState({ contract: contractSymbol, quote: null, error: e instanceof Error ? e.message : String(e) }),
+      );
+    return () => {
+      cancelled = true;
+    };
+  }, [assetType, contractSymbol]);
+  const contractQuote = quoteState.contract === contractSymbol ? quoteState : null;
 
   const activeExpiry = chain?.expirations.find((e) => e.expiration === expiration);
   const useProtocolLevels = levelChoice === "swing" && hasProtocolSignal;
@@ -687,6 +724,13 @@ export function OrderTicket({
               entryMode: "now" as const,
               mode: "paper" as const,
               intradaySourced: orderIntraday,
+              // The contract's real quote at the moment of the order: a market
+              // order crosses to the ask (buy) or the bid (sell), and the
+              // greeks are recorded with it. Without a quote the server reads
+              // the contract's last trade, as before.
+              optionDetail: contractQuote?.quote
+                ? optionDetailFor(contractQuote.quote, side, Number(qty))
+                : undefined,
             }
           : {
               symbol,
@@ -1332,6 +1376,8 @@ export function OrderTicket({
             rows={optionRows}
             contractSymbol={contractSymbol}
             setContractSymbol={setContractSymbol}
+            quote={contractQuote?.quote ?? null}
+            quoteError={contractQuote?.error ?? ""}
           />
           </>
         )}
@@ -1611,8 +1657,25 @@ function PriceIncrementNotice({
   );
 }
 
+/** The order's option record from the contract's real quote. */
+function optionDetailFor(q: OptionQuote, side: "buy" | "sell", qty: number) {
+  const premium = side === "buy" ? q.ask : q.bid;
+  return {
+    strike: q.strike,
+    type: q.type,
+    expiration: q.expiration,
+    premium: premium ?? null,
+    contractCost: premium != null && Number.isFinite(qty) ? Math.round(premium * 100 * qty * 100) / 100 : null,
+    delta: q.delta,
+    gamma: q.gamma,
+    theta: q.theta,
+    vega: q.vega,
+  };
+}
+
 function OptionsPicker({
   status, error, onRetry, chain, optionType, setOptionType, expiration, setExpiration, rows, contractSymbol, setContractSymbol,
+  quote, quoteError,
 }: {
   status: "idle" | "loading" | "ready" | "error";
   error: string;
@@ -1625,7 +1688,10 @@ function OptionsPicker({
   rows: StrikeRow[];
   contractSymbol: string;
   setContractSymbol: (s: string) => void;
+  quote: OptionQuote | null;
+  quoteError: string;
 }) {
+  const term = useTerms();
   if (status === "loading" || status === "idle") {
     return <p className="text-sm text-muted">Loading options chain…</p>;
   }
@@ -1688,6 +1754,22 @@ function OptionsPicker({
         </select>
       </label>
       {contractSymbol && <p className="font-mono text-xs text-muted">Contract: {contractSymbol}</p>}
+      {contractSymbol && quote && (
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg border border-border p-2 text-xs sm:grid-cols-3">
+          <QuoteRow label="Bid" value={usdOrDash(quote.bid)} />
+          <QuoteRow label="Ask" value={usdOrDash(quote.ask)} />
+          <QuoteRow label="Last" value={usdOrDash(quote.last)} />
+          <QuoteRow label="Volume" value={quote.volume != null ? quote.volume.toLocaleString() : "—"} />
+          <QuoteRow label={term("impliedVol")} value={quote.iv != null ? `${(quote.iv * 100).toFixed(1)}%` : "—"} />
+          <QuoteRow label={term("delta")} value={quote.delta != null ? quote.delta.toFixed(2) : "—"} />
+          <QuoteRow label={term("gamma")} value={quote.gamma != null ? quote.gamma.toFixed(4) : "—"} />
+          <QuoteRow label={term("theta")} value={quote.theta != null ? quote.theta.toFixed(2) : "—"} />
+          <QuoteRow label={term("vega")} value={quote.vega != null ? quote.vega.toFixed(2) : "—"} />
+        </dl>
+      )}
+      {contractSymbol && !quote && quoteError && (
+        <p className="text-xs text-muted">No quote for this contract right now ({quoteError}).</p>
+      )}
       <p className="text-xs text-muted">
         Options route as market orders to the paper account. Requires an options-enabled Alpaca account.
       </p>
@@ -1869,4 +1951,17 @@ function HeldPositionOffer({
       {error && <p className="mt-2 text-bear">{error}</p>}
     </div>
   );
+}
+
+function QuoteRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <dt className="text-muted">{label}</dt>
+      <dd className="font-mono tabular-nums text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+function usdOrDash(v: number | null | undefined): string {
+  return v != null ? formatUsd(v) : "—";
 }

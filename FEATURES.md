@@ -73,6 +73,12 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - **Asset-Aware Rows**: Shares and option contracts render separate tables with
   their own columns — an equity row never shows a Greek column. Option Greeks
   sit behind a `Show Greeks` toggle that starts closed
+- **Real Options Chain**: The chart's Options tab, the strike ticket and the
+  order ticket read the listed contracts: real strikes and expirations, each
+  contract's bid, ask, last, session volume and open interest, and its IV and
+  greeks (the feed's own, or solved from the contract's own quote). A figure
+  the feed does not give reads "—". The chain opens on the nearest listed
+  expiration at least 30 days out and can switch to any listed one
 - **Rejection Reasons & Fix Order**: A refused order is recorded with the
   broker's own explanation and a route back to a corrected ticket
 - **Ended-Order Dispositions**: Orders that never became a position group by

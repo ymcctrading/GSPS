@@ -1282,12 +1282,14 @@ const ACADEMY_7: Academy = {
           objectives: [
             "State GSPS's actual execution scope and why this lesson is conceptual literacy, not an executable workflow.",
             "Describe hedging and short-selling risk at a conceptual level.",
+            "Read an options chain: strike, bid, ask, last, volume, open interest, implied volatility, and the greeks (delta, gamma, theta, vega).",
           ],
-          estimatedMinutes: 14,
+          estimatedMinutes: 18,
           instruction: [
             "GSPS places trades in U.S. stocks, funds and crypto, with options on paper only; futures and forex show live quotes only for now, and commodities are reached only through funds that hold them. This lesson exists so a learner has working vocabulary for options, futures, forex, crypto, and commodities when they encounter them — it is conceptual literacy, not a workflow, and nothing in this lesson or lab constructs an order in any of these instruments.",
             "Options carry defined-risk (long option) and undefined-risk (short/naked option) variants — the distinction matters enormously and is a common source of catastrophic, unplanned loss when misunderstood. Futures and forex trade on margin with leverage that can amplify losses beyond the initial capital committed. Short-selling carries theoretically unlimited loss potential, since a shorted asset's price has no upper bound.",
             "Hedging, conceptually, is taking an offsetting position to reduce (not eliminate) risk on an existing position — a real technique used by professionals, and conceptually useful to understand even where GSPS does not execute the hedge itself.",
+            "Reading an options chain. Each row is a strike, the price at which the contract lets you buy (a call) or sell (a put) the stock, for one expiration date. Bid and ask are what buyers and sellers are quoting now, last is the most recent trade, volume is how many contracts traded in the session, and open interest is how many contracts are still open. Implied volatility (IV) is the yearly swing the option's price implies for the stock. The greeks are standard, publicly taught measures of how the price responds: delta is how much the option moves for a $1 move in the stock, gamma is how fast delta itself changes, theta is how much value the option loses each day as time passes, and vega is how much it moves for a 1% change in implied volatility.",
           ],
           application:
             "In your own words, explain why short-selling's loss potential is structurally different from a long position's loss potential.",
@@ -1300,6 +1302,11 @@ const ACADEMY_7: Academy = {
             q(
               "A short position's loss potential is:",
               ["Capped at 100% of the position", "Theoretically unlimited, since price has no upper bound", "Always smaller than a long position's", "Eliminated by a stop order"],
+              1,
+            ),
+            q(
+              "An option's theta tells you:",
+              ["How much it moves for a $1 move in the stock", "How much value it loses each day as time passes", "How many contracts are open", "The price at which it lets you buy the stock"],
               1,
             ),
           ],

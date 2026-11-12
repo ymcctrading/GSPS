@@ -1,6 +1,6 @@
 "use client";
 
-import { Term } from "@/components/vocabulary";
+import { Term, useTerms } from "@/components/vocabulary";
 import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -171,6 +171,7 @@ function OptionOrders({
   labeled: boolean;
   onCanceled?: () => void;
 }) {
+  const term = useTerms();
   const [showGreeks, setShowGreeks] = useState(false);
 
   return (
@@ -192,10 +193,10 @@ function OptionOrders({
               <TH className="text-right">Contract cost</TH>
               {showGreeks && (
                 <>
-                  <TH className="text-right" title="Delta">Δ</TH>
-                  <TH className="text-right" title="Gamma">Γ</TH>
-                  <TH className="text-right" title="Theta">Θ</TH>
-                  <TH className="text-right" title="Vega">V</TH>
+                  <TH className="text-right" title={term("delta")}>Delta</TH>
+                  <TH className="text-right" title={term("gamma")}>Gamma</TH>
+                  <TH className="text-right" title={term("theta")}>Theta</TH>
+                  <TH className="text-right" title={term("vega")}>Vega</TH>
                 </>
               )}
               <TH className="text-right">P/L today</TH>
@@ -566,6 +567,7 @@ function OrderCard({
   greeks?: boolean;
   onCanceled?: () => void;
 }) {
+  const term = useTerms();
   const isOption = order.asset_type === "OPTION";
   return (
     <div className="rounded-lg border border-border p-3">
@@ -617,10 +619,10 @@ function OrderCard({
         <Field label="P/L %" value={order.dayPlPct == null ? "—" : formatPct(order.dayPlPct)} />
         {isOption && greeks && (
           <>
-            <Field label="Delta" value={plain(order.delta, 2)} />
-            <Field label="Gamma" value={plain(order.gamma, 4)} />
-            <Field label="Theta" value={plain(order.theta, 2)} />
-            <Field label="Vega" value={plain(order.vega, 2)} />
+            <Field label={term("delta")} value={plain(order.delta, 2)} />
+            <Field label={term("gamma")} value={plain(order.gamma, 4)} />
+            <Field label={term("theta")} value={plain(order.theta, 2)} />
+            <Field label={term("vega")} value={plain(order.vega, 2)} />
           </>
         )}
       </dl>

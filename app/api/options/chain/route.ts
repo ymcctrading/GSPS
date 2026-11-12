@@ -13,6 +13,7 @@ import {
   expirationHorizonMonths,
   toDateInput,
 } from "@/lib/options/contracts";
+import { gannOptionExpiration } from "@/lib/options/gannOptionPlan";
 
 interface StrikeRow {
   strike: number;
@@ -24,7 +25,9 @@ interface ExpiryGroup {
   strikes: StrikeRow[];
 }
 
-const MAX_EXPIRATIONS = 8;
+// Enough to reach Gann's 30-day term on a daily-expiry name (SPY lists one a
+// trading day), where the first 8 never did.
+const MAX_EXPIRATIONS = 40;
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -73,6 +76,10 @@ export async function GET(req: NextRequest) {
       underlying: symbol.toUpperCase(),
       price: price || null,
       expirations,
+      // Gann's term: the nearest listed expiration at least 30 days out (ref:
+      // SRC-001 Ch. 19A, "buying PUTS and CALLS good 30 days"). Chosen here so
+      // the rule's module stays out of the browser bundle.
+      defaultExpiration: gannOptionExpiration(expirations.map((e) => e.expiration)),
       horizon: { months: expirationHorizonMonths(symbol), maxDate },
     });
   } catch (err) {

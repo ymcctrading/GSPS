@@ -165,6 +165,20 @@ export function nextClose(date: Date = new Date()): Date {
   return cursor;
 }
 
+/**
+ * The regular close (16:00 ET, or 13:00 ET on an NYSE early close) of the ET
+ * trading date `dateKey` ("YYYY-MM-DD"), as a UTC instant. An equity option
+ * stops trading then on its expiration date, so the options greeks measure
+ * time to expiry to this instant (`lib/options/greeks.ts#yearsToExpiry`).
+ */
+export function etCloseInstantOn(dateKey: string): Date {
+  const probe = new Date(`${dateKey}T16:00:00Z`);
+  const { minutes: probeEtMinutes } = etParts(probe);
+  const offsetMinutes = probeEtMinutes - CLOSE;
+  const close = isEarlyClose(dateKey) ? EARLY_CLOSE : CLOSE;
+  return new Date(probe.getTime() - offsetMinutes * 60_000 - (CLOSE - close) * 60_000);
+}
+
 /** 16:00 ET on the same ET calendar day as `date`, as a UTC instant. */
 function closeInstantFor(date: Date): Date {
   const key = etDateKey(date); // "YYYY-MM-DD" in ET

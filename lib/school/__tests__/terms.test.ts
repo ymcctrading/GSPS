@@ -33,6 +33,12 @@ describe("trading vocabulary by school tier", () => {
       tp1: /take-profit-1/i,
       tp2: /second target/i,
       mtp: /master target/i,
+      delta: /\bdelta\b/i,
+      gamma: /\bgamma\b/i,
+      theta: /\btheta\b/i,
+      vega: /\bvega\b/i,
+      impliedVol: /implied volatility/i,
+      openInterest: /open interest/i,
     };
     for (const [id, t] of Object.entries(TERMS) as [TermId, (typeof TERMS)[TermId]][]) {
       const lesson = ACADEMIES.flatMap((a) => a.courses.flatMap((c) => c.lessons)).find((l) => l.id === t.lessonId)!;

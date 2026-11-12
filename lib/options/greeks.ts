@@ -13,6 +13,8 @@
  * uncertainty already in the IV estimate itself.
  */
 
+import { etCloseInstantOn } from "@/lib/market/session";
+
 export type OptionSide = "call" | "put";
 
 /** Standard normal PDF. */
@@ -112,4 +114,59 @@ export function impliedVolatility(
 export function yearsBetween(from: Date, to: Date): number {
   const days = (to.getTime() - from.getTime()) / (24 * 3600 * 1000);
   return Math.max(days, 1) / 365;
+}
+
+/** One hour, in years: the shortest time to expiry the model is asked to price. */
+const MIN_T_YEARS = 1 / (365 * 24);
+
+/**
+ * Years from `now` to the contract's last trading moment: the regular close
+ * (16:00 ET, 13:00 on an early close) of its expiration date. Floored at one
+ * hour so an expiring contract still prices; a same-day contract is not
+ * treated as a full day away, which overstated its time value and so
+ * understated its IV.
+ */
+export function yearsToExpiry(expiration: string, now: Date = new Date()): number {
+  const ms = etCloseInstantOn(expiration).getTime() - now.getTime();
+  return Math.max(ms / (365 * 24 * 3600 * 1000), MIN_T_YEARS);
+}
+
+/** Where a contract's IV and greeks came from. */
+export type GreeksSource = "feed" | "model" | "none";
+
+export interface ModelledGreeks {
+  /** Annualized implied volatility (0.25 = 25%), or null when none solves. */
+  iv: number | null;
+  greeks: Greeks | null;
+  source: GreeksSource;
+}
+
+/**
+ * IV and greeks from one observed premium: the IV that reprices the premium
+ * (Black-Scholes, zero rate), then the greeks at that IV.
+ *
+ * Nothing is invented. A premium at or below intrinsic value, or above the
+ * underlying itself for a call (the strike for a put), has no volatility that
+ * reprices it, so it reads as unavailable rather than as a 0.1% or 500% IV
+ * from the solver's bounds. The chain, the order tickets and Open Positions
+ * all read greeks through this one function, so the same contract shows the
+ * same numbers on every surface.
+ */
+export function modelGreeksFromPremium(
+  side: OptionSide,
+  spot: number,
+  strike: number,
+  expiration: string,
+  premium: number | null,
+  now: Date = new Date(),
+): ModelledGreeks {
+  const none: ModelledGreeks = { iv: null, greeks: null, source: "none" };
+  if (!(spot > 0) || !(strike > 0) || premium == null || !(premium > 0)) return none;
+  const intrinsic = side === "call" ? Math.max(0, spot - strike) : Math.max(0, strike - spot);
+  const ceiling = side === "call" ? spot : strike;
+  if (premium <= intrinsic || premium >= ceiling) return none;
+  const t = yearsToExpiry(expiration, now);
+  const iv = impliedVolatility(side, spot, strike, t, premium);
+  if (!(iv > 0.002) || iv >= 4.99) return none;
+  return { iv, greeks: computeGreeks(side, spot, strike, t, iv), source: "model" };
 }

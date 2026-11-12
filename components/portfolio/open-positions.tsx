@@ -1,6 +1,6 @@
 "use client";
 
-import { Term } from "@/components/vocabulary";
+import { Term, useTerms } from "@/components/vocabulary";
 import { PyramidHint } from "@/components/portfolio/pyramid-hint";
 import { useState } from "react";
 import Link from "next/link";
@@ -423,6 +423,7 @@ function OptionLegs({
   showGreeks: boolean;
   onToggleGreeks: () => void;
 }) {
+  const term = useTerms();
   return (
     <>
       <SubHeading action={<GreeksToggle open={showGreeks} onToggle={onToggleGreeks} />}>
@@ -442,10 +443,10 @@ function OptionLegs({
               <TH className="text-right">Mark</TH>
               {showGreeks && (
                 <>
-                  <TH className="text-right" title="Delta">Δ</TH>
-                  <TH className="text-right" title="Gamma">Γ</TH>
-                  <TH className="text-right" title="Theta">Θ</TH>
-                  <TH className="text-right" title="Vega">V</TH>
+                  <TH className="text-right" title={term("delta")}>Delta</TH>
+                  <TH className="text-right" title={term("gamma")}>Gamma</TH>
+                  <TH className="text-right" title={term("theta")}>Theta</TH>
+                  <TH className="text-right" title={term("vega")}>Vega</TH>
                 </>
               )}
               <TH className="text-right">P/L</TH>
@@ -527,10 +528,10 @@ function OptionLegs({
               <Field label="Today" value={formatPct(leg.todayPlPct)} />
               {showGreeks && (
                 <>
-                  <Field label="Delta" value={greek(leg, "delta", 2)} />
-                  <Field label="Gamma" value={greek(leg, "gamma", 4)} />
-                  <Field label="Theta" value={greek(leg, "theta", 2)} />
-                  <Field label="Vega" value={greek(leg, "vega", 2)} />
+                  <Field label={term("delta")} value={greek(leg, "delta", 2)} />
+                  <Field label={term("gamma")} value={greek(leg, "gamma", 4)} />
+                  <Field label={term("theta")} value={greek(leg, "theta", 2)} />
+                  <Field label={term("vega")} value={greek(leg, "vega", 2)} />
                 </>
               )}
             </dl>

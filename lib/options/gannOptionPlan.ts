@@ -34,6 +34,7 @@
  */
 
 import { threePoints } from "@/lib/gann/pointScale";
+import { OPTION_RISK_NOTE } from "@/lib/options/optionCopy";
 
 /** Gann's option term: "buying PUTS and CALLS good 30 days" (Ch. 19A, PDF 447). */
 export const GANN_OPTION_DAYS = 30;
@@ -82,6 +83,8 @@ export function inGannOptionBand(underlying: number): boolean {
   return underlying >= GANN_OPTION_BEST_PRICE.min && underlying <= GANN_OPTION_BEST_PRICE.max;
 }
 
-/** The card's one line on an option's risk, in Gann's terms. */
-export const GANN_OPTION_RISK_NOTE =
-  "The premium is the most this can lose. The first expiry 30 or more days out is shown first; choose the strike yourself.";
+/**
+ * The card's one line on an option's risk, in Gann's terms. The words live in
+ * the neutral `optionCopy.ts`, which is what a client component imports.
+ */
+export const GANN_OPTION_RISK_NOTE = OPTION_RISK_NOTE;

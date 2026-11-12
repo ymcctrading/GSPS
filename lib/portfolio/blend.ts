@@ -12,7 +12,7 @@
  */
 
 import { parseOccSymbol } from "./occ";
-import { computeGreeks, impliedVolatility, yearsBetween, type Greeks } from "@/lib/options/greeks";
+import { modelGreeksFromPremium, type Greeks } from "@/lib/options/greeks";
 import type { OpenedAt } from "./opened-at";
 import type { LevelSource } from "@/lib/trade/level-source";
 
@@ -191,17 +191,16 @@ export function buildBlendedPositions(
     const g = getGroup(parsed.underlying, p.mode ?? "paper");
 
     const spot = spotFor(parsed.underlying);
-    let greeks: Greeks = { delta: 0, gamma: 0, theta: 0, vega: 0 };
-    let iv = 0;
-    // Without a spot price there is no model input, so the zeros above stay
-    // zeros. `greeksAvailable` is what stops the UI from rendering them as
-    // though a delta of 0.00 were a computed answer.
-    const greeksAvailable = spot != null && spot > 0 && p.currentPrice > 0;
-    if (greeksAvailable) {
-      const t = yearsBetween(new Date(), new Date(`${parsed.expiration}T16:00:00.000Z`));
-      iv = impliedVolatility(parsed.type, spot!, parsed.strike, t, p.currentPrice);
-      greeks = computeGreeks(parsed.type, spot!, parsed.strike, t, iv || 0.3);
-    }
+    // Without a spot price, or a premium no volatility reprices, there is no
+    // model answer: the zeros stay zeros, and `greeksAvailable` is what stops
+    // the UI from rendering them as though a delta of 0.00 were computed.
+    // Same function as the options chain (`modelGreeksFromPremium`), so a
+    // contract's delta reads the same in the chain and in Open Positions.
+    const modelled =
+      spot != null ? modelGreeksFromPremium(parsed.type, spot, parsed.strike, parsed.expiration, p.currentPrice) : null;
+    const greeksAvailable = modelled?.source === "model";
+    const greeks: Greeks = modelled?.greeks ?? { delta: 0, gamma: 0, theta: 0, vega: 0 };
+    const iv = modelled?.iv ?? 0;
 
     g.options.push({
       assetType: "OPTION",

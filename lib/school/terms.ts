@@ -26,7 +26,19 @@
 
 import { TIER_ORDER, type PlatformTier } from "@/lib/tiers";
 
-export type TermId = "buyStop" | "sellStop" | "stopLoss" | "tp1" | "tp2" | "mtp";
+export type TermId =
+  | "buyStop"
+  | "sellStop"
+  | "stopLoss"
+  | "tp1"
+  | "tp2"
+  | "mtp"
+  | "delta"
+  | "gamma"
+  | "theta"
+  | "vega"
+  | "impliedVol"
+  | "openInterest";
 
 export interface TermEntry {
   /** The curriculum lesson that teaches the term (lib/school/curriculum.ts). */
@@ -41,6 +53,8 @@ export interface TermEntry {
 
 const ORDER_TYPES = "academy-2/mechanics/order-types";
 const TRADE_LEVELS = "academy-2/mechanics/entry-confirmation";
+/** The options chain's figures are taught in the options literacy lesson (Academy 7). */
+const OPTIONS = "academy-7/portfolio/conceptual-literacy";
 
 export const TERMS: Record<TermId, TermEntry> = {
   buyStop: {
@@ -78,6 +92,42 @@ export const TERMS: Record<TermId, TermEntry> = {
     introducedIn: "PRACTICE",
     introduced: "Master target (MTP)",
     plain: "MTP",
+  },
+  delta: {
+    lessonId: OPTIONS,
+    introducedIn: "INVESTOR_MODE",
+    introduced: "Delta (moves per $1 in the stock)",
+    plain: "Delta",
+  },
+  gamma: {
+    lessonId: OPTIONS,
+    introducedIn: "INVESTOR_MODE",
+    introduced: "Gamma (how fast delta changes)",
+    plain: "Gamma",
+  },
+  theta: {
+    lessonId: OPTIONS,
+    introducedIn: "INVESTOR_MODE",
+    introduced: "Theta (value lost per day)",
+    plain: "Theta",
+  },
+  vega: {
+    lessonId: OPTIONS,
+    introducedIn: "INVESTOR_MODE",
+    introduced: "Vega (moves per 1% of volatility)",
+    plain: "Vega",
+  },
+  impliedVol: {
+    lessonId: OPTIONS,
+    introducedIn: "INVESTOR_MODE",
+    introduced: "Implied volatility (IV)",
+    plain: "IV",
+  },
+  openInterest: {
+    lessonId: OPTIONS,
+    introducedIn: "INVESTOR_MODE",
+    introduced: "Open interest (contracts open)",
+    plain: "Open interest",
   },
 };
 

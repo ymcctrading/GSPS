@@ -6,7 +6,8 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { StrikeOrderModal, type StrikeSelection } from "@/components/trade/strike-order-modal";
 import { GlossaryTerm } from "@/components/glossary-term";
 import { classifyMoneyness, strikeStep, type Moneyness } from "@/lib/options/contracts";
-import { gannOptionExpiration } from "@/lib/options/gannOptionPlan";
+import { useTerms, useVocabularyTier } from "@/components/vocabulary";
+import { termIsFamiliar, TERMS, type TermId } from "@/lib/school/terms";
 import { CompanyPanel } from "@/components/chart/company-panel";
 import { formatUsd, parseJsonResponse } from "@/lib/utils";
 import type { PublicScanResult, TradeLevels } from "@/lib/types";
@@ -365,7 +366,6 @@ function ResearchPanel({
 type StrikeFilter = "all" | "5" | "10" | "15" | "25" | "50";
 type MoneynessFilter = "all" | Moneyness;
 type SpreadType = "custom" | "call_spread" | "put_spread" | "iron_condor";
-type Exchange = "best" | "cboe" | "ise" | "edgx" | "phlx";
 
 interface ChainResponse extends OptionChain {
   source?: string;
@@ -383,7 +383,14 @@ function OptionsPanel({
   const [strikeFilter, setStrikeFilter] = useState<StrikeFilter>("all");
   const [moneynessFilter, setMoneynessFilter] = useState<MoneynessFilter>("all");
   const [spreadType, setSpreadType] = useState<SpreadType>("custom");
-  const [exchange, setExchange] = useState<Exchange>("best");
+  // The expiration the reader picked; null opens on the chain's own default
+  // (the nearest listed expiration at least 30 days out: Gann's term, ref:
+  // SRC-001 Ch. 19A, "buying PUTS and CALLS good 30 days").
+  // Held with the symbol it was picked on, so a new symbol opens on its own default.
+  const [pick, setPick] = useState<{ symbol: string; expiration: string } | null>(null);
+  const expirationPick = pick?.symbol === symbol ? pick.expiration : null;
+  const term = useTerms();
+  const tier = useVocabularyTier();
   const [selection, setSelection] = useState<StrikeSelection | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -394,14 +401,16 @@ function OptionsPanel({
     error: string | null;
   }>({ key: "", chain: null, error: null });
 
-  const current = state.key === `${symbol}:${reloadKey}` ? state : null;
+  const requestKey = `${symbol}:${expirationPick ?? ""}:${reloadKey}`;
+  const current = state.key === requestKey ? state : null;
   const chain = current?.chain ?? null;
   const error = current?.error ?? null;
 
   useEffect(() => {
     let cancelled = false;
-    const key = `${symbol}:${reloadKey}`;
-    fetch(`/api/options?symbol=${encodeURIComponent(symbol)}`)
+    const key = requestKey;
+    const exp = expirationPick ? `&expiration=${encodeURIComponent(expirationPick)}` : "";
+    fetch(`/api/options?symbol=${encodeURIComponent(symbol)}${exp}`)
       .then(async (r) => {
         if (!r.ok) throw new Error((await r.json()).error ?? `HTTP ${r.status}`);
         return r.json();
@@ -415,7 +424,7 @@ function OptionsPanel({
     return () => {
       cancelled = true;
     };
-  }, [symbol, reloadKey]);
+  }, [symbol, requestKey, expirationPick]);
 
   if (error) return <PanelError message={error} onRetry={() => setReloadKey((k) => k + 1)} />;
   if (!chain) return <Skeleton label="Loading options chain…" />;
@@ -443,8 +452,14 @@ function OptionsPanel({
     );
   }
 
-  const expirations = chain.horizon?.expirations ?? [chain.expiration];
-  const maxExpiration = chain.horizon?.maxDate ?? chain.expiration;
+  // A real chain lists its own expirations; the simulated one has only its own.
+  const expirations = chain.simulated ? [chain.expiration] : (chain.expirations ?? [chain.expiration]);
+  const greekTerms: TermId[] = ["delta", "gamma", "theta", "vega", "impliedVol", "openInterest"];
+  // The tier that introduces a term reads it with its gloss (owner,
+  // 2026-11-12); the grid's narrow columns carry the name, this line the gloss.
+  const glosses = greekTerms.filter((id) => !termIsFamiliar(id, tier)).map((id) => TERMS[id].introduced);
+  const quoteTimes = chain.contracts.map((c) => c.quoteTime).filter((t): t is string => Boolean(t)).sort();
+  const asOf = quoteTimes.length ? quoteTimes[quoteTimes.length - 1] : null;
 
   const openTicket = (contract: OptionContract | undefined, strike: number) => {
     if (!contract) return;
@@ -454,11 +469,6 @@ function OptionsPanel({
       underlying: chain.symbol,
       underlyingPrice: spot,
       simulated: chain.simulated,
-      expirations,
-      maxExpiration,
-      // Gann's term: the nearest expiration at least 30 days out (ref: SRC-001
-      // Ch. 19A: "buying PUTS and CALLS good 30 days").
-      defaultExpiration: gannOptionExpiration(expirations) ?? chain.expiration,
     });
   };
 
@@ -469,7 +479,22 @@ function OptionsPanel({
           <span>
             Underlying <span className="font-mono text-foreground">{formatUsd(spot)}</span>
           </span>
-          <span>· Exp {chain.expiration}</span>
+          <label className="flex items-center gap-1.5">
+            <span>· Exp</span>
+            <select
+              value={chain.expiration}
+              onChange={(e) => setPick({ symbol, expiration: e.target.value })}
+              disabled={expirations.length < 2}
+              aria-label="Expiration"
+              className="rounded border border-border bg-background px-2 py-1 font-mono text-xs cursor-pointer hover:border-muted"
+            >
+              {expirations.map((e) => (
+                <option key={e} value={e}>
+                  {e}
+                </option>
+              ))}
+            </select>
+          </label>
           {chain.horizon && (
             <span className="text-xs text-muted/80">· {chain.horizon.months}-month horizon</span>
           )}
@@ -512,20 +537,6 @@ function OptionsPanel({
               <option value="iron_condor">Iron Condor</option>
             </select>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold text-muted">Exchange:</span>
-            <select
-              value={exchange}
-              onChange={(e) => setExchange(e.target.value as Exchange)}
-              className="rounded border border-border bg-background px-2 py-1 text-xs font-medium cursor-pointer hover:border-muted"
-            >
-              <option value="best">BEST</option>
-              <option value="cboe">CBOE</option>
-              <option value="ise">ISE</option>
-              <option value="edgx">EDGX</option>
-              <option value="phlx">PHLX</option>
-            </select>
-          </div>
           {spreadType !== "custom" && (
             <span className="text-xs text-muted/70">Multi-leg spread builder coming soon — showing single-leg chain.</span>
           )}
@@ -538,20 +549,23 @@ function OptionsPanel({
             <TH className="text-bull">Call</TH>
             <TH className="text-bull">Bid</TH>
             <TH className="text-bull">Ask</TH>
-            <TH className="text-bull" title="Delta">Δ</TH>
-            <TH className="text-bull" title="Gamma">Γ</TH>
-            <TH className="text-bull" title="Theta">Θ</TH>
-            <TH className="text-bull" title="Vega">V</TH>
-            <TH className="text-bull" title="Open interest">OI</TH>
+            <TH className="text-bull">Last</TH>
+            <TH className="text-bull" title={term("impliedVol")}>IV</TH>
+            <TH className="text-bull" title={term("delta")}>Delta</TH>
+            <TH className="text-bull" title={term("gamma")}>Gamma</TH>
+            <TH className="text-bull" title={term("theta")}>Theta</TH>
+            <TH className="text-bull" title={term("vega")}>Vega</TH>
+            <TH className="text-bull" title={term("openInterest")}>OI</TH>
             <TH className="text-bull">Vol</TH>
             <TH className="text-center font-semibold text-foreground">Strike</TH>
-            <TH className="text-center" title="Beta vs market">β</TH>
             <TH className="text-bear">Vol</TH>
-            <TH className="text-bear" title="Open interest">OI</TH>
-            <TH className="text-bear" title="Vega">V</TH>
-            <TH className="text-bear" title="Theta">Θ</TH>
-            <TH className="text-bear" title="Gamma">Γ</TH>
-            <TH className="text-bear" title="Delta">Δ</TH>
+            <TH className="text-bear" title={term("openInterest")}>OI</TH>
+            <TH className="text-bear" title={term("vega")}>Vega</TH>
+            <TH className="text-bear" title={term("theta")}>Theta</TH>
+            <TH className="text-bear" title={term("gamma")}>Gamma</TH>
+            <TH className="text-bear" title={term("delta")}>Delta</TH>
+            <TH className="text-bear" title={term("impliedVol")}>IV</TH>
+            <TH className="text-bear">Last</TH>
             <TH className="text-bear">Bid</TH>
             <TH className="text-bear">Ask</TH>
             <TH className="text-bear">Put</TH>
@@ -570,42 +584,47 @@ function OptionsPanel({
                   <MoneynessTag moneyness={callM} />
                 </StrikeCell>
                 <StrikeCell contract={call} onOpen={() => openTicket(call, strike)} tone={callM === "ITM" ? "bull" : undefined}>
-                  {call ? formatUsd(call.bid) : "—"}
+                  {usdOrDash(call?.bid)}
                 </StrikeCell>
                 <StrikeCell contract={call} onOpen={() => openTicket(call, strike)} tone={callM === "ITM" ? "bull" : undefined}>
-                  {call ? formatUsd(call.ask) : "—"}
+                  {usdOrDash(call?.ask)}
                 </StrikeCell>
+                <StrikeCell contract={call} onOpen={() => openTicket(call, strike)} tone={callM === "ITM" ? "bull" : undefined}>
+                  {usdOrDash(call?.last)}
+                </StrikeCell>
+                <IvCell value={call?.iv} onOpen={() => openTicket(call, strike)} />
                 <GreekCell value={call?.delta} onOpen={() => openTicket(call, strike)} />
                 <GreekCell value={call?.gamma} digits={4} onOpen={() => openTicket(call, strike)} />
                 <GreekCell value={call?.theta} onOpen={() => openTicket(call, strike)} />
                 <GreekCell value={call?.vega} onOpen={() => openTicket(call, strike)} />
                 <StrikeCell contract={call} onOpen={() => openTicket(call, strike)} className="text-center">
-                  {call ? call.openInterest.toLocaleString() : "—"}
+                  {countOrDash(call?.openInterest)}
                 </StrikeCell>
                 <StrikeCell contract={call} onOpen={() => openTicket(call, strike)} className="text-center">
-                  {call ? call.volume.toLocaleString() : "—"}
+                  {countOrDash(call?.volume)}
                 </StrikeCell>
 
                 <TD className="text-center font-mono text-xs font-semibold">{formatUsd(strike)}</TD>
 
-                <TD className="text-center font-mono text-xs text-muted">
-                  {call?.beta ?? put?.beta ?? "—"}
-                </TD>
                 <StrikeCell contract={put} onOpen={() => openTicket(put, strike)} className="text-center">
-                  {put ? put.volume.toLocaleString() : "—"}
+                  {countOrDash(put?.volume)}
                 </StrikeCell>
                 <StrikeCell contract={put} onOpen={() => openTicket(put, strike)} className="text-center">
-                  {put ? put.openInterest.toLocaleString() : "—"}
+                  {countOrDash(put?.openInterest)}
                 </StrikeCell>
                 <GreekCell value={put?.vega} onOpen={() => openTicket(put, strike)} />
                 <GreekCell value={put?.theta} onOpen={() => openTicket(put, strike)} />
                 <GreekCell value={put?.gamma} digits={4} onOpen={() => openTicket(put, strike)} />
                 <GreekCell value={put?.delta} onOpen={() => openTicket(put, strike)} />
+                <IvCell value={put?.iv} onOpen={() => openTicket(put, strike)} />
                 <StrikeCell contract={put} onOpen={() => openTicket(put, strike)} tone={putM === "ITM" ? "bear" : undefined}>
-                  {put ? formatUsd(put.bid) : "—"}
+                  {usdOrDash(put?.last)}
                 </StrikeCell>
                 <StrikeCell contract={put} onOpen={() => openTicket(put, strike)} tone={putM === "ITM" ? "bear" : undefined}>
-                  {put ? formatUsd(put.ask) : "—"}
+                  {usdOrDash(put?.bid)}
+                </StrikeCell>
+                <StrikeCell contract={put} onOpen={() => openTicket(put, strike)} tone={putM === "ITM" ? "bear" : undefined}>
+                  {usdOrDash(put?.ask)}
                 </StrikeCell>
                 <StrikeCell contract={put} onOpen={() => openTicket(put, strike)} className="text-center">
                   <MoneynessTag moneyness={putM} />
@@ -616,11 +635,14 @@ function OptionsPanel({
         </TBody>
       </Table>
 
+      {glosses.length > 0 && <p className="text-xs text-muted">{glosses.join(" · ")}</p>}
       <p className="text-xs text-muted/80">
         Click any strike to open a purchase ticket.{" "}
         {chain.simulated
-          ? "Simulated chain — greeks, beta and open interest are modelled, not exchange data."
-          : "Greeks are derived from the chain's own IV and moneyness."}
+          ? "Demo chain: no market data is connected, so strikes, quotes, volume, open interest, IV and greeks are modelled, not exchange data."
+          : `Listed contracts with their exchange quotes${chain.feed === "indicative" ? " (free delayed feed)" : ""}${
+              asOf ? `, as of ${formatEt(asOf)}` : ""
+            }. IV and greeks are the feed's own where it sends them, otherwise solved from each contract's own quote; "—" means the quote gives none.`}
       </p>
 
       <StrikeOrderModal
@@ -694,7 +716,7 @@ function GreekCell({
   digits = 2,
   onOpen,
 }: {
-  value: number | undefined;
+  value: number | null | undefined;
   digits?: number;
   onOpen: () => void;
 }) {
@@ -708,6 +730,43 @@ function GreekCell({
     >
       {value != null ? value.toFixed(digits) : "—"}
     </TD>
+  );
+}
+
+function IvCell({ value, onOpen }: { value: number | null | undefined; onOpen: () => void }) {
+  return (
+    <TD
+      onClick={value != null ? onOpen : undefined}
+      className={
+        "text-center font-mono text-xs text-muted " +
+        (value != null ? "cursor-pointer hover:bg-accent-soft/40" : "")
+      }
+    >
+      {value != null ? `${(value * 100).toFixed(1)}%` : "—"}
+    </TD>
+  );
+}
+
+function usdOrDash(v: number | null | undefined): string {
+  return v != null ? formatUsd(v) : "—";
+}
+
+function countOrDash(v: number | null | undefined): string {
+  return v != null ? v.toLocaleString() : "—";
+}
+
+/** A quote time in New York time, as the owner reads times. */
+function formatEt(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return (
+    d.toLocaleString("en-US", {
+      timeZone: "America/New_York",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }) + " ET"
   );
 }
 

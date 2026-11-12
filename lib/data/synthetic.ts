@@ -173,20 +173,6 @@ const DEFAULT_ACTIVES = [
 
 /** ---- Simulated Options chain (anchored on a real price when available) --- */
 
-/**
- * Beta vs the broad market. Real beta needs a regression against an index over
- * a lookback window, which the demo provider has no feed for — this is a stable
- * per-symbol stand-in in the range real large-caps occupy (~0.6–2.0), with
- * index ETFs pinned near 1.
- */
-function simulatedBeta(symbol: string): number {
-  const base = symbol.toUpperCase().replace(/[-/]?USD[TC]?$/, "");
-  if (base === "SPY") return 1;
-  if (base === "QQQ") return 1.15;
-  if (isCrypto(symbol)) return round(1.6 + (hashStr(base) % 90) / 100);
-  return round(0.6 + (hashStr(`${base}|beta`) % 140) / 100);
-}
-
 export function simulateOptionChain(symbol: string, underlyingPrice: number): OptionChain {
   const rnd = mulberry32(hashStr(`${symbol.toUpperCase()}|options`));
   const crypto = isCrypto(symbol);
@@ -197,7 +183,8 @@ export function simulateOptionChain(symbol: string, underlyingPrice: number): Op
 
   const daysToExpiry = crypto ? 7 : 21;
   const t = daysToExpiry / 365; // year fraction, used by the greeks below
-  const beta = simulatedBeta(symbol);
+  // A near-future date; the demo provider has no listed expirations.
+  const expiration = new Date(Date.now() + daysToExpiry * 24 * 3600 * 1000).toISOString().slice(0, 10);
 
   // 7 strikes each side of the money.
   for (let k = -7; k <= 7; k++) {
@@ -220,12 +207,13 @@ export function simulateOptionChain(symbol: string, underlyingPrice: number): Op
       contracts.push({
         strike,
         type,
+        expiration,
         bid: round(Math.max(0.01, mid - halfSpread)),
         ask: round(mid + halfSpread),
         last: round(mid * (1 + (rnd() - 0.5) * 0.02)),
         ...greeks,
-        beta,
         iv: Math.round(iv * 1000) / 1000,
+        greeksSource: "model",
         openInterest: Math.round(rnd() * 12000 * Math.exp(-dist * 2)),
         volume: Math.round(rnd() * 4000 * Math.exp(-dist * 2)),
         inTheMoney: itm,
@@ -233,12 +221,10 @@ export function simulateOptionChain(symbol: string, underlyingPrice: number): Op
     }
   }
 
-  // Next monthly-ish expiration (third Friday-ish — just a near-future date).
-  const exp = new Date(Date.now() + daysToExpiry * 24 * 3600 * 1000);
   return {
     symbol: symbol.toUpperCase(),
     underlyingPrice: round(underlyingPrice),
-    expiration: exp.toISOString().slice(0, 10),
+    expiration,
     simulated: true,
     contracts,
   };

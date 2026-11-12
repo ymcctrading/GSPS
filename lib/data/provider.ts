@@ -81,7 +81,7 @@ export interface MarketDataProvider {
   fetchAlertQuotes?(symbols: string[], assetClass: AssetClass, now?: Date): Promise<Map<string, AlertQuote>>;
 
   /** Optional extended data. Providers without a real feed for these return undefined. */
-  fetchOptionChain?(symbol: string, assetClass: AssetClass): Promise<OptionChain>;
+  fetchOptionChain?(symbol: string, assetClass: AssetClass, expiration?: string): Promise<OptionChain>;
   fetchLevel2?(symbol: string, assetClass: AssetClass): Promise<Level2Book>;
 }
 
@@ -90,36 +90,56 @@ export interface MarketDataProvider {
 export interface OptionContract {
   strike: number;
   type: "call" | "put";
-  bid: number;
-  ask: number;
-  last: number;
-  /** Rate of change of premium per $1 move in the underlying. */
-  delta: number;
+  /** Expiration date, `YYYY-MM-DD`: the contract's own, from its OCC symbol. */
+  expiration: string;
+  /** Best bid and ask from the feed; null when the contract has no quote. */
+  bid: number | null;
+  ask: number | null;
+  /** Last trade price; null when the contract has not traded. */
+  last: number | null;
+  /** Rate of change of premium per $1 move in the underlying. Null when unavailable. */
+  delta: number | null;
   /** Rate of change of delta per $1 move — curvature of the position. */
-  gamma: number;
+  gamma: number | null;
   /** Premium decay per day, expressed as a negative number for long options. */
-  theta: number;
+  theta: number | null;
   /** Premium change per 1 percentage-point move in implied volatility. */
-  vega: number;
-  /** Underlying's beta vs the broad market — position-level, not per contract. */
-  beta: number;
-  iv: number;
-  openInterest: number;
-  volume: number;
+  vega: number | null;
+  /** Annualized implied volatility (0.25 = 25%); null when none reprices the premium. */
+  iv: number | null;
+  /**
+   * Where the IV and greeks came from: the feed's own figures, the platform's
+   * Black-Scholes model solved from the contract's real premium, or none.
+   */
+  greeksSource: "feed" | "model" | "none";
+  /** Contracts open, as the exchange last reported it; null when not reported. */
+  openInterest: number | null;
+  /** Contracts traded in the contract's latest session; null when not reported. */
+  volume: number | null;
   inTheMoney: boolean;
   /**
    * Broker symbol to trade this contract (OCC format). Present only when the
    * chain came from a feed that lists real tradable contracts.
    */
   contractSymbol?: string;
+  /** When the quote was taken (ISO), so a delayed or stale quote can say so. */
+  quoteTime?: string | null;
 }
 
 export interface OptionChain {
   symbol: string;
   underlyingPrice: number;
+  /** The expiration these contracts belong to, `YYYY-MM-DD`. */
   expiration: string;
+  /**
+   * Every listed expiration the chain can switch to, ascending. Only a feed of
+   * real contracts fills it; a simulated chain leaves it out.
+   */
+  expirations?: string[];
   /** True when the chain is derived/simulated rather than a live vendor feed. */
   simulated: boolean;
+  /** The feed the quotes came from (e.g. "indicative": delayed), when known. */
+  feed?: string;
   contracts: OptionContract[];
 }
 
