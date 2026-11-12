@@ -900,7 +900,12 @@ async function mirrorPass(
               // The sell was refused: the stop goes on instead, so the shares
               // are never left bare (the broker may refuse it too while the
               // price is under it; then set_stop tries again each run).
-              const stopOrder = await placeExitOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty, stopLoss: a.stop });
+              let stopOrder: AlpacaOrder;
+              try {
+                stopOrder = await placeExitOrder(creds, { symbol: a.symbol, side: orderSide(a.side, false), qty, stopLoss: a.stop });
+              } catch (stopErr) {
+                throw new Error(`${err instanceof Error ? err.message : String(err)}; stop not placed: ${stopErr instanceof Error ? stopErr.message : String(stopErr)}`);
+              }
               await must(lines().update({ stop_order_id: stopOrder.id, stop_price: a.stop, stop_qty: qty }).eq("position_id", a.positionId).eq("mode", mode), "line stop");
               throw err;
             }
