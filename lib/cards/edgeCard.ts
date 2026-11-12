@@ -163,9 +163,21 @@ export function openEdgeCard(P: Prepared, cfg: EngineConfig = EDGE_CARD_CONFIG, 
  * nearest level already sits at or past entry + 3R, `cardLevels` gives MTP
  * equal to TP1 and no TP2, and the card shows that one target, as the
  * scoring treated it.
+ *
+ * TP2 is shown only as a level of its own: when it sits inside TP1's band
+ * or MTP's band (`band`, the band `strongestLevel` clusters levels in), it is
+ * the same level as that target, and the card lists it once (AM, 2026-11-11
+ * close: TP1 $20.20 and TP2 $20.21, one cluster; owner's report 2026-11-12).
+ * Display only: TP1, the stop and the good-call record are untouched.
  */
-export function shownTargets(c: Pick<CardLevels, "tp1" | "tp2" | "mtp">): { tp1: number; tp2: number | null; mtp: number | null } {
-  return { tp1: c.tp1, tp2: c.tp2 != null && c.tp2 > c.tp1 ? c.tp2 : null, mtp: c.mtp > c.tp1 ? c.mtp : null };
+export function shownTargets(
+  c: Pick<CardLevels, "tp1" | "tp2" | "mtp"> & { band?: number },
+): { tp1: number; tp2: number | null; mtp: number | null } {
+  const band = c.band != null && Number.isFinite(c.band) && c.band > 0 ? c.band : 0;
+  const mtp = c.mtp > c.tp1 ? c.mtp : null;
+  const tp2 =
+    c.tp2 != null && c.tp2 - c.tp1 > band && (mtp == null || mtp - c.tp2 > band) ? c.tp2 : null;
+  return { tp1: c.tp1, tp2, mtp };
 }
 
 /** The card for one stock from its completed daily bars (oldest first), or null. */

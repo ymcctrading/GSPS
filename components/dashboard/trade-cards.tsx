@@ -16,12 +16,11 @@
  */
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { priceUsd } from "@/lib/strat/priceText";
 import { tickerHref } from "@/lib/routes";
 import { NO_CARD_NOTE } from "@/lib/setups/cardRecords";
 import type { TradeCards as TradeCardsData } from "@/lib/cards/readCards";
 import Link from "next/link";
-import { Term } from "@/components/vocabulary";
+import { CardLevels } from "@/components/dashboard/card-levels";
 
 const pct = (x: number | null) => (x == null ? "—" : `${(x * 100).toFixed(1)}%`);
 const r = (x: number | null) => (x == null ? "—" : `${x >= 0 ? "+" : ""}${x.toFixed(2)}R`);
@@ -83,32 +82,7 @@ export function TradeCards({ data }: { data: TradeCardsData }) {
                       </span>
                     )}
                   </span>
-                  <span className="tabular-nums">
-                    {/* Cards are long only; the entry's order is the card's own (lib/cards/cardCalls.ts walkCardCall). */}
-                    {c.order === "buyAtOpen" ? (
-                      <>
-                        <Term id="buyAtOpen" /> (last close {priceUsd(c.entry)})
-                      </>
-                    ) : (
-                      <>
-                        <Term id={c.order === "buyLimit" ? "buyLimit" : "buyStop"} /> {priceUsd(c.entry)}
-                      </>
-                    )}{" "}
-                    · <Term id="stopLoss" /> {priceUsd(c.stop)} ·{" "}
-                    <Term id="tp1" /> {priceUsd(c.tp1)}
-                    {c.tp2 != null && (
-                      <>
-                        {" "}
-                        · <Term id="tp2" /> {priceUsd(c.tp2)}
-                      </>
-                    )}
-                    {c.mtp != null && (
-                      <>
-                        {" "}
-                        · <Term id="mtp" /> {priceUsd(c.mtp)}
-                      </>
-                    )}
-                  </span>
+                  <CardLevels card={c} />
                 </li>
               ))}
             </ul>

@@ -114,3 +114,31 @@ describe("rotateForDate", () => {
     expect(rotateForDate([], "2026-11-11")).toEqual([]);
   });
 });
+
+describe("shownTargets: TP2 only as a level of its own", () => {
+  it("drops a TP2 inside TP1's band (AM, 2026-11-11: TP1 20.20, TP2 20.2125)", () => {
+    expect(shownTargets({ tp1: 20.2, tp2: 20.2125, mtp: 23.365, band: 0.1 })).toEqual({ tp1: 20.2, tp2: null, mtp: 23.365 });
+  });
+  it("drops a TP2 inside MTP's band", () => {
+    expect(shownTargets({ tp1: 79.2, tp2: 85.5175, mtp: 85.825, band: 0.4 })).toEqual({ tp1: 79.2, tp2: null, mtp: 85.825 });
+  });
+  it("keeps a TP2 that stands apart from both", () => {
+    expect(shownTargets({ tp1: 189.55, tp2: 207.95, mtp: 219.16, band: 1 })).toEqual({ tp1: 189.55, tp2: 207.95, mtp: 219.16 });
+  });
+  it("treats a missing or bad band as zero", () => {
+    expect(shownTargets({ tp1: 101, tp2: 101.01, mtp: 112, band: Number.NaN })).toEqual({ tp1: 101, tp2: 101.01, mtp: 112 });
+  });
+  it("live cards carry the band their levels were clustered in", () => {
+    const bars = series(700, 7, 80);
+    let seen = 0;
+    for (let asOf = 400; asOf < bars.length && seen < 2; asOf += 3) {
+      const card = openEdgeCard(prepare("SYN", bars.slice(0, asOf + 1), EDGE_CARD_CONFIG, null));
+      if (!card) continue;
+      seen++;
+      expect(Number.isFinite(card.band) && card.band > 0).toBe(true);
+      const shown = shownTargets(card);
+      if (shown.tp2 != null) expect(shown.tp2 - shown.tp1).toBeGreaterThan(card.band);
+    }
+    expect(seen).toBeGreaterThan(0);
+  }, 60_000);
+});

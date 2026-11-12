@@ -26,7 +26,7 @@ import {
 import { tallyGoodCalls, type GoodCallTally } from "@/lib/shadow/goodCall";
 import { CARD_KINDS } from "@/lib/cards/cardCalls";
 import { isStrategyModeAllowedForPolicy } from "@/lib/strategies/access";
-import type { EntitlementPolicy } from "@/lib/entitlements/policy";
+import { getUserEntitlementPolicy, type EntitlementPolicy } from "@/lib/entitlements/policy";
 import { etDateKey, mostRecentClose } from "@/lib/market/session";
 
 export interface TradeCard {
@@ -86,6 +86,24 @@ export interface TradeCardViewer {
   mode: string | null;
 }
 
+/**
+ * The signed-in member as the card reader sees them: their tier's policy and
+ * the strategy mode they chose. One resolver for the Dashboard and a ticker
+ * page, so both filter the same way.
+ */
+export async function tradeCardViewer(supabase: SupabaseClient, userId: string): Promise<TradeCardViewer> {
+  const [policy, mode] = await Promise.all([
+    getUserEntitlementPolicy(supabase, userId),
+    supabase
+      .from("strategy_mode_preferences")
+      .select("mode")
+      .eq("user_id", userId)
+      .maybeSingle()
+      .then(({ data }) => (data as { mode?: string } | null)?.mode ?? null),
+  ]);
+  return { policy, mode };
+}
+
 /** The kinds a member is shown, in the modes' order. */
 export function publishedKinds(): CardKind[] {
   return CARD_KINDS.filter((k) => cardKindShown(k));
@@ -141,21 +159,23 @@ export function cardsStillTrade(signalDate: string, now: Date): boolean {
 /** Rows a read asks for at once: PostgREST's default max rows. */
 const READ_PAGE = 1000;
 
+/** Tonight's cards as a viewer sees them: what `getTradeCards` shows above the records. */
+type TonightsCards = Pick<TradeCards, "signalDate" | "cards" | "heldBack" | "unchosen" | "alertsHeldBack">;
+
 /**
- * The member's view: cards of the published kind whose strategy mode they
- * chose (and their tier includes), and the record of every published kind.
- * `viewer` null (no session) shows no card.
- * Cards are shown only from the latest night's run (every kind is recorded
- * each night, published or not), and only while their session is still ahead.
+ * The cards of the latest night's run while their session is still ahead,
+ * filtered for `viewer` exactly as the Dashboard shows them; with `symbol`,
+ * only that stock's. One reader for the Dashboard and a ticker page, so the
+ * two never show a different card (AM, 2026-11-12: the Dashboard offered a buy
+ * card while the stock's own page showed only the daily plan, a sell).
  */
-export async function getTradeCards(
+async function readTonightsCards(
   service: SupabaseClient,
   viewer: TradeCardViewer | null,
-  now: Date = new Date(),
-): Promise<TradeCards> {
-  const kinds = publishedKinds();
-  if (kinds.length === 0) return NO_TRADE_CARDS;
-
+  kinds: CardKind[],
+  now: Date,
+  symbol?: string,
+): Promise<TonightsCards> {
   // The latest night the job recorded any card. A quiet night for the
   // published kinds leaves the earlier cards behind, never on show.
   const { data: latest } = await service
@@ -173,13 +193,13 @@ export async function getTradeCards(
   let alertsHeldBack = 0;
   const unchosen: { label: string; count: number }[] = [];
   if (signalDate) {
-    const { data } = await service
+    let q = service
       .from("card_calls")
       .select("kind, symbol, entry, stop, tp1, tp2, mtp")
       .eq("published", true)
-      .eq("signal_date", signalDate)
-      .in("kind", kinds)
-      .order("symbol");
+      .eq("signal_date", signalDate);
+    if (symbol) q = q.eq("symbol", symbol);
+    const { data } = await q.in("kind", kinds).order("symbol");
     type Num = number | string;
     const opt = (v: Num | null | undefined) => (v == null ? null : Number(v));
     cards = ((data ?? []) as { kind: CardKind; symbol: string; entry: Num; stop: Num; tp1: Num; tp2?: Num | null; mtp?: Num | null }[]).map((r) => ({
@@ -211,6 +231,50 @@ export async function getTradeCards(
       else unchosen.push({ label, count: 1 });
     }
   }
+
+  return { signalDate, cards, heldBack, unchosen, alertsHeldBack };
+}
+
+/**
+ * Pure. Whether a card on a stock disagrees with that stock's daily plan:
+ * cards are long only, so a bearish plan is the other side. "none" (no
+ * plan) does not disagree.
+ */
+export function cardAgainstPlan(planDirection: "bullish" | "bearish" | "none" | null | undefined): boolean {
+  return planDirection === "bearish";
+}
+
+/**
+ * The cards open tonight on one stock that `viewer` would see on the
+ * Dashboard (same reader, same filters), for that stock's own page.
+ */
+export async function getOpenCardsForSymbol(
+  service: SupabaseClient,
+  viewer: TradeCardViewer | null,
+  symbol: string,
+  now: Date = new Date(),
+): Promise<Pick<TradeCards, "signalDate" | "cards">> {
+  const kinds = publishedKinds();
+  if (kinds.length === 0 || !viewer) return { signalDate: null, cards: [] };
+  const t = await readTonightsCards(service, viewer, kinds, now, symbol.toUpperCase());
+  return { signalDate: t.cards.length > 0 ? t.signalDate : null, cards: t.cards };
+}
+
+/**
+ * The member's view: cards of the published kind whose strategy mode they
+ * chose (and their tier includes), and the record of every published kind.
+ * `viewer` null (no session) shows no card.
+ * Cards are shown only from the latest night's run (every kind is recorded
+ * each night, published or not), and only while their session is still ahead.
+ */
+export async function getTradeCards(
+  service: SupabaseClient,
+  viewer: TradeCardViewer | null,
+  now: Date = new Date(),
+): Promise<TradeCards> {
+  const kinds = publishedKinds();
+  if (kinds.length === 0) return NO_TRADE_CARDS;
+  const { signalDate, cards, heldBack, unchosen, alertsHeldBack } = await readTonightsCards(service, viewer, kinds, now);
 
   type ForwardRow = { signal_date: string; stop: number | string; tp1: number | string; fill_price: number | string | null; call_outcome: string };
   // Each kind's record is read side by side: several kinds are published, and

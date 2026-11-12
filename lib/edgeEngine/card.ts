@@ -46,6 +46,12 @@ export interface CardLevels {
   mtpFallback: boolean;
   /** Number of price families agreeing at TP2 (0 when there is none). */
   tp2Families: number;
+  /**
+   * The price band levels are clustered in at the card's close (the same band
+   * `strongestLevel` counts families in). Two targets closer than this are one
+   * level, so the card shows it once (`shownTargets`, lib/cards/edgeCard.ts).
+   */
+  band: number;
   /** Last bar on which the entry may still fill; after it the card is void. */
   validThrough: number;
 }
@@ -122,6 +128,7 @@ export function cardLevels(P: Prepared, eventIndex: number, asOf: number, cfg: E
     mtp: mtpLevel ?? floor,
     mtpFallback: mtpLevel === null,
     tp2Families: strong ? strong.families : 0,
+    band,
     validThrough,
   };
 }
