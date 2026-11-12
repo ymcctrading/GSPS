@@ -24,7 +24,7 @@ import { evaluateAllRestingOrders } from "@/lib/brokers/simulator";
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { markAllPaperEquity } from "@/lib/portfolio/paper-equity";
 import { placeAutomatedPyramidAdds } from "@/lib/automation/pyramid-adds";
-import { runPaperMirror } from "@/lib/brokers/paper-mirror";
+import { runLiveMirror, runPaperMirror } from "@/lib/brokers/paper-mirror";
 
 // Vercel Hobby hard-caps function execution at 60s regardless of what this
 // says. This loop is per-user/per-plan database work with no external data
@@ -71,5 +71,11 @@ export async function GET(req: NextRequest) {
     (err: unknown) => ({ ran: false, placed: 0, held: [] as string[], errors: [String(err)] }),
   );
   if (paperMirror.errors.length > 0) console.error(`automation/portfolio-manager/run: paper mirror — ${paperMirror.errors.join("; ")}`);
-  return NextResponse.json({ ...result, exits, resting, pyramid, equityMarks, paperMirror });
+  // And the owner's live account, only once he has connected it in Settings
+  // (lib/brokers/paper-mirror.ts, runLiveMirror). Never fails the run.
+  const liveMirror = await runLiveMirror(supabase as unknown as Parameters<typeof runLiveMirror>[0]).catch(
+    (err: unknown) => ({ ran: false, placed: 0, held: [] as string[], errors: [String(err)] }),
+  );
+  if (liveMirror.errors.length > 0) console.error(`automation/portfolio-manager/run: live mirror — ${liveMirror.errors.join("; ")}`);
+  return NextResponse.json({ ...result, exits, resting, pyramid, equityMarks, paperMirror, liveMirror });
 }

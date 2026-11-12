@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const alpaca = vi.hoisted(() => ({
   envCreds: vi.fn(() => ({ key: "k", secret: "s", mode: "paper" })),
-  getAccount: vi.fn(async () => ({ equity: "100000", last_equity: "100000" })),
+  getAccount: vi.fn(async () => ({ equity: "100000", last_equity: "100000", cash: "100000" })),
   getPositions: vi.fn(async () => [] as unknown[]),
   placeOrder: vi.fn(),
   placeExitOrder: vi.fn(),
@@ -14,8 +14,10 @@ const alpaca = vi.hoisted(() => ({
   getOrderByClientId: vi.fn(),
 }));
 vi.mock("@/lib/brokers/alpaca", () => alpaca);
+const liveConn = vi.hoisted(() => ({ readLiveAlpacaConnection: vi.fn(async () => null as unknown) }));
+vi.mock("@/lib/brokers/live-creds", () => liveConn);
 
-import { runPaperMirror } from "@/lib/brokers/paper-mirror";
+import { runLiveMirror, runPaperMirror } from "@/lib/brokers/paper-mirror";
 
 type Op = { table: string; op: string; payload?: unknown; filters: string[] };
 
@@ -207,4 +209,57 @@ describe("runPaperMirror", () => {
     expect(alpaca.envCreds).toHaveBeenCalledWith("paper");
     expect(alpaca.envCreds).not.toHaveBeenCalledWith("live");
   });
+
+  it("live: does nothing without a connected live account, and never reads env keys", async () => {
+    const { client } = fakeSupabase({});
+    const r = await runLiveMirror(client);
+    expect(r.ran).toBe(false);
+    expect(r.reason).toMatch(/No live account connected/);
+    expect(alpaca.envCreds).not.toHaveBeenCalled();
+    expect(alpaca.placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("live: switched off by LIVE_MIRROR_DISABLED", async () => {
+    process.env.LIVE_MIRROR_DISABLED = "true";
+    const { client } = fakeSupabase({});
+    const r = await runLiveMirror(client);
+    delete process.env.LIVE_MIRROR_DISABLED;
+    expect(r.reason).toBe("LIVE_MIRROR_DISABLED");
+    expect(liveConn.readLiveAlpacaConnection).not.toHaveBeenCalled();
+  });
+
+  it("live: opens a sized whole-share line on the owner's live keys", async () => {
+    const liveOpened = new Date(Date.parse("2026-11-16T15:00:00Z") - 60_000).toISOString();
+    liveConn.readLiveAlpacaConnection.mockResolvedValueOnce({ connectionId: "c1", creds: { key: "lk", secret: "ls", mode: "live" } });
+    alpaca.getAccount.mockResolvedValueOnce({ equity: "30", last_equity: "30", cash: "30" });
+    const { client, ops } = fakeSupabase({
+      positions: [{ id: "p1", symbol: "LOW", side: "long", qty: "40", avg_entry_price: "12", stop_loss: "11", opened_at: liveOpened, asset_class: "us_equity" }],
+      orders: [{ symbol: "LOW", created_at: liveOpened }],
+    });
+    alpaca.placeOrder.mockResolvedValue({ id: "o1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "o1", status: "filled", filled_qty: "2", filled_avg_price: "12.02" });
+    alpaca.placeExitOrder.mockResolvedValue({ id: "s1", status: "new" });
+    const r = await runLiveMirror(client);
+    expect(r.errors).toEqual([]);
+    expect(alpaca.placeOrder).toHaveBeenCalledWith(expect.objectContaining({ mode: "live" }), expect.objectContaining({ qty: 2, side: "buy" }));
+    const claim = ops.find((o) => o.table === "paper_mirror_lines" && o.op === "insert");
+    expect(claim?.payload).toMatchObject({ mode: "live", target_qty: 2, scale: 2 / 40 });
+    const ev = ops.find((o) => o.table === "paper_mirror_events");
+    expect(ev?.payload).toMatchObject({ mode: "live" });
+  });
+
+  it("live: records an open the small account can't take, with the reason", async () => {
+    const liveOpened = new Date(Date.parse("2026-11-16T15:00:00Z") - 60_000).toISOString();
+    liveConn.readLiveAlpacaConnection.mockResolvedValueOnce({ connectionId: "c1", creds: { key: "lk", secret: "ls", mode: "live" } });
+    alpaca.getAccount.mockResolvedValueOnce({ equity: "30", last_equity: "30", cash: "30" });
+    const { client, ops } = fakeSupabase({
+      positions: [{ id: "p1", symbol: "BIG", side: "long", qty: "4", avg_entry_price: "320", stop_loss: "300", opened_at: liveOpened, asset_class: "us_equity" }],
+      orders: [{ symbol: "BIG", created_at: liveOpened }],
+    });
+    await runLiveMirror(client);
+    expect(alpaca.placeOrder).not.toHaveBeenCalled();
+    const missed = ops.find((o) => o.table === "paper_mirror_events" && (o.payload as { action: string }).action === "missed");
+    expect((missed?.payload as { note: string }).note).toMatch(/One share costs \$320.00/);
+  });
 });
+

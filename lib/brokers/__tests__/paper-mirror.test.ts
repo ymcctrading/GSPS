@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   dayLossHold,
+  LIVE_MIRROR_START,
+  liveOpenQty,
+  scaleSimForLive,
   MAX_OPEN_LINES,
   MIRROR_START,
   orderSide,
@@ -175,5 +178,45 @@ describe("dayLossHold", () => {
     expect(dayLossHold(97_100, 100_000)).toBe(false);
     expect(dayLossHold(NaN, 100_000)).toBe(true);
     expect(dayLossHold(100_000, 0)).toBe(true);
+  });
+});
+
+
+describe("liveOpenQty (a small live account)", () => {
+  it("sizes whole shares within cash and a tenth of equity at risk", () => {
+    // $30 account, $12 stock, stop $11: cash allows 2, risk allows 3 → 2.
+    expect(liveOpenQty("long", 12, 11, 30, 30)).toEqual({ qty: 2 });
+    // Wider stop: $12 stock, stop $10 → risk $2 a share, a tenth of $30 is $3 → 1.
+    expect(liveOpenQty("long", 12, 10, 30, 30)).toEqual({ qty: 1 });
+  });
+
+  it("refuses with a reason a small account would meet", () => {
+    expect(liveOpenQty("long", 92, 90, 30, 30).reason).toMatch(/more than the \$30.00 cash/);
+    expect(liveOpenQty("long", 20, 15, 30, 30).reason).toMatch(/more than a tenth/);
+    expect(liveOpenQty("short", 20, 21, 30, 30).reason).toMatch(/long only/);
+    expect(liveOpenQty("long", 20, null, 30, 30).reason).toMatch(/No protective stop/);
+    expect(liveOpenQty("long", 20, 21, 30, 30).reason).toMatch(/No protective stop/);
+  });
+});
+
+describe("scaleSimForLive", () => {
+  const T = new Date(Date.parse(LIVE_MIRROR_START) + 60_000).toISOString();
+  const s = (over: Partial<SimLine> = {}): SimLine => sim({ openedAt: T, price: 12, stop: 11, qty: 40, ...over });
+
+  it("sizes a new line for the account and drops what it can't take", () => {
+    const r = scaleSimForLive([s(), s({ positionId: "p2", symbol: "BIG", price: 300, stop: 290 })], [], new Map(), 30, 30);
+    expect(r.lines).toEqual([expect.objectContaining({ positionId: "p1", qty: 2 })]);
+    expect(r.refused[0].line.positionId).toBe("p2");
+  });
+
+  it("follows the simulator's exits in proportion, keeping a lone share until the last tranche", () => {
+    const m = [line({ targetQty: 1, simQty: 1, stopQty: 1 })];
+    const scale = new Map([["p1", 1 / 40]]);
+    expect(scaleSimForLive([s({ qty: 20 })], m, scale, 30, 30).lines[0].qty).toBe(1); // half out: round(0.5) keeps 1
+    expect(scaleSimForLive([s({ qty: 10 })], m, scale, 30, 30).lines[0].qty).toBe(0); // three quarters out: 0
+  });
+
+  it("ignores positions opened before the live start", () => {
+    expect(scaleSimForLive([s({ openedAt: "2026-11-12T16:00:00.000Z" })], [], new Map(), 30, 30).lines).toEqual([]);
   });
 });
