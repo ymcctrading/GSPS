@@ -36,6 +36,7 @@ const line = (over: Partial<MirrorLine> = {}): MirrorLine => ({
   side: "long",
   status: "open",
   targetQty: 10,
+  simQty: 10,
   openOrderId: "o1",
   addOrderId: null,
   addSeq: 0,
@@ -101,12 +102,12 @@ describe("planMirrorActions", () => {
 
   it("adds a pyramid add (stop re-sized next run), but not while halted", () => {
     const a = planMirrorActions([sim({ qty: 15 })], [line()], held([["AAA", 10]]), gate());
-    expect(a).toEqual([{ kind: "add", positionId: "p1", symbol: "AAA", side: "long", qty: 5, simPrice: 100, targetAfter: 15 }]);
+    expect(a).toEqual([{ kind: "add", positionId: "p1", symbol: "AAA", side: "long", qty: 5, simPrice: 100, targetAfter: 15, simAfter: 15 }]);
     // Next run, once the add is held: the stop follows the new size.
-    const b = planMirrorActions([sim({ qty: 15 })], [line({ targetQty: 15 })], held([["AAA", 15]]), gate());
+    const b = planMirrorActions([sim({ qty: 15 })], [line({ targetQty: 15, simQty: 15 })], held([["AAA", 15]]), gate());
     expect(b).toEqual([{ kind: "set_stop", positionId: "p1", symbol: "AAA", side: "long", qty: 15, stop: 95 }]);
     // While the add is still filling, nothing moves.
-    expect(planMirrorActions([sim({ qty: 15 })], [line({ targetQty: 15 })], held([["AAA", 10]]), gate())).toEqual([]);
+    expect(planMirrorActions([sim({ qty: 15 })], [line({ targetQty: 15, simQty: 15 })], held([["AAA", 10]]), gate())).toEqual([]);
     const h = planMirrorActions([sim({ qty: 15 })], [line()], held([["AAA", 10]]), gate({ tradingHalted: true }));
     expect(h[0].kind).toBe("hold");
   });
@@ -124,7 +125,7 @@ describe("planMirrorActions", () => {
 
   it("adds after a reduce from the reduced size", () => {
     // Opened 10, reduced to 5 (target follows), then the simulator pyramids to 8.
-    const a = planMirrorActions([sim({ qty: 8 })], [line({ targetQty: 5, stopQty: 5 })], held([["AAA", 5]]), gate());
+    const a = planMirrorActions([sim({ qty: 8 })], [line({ targetQty: 5, simQty: 5, stopQty: 5 })], held([["AAA", 5]]), gate());
     expect(a[0]).toMatchObject({ kind: "add", qty: 3, targetAfter: 8 });
   });
 
@@ -141,6 +142,15 @@ describe("planMirrorActions", () => {
     expect(a).toEqual([{ kind: "close", positionId: "p1", symbol: "AAA", side: "long", qty: 10 }]);
     const b = planMirrorActions([], [line()], held([["AAA", 10]]), gate({ marketOpen: false }));
     expect(b[0].kind).toBe("hold");
+  });
+
+  it("never buys back shares the broker's stop sold (target re-set below the simulator)", () => {
+    // Broker stop part-filled: the line was re-targeted to the 7 held; the simulator still holds 10.
+    const a = planMirrorActions([sim()], [line({ targetQty: 7, simQty: 10, stopQty: 7 })], held([["AAA", 7]]), gate());
+    expect(a.some((x) => x.kind === "add")).toBe(false);
+    // A later pyramid in the simulator adds only its own rise.
+    const b = planMirrorActions([sim({ qty: 14 })], [line({ targetQty: 7, simQty: 10, stopQty: 7 })], held([["AAA", 7]]), gate());
+    expect(b[0]).toMatchObject({ kind: "add", qty: 4, targetAfter: 11, simAfter: 14 });
   });
 
   it("leaves finished lines alone", () => {
