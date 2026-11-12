@@ -53,7 +53,7 @@ export function LiveAccountView() {
     return (
       <Card>
         <CardContent className="flex flex-col gap-3 py-6 text-sm">
-          <p>No live account is connected.</p>
+          <p>No live account is connected, or it is paused.</p>
           <div>
             <Link href="/settings">
               <Button variant="outline" size="sm">Connect it in Settings</Button>
@@ -89,7 +89,13 @@ export function LiveAccountView() {
         <LiveStat label="Cash" value={usd(account.cash)} />
         <LiveStat
           label="Day trades (5 sessions)"
-          value={account.dayTradeCount == null ? "—" : `${account.dayTradeCount} of 3`}
+          value={
+            account.dayTradeCount == null
+              ? "—"
+              : account.equity != null && account.equity >= 25_000
+                ? String(account.dayTradeCount)
+                : `${account.dayTradeCount} of 3`
+          }
         />
       </div>
 
@@ -123,7 +129,13 @@ export function LiveAccountView() {
                       <td className="py-2 pr-3">{p.qty ?? "—"}</td>
                       <td className="py-2 pr-3">{usd(p.avgEntryPrice)}</td>
                       <td className="py-2 pr-3">{usd(p.currentPrice)}</td>
-                      <td className="py-2 pr-3">{p.stopPrice == null ? <span className="font-sans text-bear">none resting</span> : usd(p.stopPrice)}</td>
+                      <td className="py-2 pr-3">{p.stopPrice == null ? (
+                          <span className="font-sans text-bear">none resting</span>
+                        ) : (
+                          <>
+                            {usd(p.stopPrice)} {p.stopPartial && <span className="font-sans text-bear">(part of the shares)</span>}
+                          </>
+                        )}</td>
                       <td className={cn("py-2 pr-3", tone(p.unrealizedPl))}>
                         {usd(p.unrealizedPl)} {p.unrealizedPlPct != null && `(${pct(p.unrealizedPlPct)})`}
                       </td>

@@ -13,7 +13,8 @@ describe("summarizeLiveAccount", () => {
   it("turns the broker's strings into figures and finds each position's resting stop", () => {
     const s = summarizeLiveAccount(account, [position], [stop]);
     expect(s.account).toEqual({ equity: 31.5, cash: 6.5, buyingPower: 6.5, dayPl: 1.5, dayPlPct: 0.05, dayTradeCount: 1 });
-    expect(s.positions[0]).toMatchObject({ symbol: "LOW", side: "long", qty: 2, avgEntryPrice: 12.4, stopPrice: 11 });
+    expect(s.positions[0]).toMatchObject({ symbol: "LOW", side: "long", qty: 2, avgEntryPrice: 12.4, stopPrice: 11, stopPartial: false });
+    expect(summarizeLiveAccount(account, [position], [{ ...stop, qty: "1" }]).positions[0].stopPartial).toBe(true);
     expect(s.orders[0]).toMatchObject({ symbol: "LOW", side: "sell", stopPrice: 11, limitPrice: null });
   });
 

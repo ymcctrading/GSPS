@@ -42,13 +42,12 @@ export default function PortfolioPage() {
     <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold sm:text-2xl">Portfolio</h1>
-        <div role="tablist" aria-label="Account" className="inline-flex rounded-lg border border-border p-0.5 text-sm">
+        <div role="group" aria-label="Account" className="inline-flex rounded-lg border border-border p-0.5 text-sm">
           {(["paper", "live"] as const).map((v) => (
             <button
               key={v}
               type="button"
-              role="tab"
-              aria-selected={view === v}
+              aria-pressed={view === v}
               onClick={() => choose(v)}
               className={cn(
                 "rounded-md px-3 py-1 font-medium",

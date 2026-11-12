@@ -12,7 +12,7 @@ describe("LiveAccountView", () => {
     respond({
       connected: true,
       account: { equity: 31.5, cash: 6.5, buyingPower: 6.5, dayPl: 1.5, dayPlPct: 0.05, dayTradeCount: 1 },
-      positions: [{ symbol: "LOW", side: "long", qty: 2, avgEntryPrice: 12.4, currentPrice: 12.5, marketValue: 25, unrealizedPl: 0.2, unrealizedPlPct: 0.008, stopPrice: 11 }],
+      positions: [{ symbol: "LOW", side: "long", qty: 2, avgEntryPrice: 12.4, currentPrice: 12.5, marketValue: 25, unrealizedPl: 0.2, unrealizedPlPct: 0.008, stopPrice: 11, stopPartial: false }],
       orders: [{ id: "s1", symbol: "LOW", side: "sell", type: "stop", qty: 2, limitPrice: null, stopPrice: 11, status: "new", submittedAt: null }],
     });
     render(<LiveAccountView />);

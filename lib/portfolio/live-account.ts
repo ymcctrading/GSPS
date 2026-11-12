@@ -33,6 +33,8 @@ export interface LivePositionRow {
   unrealizedPlPct: number | null;
   /** The resting protective stop for this symbol, when one is working. */
   stopPrice: number | null;
+  /** True when the resting stop covers fewer shares than are held. */
+  stopPartial: boolean;
 }
 
 export interface LiveOrderRow {
@@ -103,6 +105,7 @@ export function summarizeLiveAccount(
         unrealizedPl: n(p.unrealized_pl),
         unrealizedPlPct: n(p.unrealized_plpc),
         stopPrice: stop?.stopPrice ?? null,
+        stopPartial: stop != null && stop.qty != null && n(p.qty) != null && stop.qty < Math.abs(n(p.qty) as number),
       };
     }),
     orders,

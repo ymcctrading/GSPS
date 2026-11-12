@@ -636,9 +636,9 @@ describe("PortfolioPage account switch", () => {
   it("opens on the paper account and switches to the live view on request", async () => {
     const { calls } = mockApi({});
     render(<PortfolioPage />);
-    expect(screen.getByRole("tab", { name: "Paper account" })).toHaveAttribute("aria-selected", "true");
-    await userEvent.click(screen.getByRole("tab", { name: "Live account" }));
-    expect(screen.getByRole("tab", { name: "Live account" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Paper account" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Live account" }));
+    expect(screen.getByRole("button", { name: "Live account" })).toHaveAttribute("aria-pressed", "true");
     // The live view reads its own endpoint; the paper book is no longer on screen.
     await vi.waitFor(() => expect(calls).toContain("/api/portfolio/live"));
     expect(screen.queryByRole("heading", { name: /Open Positions/ })).toBeNull();
