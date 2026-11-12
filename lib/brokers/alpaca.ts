@@ -382,6 +382,8 @@ export interface AlpacaAccount {
   currency: string;
   /** False on a cash account or an IRA: the account may not borrow shares to short. */
   shorting_enabled?: boolean;
+  /** Day trades in the last five sessions; under $25,000 a fourth is refused. */
+  daytrade_count?: number | string;
 }
 
 export interface AlpacaPosition {

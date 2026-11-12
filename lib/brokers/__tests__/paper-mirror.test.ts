@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   dayLossHold,
+  dayTradeBlocked,
+  nyDay,
   LIVE_MIRROR_START,
   liveOpenQty,
   scaleSimForLive,
@@ -185,9 +187,10 @@ describe("dayLossHold", () => {
 describe("liveOpenQty (a small live account)", () => {
   it("sizes whole shares within cash and a tenth of equity at risk", () => {
     // $30 account, $12 stock, stop $11: cash allows 2, risk allows 3 → 2.
-    expect(liveOpenQty("long", 12, 11, 30, 30)).toEqual({ qty: 2 });
+    // The day limit keeps both caps at the fill: min(11 + 3/2, 28.50/2) = 12.50.
+    expect(liveOpenQty("long", 12, 11, 30, 30)).toEqual({ qty: 2, limitPrice: 12.5 });
     // Wider stop: $12 stock, stop $10 → risk $2 a share, a tenth of $30 is $3 → 1.
-    expect(liveOpenQty("long", 12, 10, 30, 30)).toEqual({ qty: 1 });
+    expect(liveOpenQty("long", 12, 10, 30, 30)).toEqual({ qty: 1, limitPrice: 13 });
   });
 
   it("refuses with a reason a small account would meet", () => {
@@ -196,6 +199,23 @@ describe("liveOpenQty (a small live account)", () => {
     expect(liveOpenQty("short", 20, 21, 30, 30).reason).toMatch(/long only/);
     expect(liveOpenQty("long", 20, null, 30, 30).reason).toMatch(/No protective stop/);
     expect(liveOpenQty("long", 20, 21, 30, 30).reason).toMatch(/No protective stop/);
+    expect(liveOpenQty("long", 20, Number.NaN, 30, 30).reason).toMatch(/No protective stop/);
+  });
+});
+
+describe("dayTradeBlocked", () => {
+  it("blocks at three day trades under $25,000, and fails closed on an unreadable count", () => {
+    expect(dayTradeBlocked(2, 30)).toBe(false);
+    expect(dayTradeBlocked(3, 30)).toBe(true);
+    expect(dayTradeBlocked(NaN, 30)).toBe(true);
+    expect(dayTradeBlocked(5, 30_000)).toBe(false);
+  });
+});
+
+describe("nyDay", () => {
+  it("dates by New York, not UTC", () => {
+    expect(nyDay(Date.parse("2026-11-13T03:00:00Z"))).toBe("2026-11-12");
+    expect(nyDay(Date.parse("2026-11-13T14:30:00Z"))).toBe("2026-11-13");
   });
 });
 
@@ -213,7 +233,8 @@ describe("scaleSimForLive", () => {
     const m = [line({ targetQty: 1, simQty: 1, stopQty: 1 })];
     const scale = new Map([["p1", 1 / 40]]);
     expect(scaleSimForLive([s({ qty: 20 })], m, scale, 30, 30).lines[0].qty).toBe(1); // half out: round(0.5) keeps 1
-    expect(scaleSimForLive([s({ qty: 10 })], m, scale, 30, 30).lines[0].qty).toBe(0); // three quarters out: 0
+    expect(scaleSimForLive([s({ qty: 10 })], m, scale, 30, 30).lines[0].qty).toBe(1); // three quarters out: still 1
+    expect(scaleSimForLive([s({ qty: 1 })], m, scale, 30, 30).lines[0].qty).toBe(1); // one share left in the simulator: still 1
   });
 
   it("ignores positions opened before the live start", () => {

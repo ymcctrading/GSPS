@@ -231,7 +231,7 @@ describe("runPaperMirror", () => {
   it("live: opens a sized whole-share line on the owner's live keys", async () => {
     const liveOpened = new Date(Date.parse("2026-11-16T15:00:00Z") - 60_000).toISOString();
     liveConn.readLiveAlpacaConnection.mockResolvedValueOnce({ connectionId: "c1", creds: { key: "lk", secret: "ls", mode: "live" } });
-    alpaca.getAccount.mockResolvedValueOnce({ equity: "30", last_equity: "30", cash: "30" });
+    alpaca.getAccount.mockResolvedValueOnce({ equity: "30", last_equity: "30", cash: "30", daytrade_count: 0 });
     const { client, ops } = fakeSupabase({
       positions: [{ id: "p1", symbol: "LOW", side: "long", qty: "40", avg_entry_price: "12", stop_loss: "11", opened_at: liveOpened, asset_class: "us_equity" }],
       orders: [{ symbol: "LOW", created_at: liveOpened }],
@@ -241,7 +241,9 @@ describe("runPaperMirror", () => {
     alpaca.placeExitOrder.mockResolvedValue({ id: "s1", status: "new" });
     const r = await runLiveMirror(client);
     expect(r.errors).toEqual([]);
-    expect(alpaca.placeOrder).toHaveBeenCalledWith(expect.objectContaining({ mode: "live" }), expect.objectContaining({ qty: 2, side: "buy" }));
+    // A day limit at the most a share may cost and keep both caps: 11 + 3/2.
+    expect(alpaca.placeOrder).toHaveBeenCalledWith(expect.objectContaining({ mode: "live" }), expect.objectContaining({ qty: 2, side: "buy", type: "limit", limitPrice: 12.5 }));
+    expect(alpaca.placeExitOrder).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ qty: 2, stopLoss: 11 }));
     const claim = ops.find((o) => o.table === "paper_mirror_lines" && o.op === "insert");
     expect(claim?.payload).toMatchObject({ mode: "live", target_qty: 2, scale: 2 / 40 });
     const ev = ops.find((o) => o.table === "paper_mirror_events");
@@ -261,5 +263,94 @@ describe("runPaperMirror", () => {
     const missed = ops.find((o) => o.table === "paper_mirror_events" && (o.payload as { action: string }).action === "missed");
     expect((missed?.payload as { note: string }).note).toMatch(/One share costs \$320.00/);
   });
-});
 
+  const liveSetup = (account: Record<string, unknown>) => {
+    liveConn.readLiveAlpacaConnection.mockResolvedValueOnce({ connectionId: "c1", creds: { key: "lk", secret: "ls", mode: "live" } });
+    alpaca.getAccount.mockResolvedValueOnce({ equity: "30", last_equity: "30", cash: "30", ...account } as never);
+  };
+  const liveOpen = { id: "p1", symbol: "LOW", side: "long", qty: "40", avg_entry_price: "12", stop_loss: "11", asset_class: "us_equity" };
+  const liveLine = (openedAt: string) => ({
+    mode: "live", position_id: "p1", symbol: "LOW", side: "long", status: "open", target_qty: 1, sim_qty: 1, open_order_id: "o1",
+    add_order_id: null, add_seq: 0, stop_order_id: "s1", stop_price: 11, stop_qty: 1, opened_at: openedAt,
+  });
+
+  it("live: holds new opens once the day trades left can't cover a same-day exit", async () => {
+    const liveOpened = new Date(NOW - 60_000).toISOString();
+    liveSetup({ daytrade_count: 3 });
+    const { client } = fakeSupabase({ positions: [{ ...liveOpen, opened_at: liveOpened }], orders: [{ symbol: "LOW", created_at: liveOpened }] });
+    const r = await runLiveMirror(client);
+    expect(alpaca.placeOrder).not.toHaveBeenCalled();
+    expect(r.held.join(" ")).toMatch(/Day trades used \(3 of 3/);
+  });
+
+  it("live: an unreadable day-trade count holds opens (fails closed)", async () => {
+    const liveOpened = new Date(NOW - 60_000).toISOString();
+    liveSetup({});
+    const { client } = fakeSupabase({ positions: [{ ...liveOpen, opened_at: liveOpened }], orders: [{ symbol: "LOW", created_at: liveOpened }] });
+    await runLiveMirror(client);
+    expect(alpaca.placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("live: a limit the market moved past is cancelled, not left resting", async () => {
+    const liveOpened = new Date(NOW - 60_000).toISOString();
+    liveSetup({ daytrade_count: 0 });
+    const { client, ops } = fakeSupabase({ positions: [{ ...liveOpen, opened_at: liveOpened }], orders: [{ symbol: "LOW", created_at: liveOpened }] });
+    alpaca.placeOrder.mockResolvedValue({ id: "o1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValueOnce({ id: "o1", status: "new" }).mockResolvedValueOnce({ id: "o1", status: "new" }).mockResolvedValueOnce({ id: "o1", status: "new" })
+      .mockResolvedValue({ id: "o1", status: "canceled", filled_qty: "0" });
+    await runLiveMirror(client);
+    expect(alpaca.cancelOrder).toHaveBeenCalledWith(expect.anything(), "o1");
+    expect(alpaca.placeExitOrder).not.toHaveBeenCalled();
+    const missed = ops.find((o) => o.table === "paper_mirror_lines" && o.op === "update" && (o.payload as { status?: string }).status === "missed");
+    expect(missed).toBeDefined();
+  });
+
+  it("live: an open filled at or under the stop is closed at once", async () => {
+    const liveOpened = new Date(NOW - 60_000).toISOString();
+    liveSetup({ daytrade_count: 0 });
+    const { client, ops } = fakeSupabase({ positions: [{ ...liveOpen, opened_at: liveOpened }], orders: [{ symbol: "LOW", created_at: liveOpened }] });
+    alpaca.placeOrder.mockResolvedValue({ id: "o1", status: "accepted" });
+    alpaca.getOrder.mockImplementation(async (_c: unknown, id: string) =>
+      id === "o1" ? { id: "o1", status: "filled", filled_qty: "2", filled_avg_price: "10.95" } : { id, status: "filled", filled_qty: "2", filled_avg_price: "10.90" },
+    );
+    alpaca.closePosition.mockResolvedValue({ id: "x1", status: "accepted" });
+    await runLiveMirror(client);
+    expect(alpaca.placeExitOrder).not.toHaveBeenCalled();
+    expect(alpaca.closePosition).toHaveBeenCalledWith(expect.anything(), "LOW", 2);
+    expect(ops.some((o) => o.table === "paper_mirror_lines" && (o.payload as { status?: string })?.status === "closed")).toBe(true);
+  });
+
+  it("live: a same-day close the day-trade rule would refuse is held and the stop stays", async () => {
+    liveSetup({ daytrade_count: 3 });
+    alpaca.getPositions.mockResolvedValue([{ symbol: "LOW", qty: "1", side: "long" }]);
+    const { client } = fakeSupabase({ paper_mirror_lines: [liveLine(new Date(NOW - 30 * 60_000).toISOString())] });
+    const r = await runLiveMirror(client);
+    expect(alpaca.cancelOrder).not.toHaveBeenCalled();
+    expect(alpaca.closePosition).not.toHaveBeenCalled();
+    expect(r.held.join(" ")).toMatch(/day trade/);
+  });
+
+  it("live: a close on a line from an earlier day goes even with the day trades used", async () => {
+    liveSetup({ daytrade_count: 3 });
+    alpaca.getPositions.mockResolvedValue([{ symbol: "LOW", qty: "1", side: "long" }]);
+    alpaca.getOrder.mockImplementation(async (_c: unknown, id: string) => (id === "s1" ? { id, status: "canceled" } : { id, status: "filled", filled_qty: "1", filled_avg_price: "12.4" }));
+    alpaca.closePosition.mockResolvedValue({ id: "x1", status: "accepted" });
+    const { client } = fakeSupabase({ paper_mirror_lines: [liveLine(new Date(NOW - 3 * 24 * 3600_000).toISOString())] });
+    await runLiveMirror(client);
+    expect(alpaca.closePosition).toHaveBeenCalledWith(expect.anything(), "LOW", 1);
+  });
+
+  it("live: a sell refused after the stop came off puts the stop back", async () => {
+    liveSetup({ daytrade_count: 0 });
+    alpaca.getPositions.mockResolvedValue([{ symbol: "LOW", qty: "1", side: "long" }]);
+    alpaca.getOrder.mockResolvedValue({ id: "s1", status: "canceled" });
+    alpaca.closePosition.mockRejectedValue(new Error("403 pattern day trading protection"));
+    alpaca.placeExitOrder.mockResolvedValue({ id: "s2", status: "new" });
+    const { client, ops } = fakeSupabase({ paper_mirror_lines: [liveLine(new Date(NOW - 30 * 60_000).toISOString())] });
+    const r = await runLiveMirror(client);
+    expect(alpaca.placeExitOrder).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ symbol: "LOW", qty: 1, stopLoss: 11, side: "sell" }));
+    const restored = ops.find((o) => o.table === "paper_mirror_lines" && (o.payload as { stop_order_id?: string })?.stop_order_id === "s2");
+    expect(restored?.filters.join(" ")).toMatch(/"mode","live"/);
+    expect(r.errors.join(" ")).toMatch(/day trading/);
+  });
+});
