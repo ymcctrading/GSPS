@@ -163,6 +163,20 @@ bullish news, bottoms on bearish (*Commodities* p. 8; W006 p. 14), which is how
 
 ### 7. Community, the method's way
 
+**Shared watchlists built 2026-11-12** (out of phase, on Chuck's 2026-11-12 ask;
+his 2026-11-09 answer to the open question was "Both", so the list's owner
+chooses): the Dashboard list's owner turns sharing on from the card's Share
+button, for anyone with the link or only members they approve, and can issue a
+new link that stops the old one (`lib/watchlist/share.ts`,
+`lib/watchlist/shareServer.ts`, `/api/watchlist-share`,
+`/api/shared-watchlist/[token]`, the page `/shared/watchlist/[token]`, migration
+0152). The page shows symbols only, says they are not a recommendation, and
+lets a signed-in viewer keep them as their own Dashboard list. A requester is
+shown to the owner by display name or a masked email, and is told so before
+asking. The list is read live; a list reset to the default stops answering
+until it is saved again. Not indexed by search engines. The leaderboard stays
+held, as above.
+
 **The method:** losses come from hope, tips and opinions; trade only on definite rules
 (SRC-004, `/mnt/project-files/private-research/sources/A05_new_stock_trend_detector.md`; SRC-012, A11:
 "ignore tips; follow rules"). "Follow expert traders" is a tip service by
