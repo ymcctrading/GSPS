@@ -12,6 +12,8 @@ const alpaca = vi.hoisted(() => ({
   closePosition: vi.fn(),
   getOrder: vi.fn(),
   getOrderByClientId: vi.fn(),
+  getAsset: vi.fn(async () => ({ symbol: "ETH/USD", tradable: true, minOrderSize: 0.001, minTradeIncrement: 0.000001, priceIncrement: 0.1 }) as Record<string, unknown>),
+  getNetDeposits: vi.fn(async () => 30),
 }));
 vi.mock("@/lib/brokers/alpaca", () => alpaca);
 const liveConn = vi.hoisted(() => ({ readLiveAlpacaConnection: vi.fn(async () => null as unknown) }));
@@ -65,6 +67,7 @@ beforeEach(() => {
   delete process.env.TRADING_DISABLED;
   vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ is_open: true }) })));
   alpaca.getPositions.mockResolvedValue([]);
+  alpaca.getNetDeposits.mockResolvedValue(30);
 });
 
 describe("runPaperMirror", () => {
@@ -228,73 +231,149 @@ describe("runPaperMirror", () => {
     expect(liveConn.readLiveAlpacaConnection).not.toHaveBeenCalled();
   });
 
-  it("live: opens a sized whole-share line on the owner's live keys", async () => {
-    const liveOpened = new Date(Date.parse("2026-11-16T15:00:00Z") - 60_000).toISOString();
-    liveConn.readLiveAlpacaConnection.mockResolvedValueOnce({ connectionId: "c1", creds: { key: "lk", secret: "ls", mode: "live" } });
-    alpaca.getAccount.mockResolvedValueOnce({ equity: "30", last_equity: "30", cash: "30", daytrade_count: 0 });
-    const { client, ops } = fakeSupabase({
-      positions: [{ id: "p1", symbol: "LOW", side: "long", qty: "40", avg_entry_price: "12", stop_loss: "11", opened_at: liveOpened, asset_class: "us_equity" }],
-      orders: [{ symbol: "LOW", created_at: liveOpened }],
-    });
-    alpaca.placeOrder.mockResolvedValue({ id: "o1", status: "accepted" });
-    alpaca.getOrder.mockResolvedValue({ id: "o1", status: "filled", filled_qty: "2", filled_avg_price: "12.02" });
-    alpaca.placeExitOrder.mockResolvedValue({ id: "s1", status: "new" });
-    const r = await runLiveMirror(client);
-    expect(r.errors).toEqual([]);
-    // A day limit at the most a share may cost and keep both caps: 11 + 3/2.
-    expect(alpaca.placeOrder).toHaveBeenCalledWith(expect.objectContaining({ mode: "live" }), expect.objectContaining({ qty: 2, side: "buy", type: "limit", limitPrice: 12.5 }));
-    expect(alpaca.placeExitOrder).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ qty: 2, stopLoss: 11 }));
-    const claim = ops.find((o) => o.table === "paper_mirror_lines" && o.op === "insert");
-    expect(claim?.payload).toMatchObject({ mode: "live", target_qty: 2, scale: 2 / 40 });
-    const ev = ops.find((o) => o.table === "paper_mirror_events");
-    expect(ev?.payload).toMatchObject({ mode: "live" });
-  });
-
-  it("live: records an open the small account can't take, with the reason", async () => {
-    const liveOpened = new Date(Date.parse("2026-11-16T15:00:00Z") - 60_000).toISOString();
-    liveConn.readLiveAlpacaConnection.mockResolvedValueOnce({ connectionId: "c1", creds: { key: "lk", secret: "ls", mode: "live" } });
-    alpaca.getAccount.mockResolvedValueOnce({ equity: "30", last_equity: "30", cash: "30" });
-    const { client, ops } = fakeSupabase({
-      positions: [{ id: "p1", symbol: "BIG", side: "long", qty: "4", avg_entry_price: "320", stop_loss: "300", opened_at: liveOpened, asset_class: "us_equity" }],
-      orders: [{ symbol: "BIG", created_at: liveOpened }],
-    });
-    await runLiveMirror(client);
-    expect(alpaca.placeOrder).not.toHaveBeenCalled();
-    const missed = ops.find((o) => o.table === "paper_mirror_events" && (o.payload as { action: string }).action === "missed");
-    expect((missed?.payload as { note: string }).note).toMatch(/One share costs \$320.00/);
-  });
-
   const liveSetup = (account: Record<string, unknown>) => {
     liveConn.readLiveAlpacaConnection.mockResolvedValueOnce({ connectionId: "c1", creds: { key: "lk", secret: "ls", mode: "live" } });
     alpaca.getAccount.mockResolvedValueOnce({ equity: "30", last_equity: "30", cash: "30", ...account } as never);
   };
-  const liveOpen = { id: "p1", symbol: "LOW", side: "long", qty: "40", avg_entry_price: "12", stop_loss: "11", asset_class: "us_equity" };
+  const liveOpened = new Date(NOW - 60_000).toISOString();
+  // The simulator bought half a coin at $3,000, stop $2,950.
+  const coinOpen = { id: "c1", symbol: "ETH/USD", side: "long", qty: "0.5", avg_entry_price: "3000", stop_loss: "2950", opened_at: liveOpened, asset_class: "crypto" };
+  const coinOrders = [{ symbol: "ETH/USD", created_at: liveOpened }];
+  const heldAfterFee = [{ symbol: "ETHUSD", qty: "0.003325", side: "long", asset_class: "crypto" }];
+  const liveOpen = { id: "p1", symbol: "LOW", side: "long", qty: "40", avg_entry_price: "4", stop_loss: "3.8", asset_class: "us_equity" };
   const liveLine = (openedAt: string) => ({
     mode: "live", position_id: "p1", symbol: "LOW", side: "long", status: "open", target_qty: 1, sim_qty: 1, open_order_id: "o1",
     add_order_id: null, add_seq: 0, stop_order_id: "s1", stop_price: 11, stop_qty: 1, opened_at: openedAt,
   });
 
-  it("live: holds new opens once the day trades left can't cover a same-day exit", async () => {
-    const liveOpened = new Date(NOW - 60_000).toISOString();
-    liveSetup({ daytrade_count: 3 });
-    const { client } = fakeSupabase({ positions: [{ ...liveOpen, opened_at: liveOpened }], orders: [{ symbol: "LOW", created_at: liveOpened }] });
+  it("live: opens a coin within a third of the account, protected by a stop-limit on what is held", async () => {
+    liveSetup({ daytrade_count: 0 });
+    const { client, ops } = fakeSupabase({ positions: [coinOpen], orders: coinOrders });
+    alpaca.getPositions.mockResolvedValueOnce([]).mockResolvedValue(heldAfterFee);
+    alpaca.placeOrder.mockResolvedValue({ id: "o1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "o1", status: "filled", filled_qty: "0.003333", filled_avg_price: "2999.5" });
+    alpaca.placeExitOrder.mockResolvedValue({ id: "s1", status: "new" });
     const r = await runLiveMirror(client);
-    expect(alpaca.placeOrder).not.toHaveBeenCalled();
-    expect(r.held.join(" ")).toMatch(/Day trades used \(3 of 3/);
+    expect(r.errors).toEqual([]);
+    // $10 (a third of $30) buys 0.003333; a good-till-cancelled limit, as crypto takes no day order.
+    expect(alpaca.placeOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "live" }),
+      expect.objectContaining({ symbol: "ETH/USD", qty: 0.003333, side: "buy", type: "limit", limitPrice: 3000.3, timeInForce: "ioc" }),
+    );
+    // The fee came out of the coin: the stop covers the 0.003325 held, as a stop-limit 2% under.
+    expect(alpaca.placeExitOrder).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ qty: 0.003325, stopLoss: 2950, stopLimit: 2891, side: "sell" }));
+    const stopWrite = ops.find((o) => o.table === "paper_mirror_lines" && (o.payload as { stop_order_id?: string })?.stop_order_id === "s1");
+    expect(stopWrite?.payload).toMatchObject({ stop_qty: 0.003325, target_qty: 0.003325 });
+    const claim = ops.find((o) => o.table === "paper_mirror_lines" && o.op === "insert");
+    expect(claim?.payload).toMatchObject({ mode: "live", target_qty: 0.003333 });
   });
 
-  it("live: an unreadable day-trade count holds opens (fails closed)", async () => {
-    const liveOpened = new Date(NOW - 60_000).toISOString();
-    liveSetup({});
-    const { client } = fakeSupabase({ positions: [{ ...liveOpen, opened_at: liveOpened }], orders: [{ symbol: "LOW", created_at: liveOpened }] });
+  it("live: a deposit never moves the loss limit's step", async () => {
+    // $60 of equity, all of it deposited: no trading gain, so a tenth ($6) at
+    // an $1,800 stop that may fill 2% under it, fees both ways, allows
+    // 0.004808 of a coin, not the 0.006666 a fifth would.
+    liveSetup({ equity: "60", last_equity: "60", cash: "60", daytrade_count: 0 });
+    alpaca.getNetDeposits.mockResolvedValue(60);
+    const { client } = fakeSupabase({ positions: [{ ...coinOpen, stop_loss: "1800" }], orders: coinOrders });
+    alpaca.placeOrder.mockResolvedValue({ id: "o1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "o1", status: "canceled", filled_qty: "0" });
+    await runLiveMirror(client);
+    expect(alpaca.placeOrder).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ qty: 0.004808 }));
+  });
+
+  it("live: $30 made on $30 deposited takes the second step", async () => {
+    liveSetup({ equity: "60", last_equity: "60", cash: "60", daytrade_count: 0 });
+    alpaca.getNetDeposits.mockResolvedValue(30);
+    const { client } = fakeSupabase({ positions: [{ ...coinOpen, stop_loss: "1800" }], orders: coinOrders });
+    alpaca.placeOrder.mockResolvedValue({ id: "o1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "o1", status: "canceled", filled_qty: "0" });
+    await runLiveMirror(client);
+    expect(alpaca.placeOrder).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ qty: 0.006666 }));
+  });
+
+  it("live: unreadable transfers take the first step", async () => {
+    liveSetup({ equity: "60", last_equity: "60", cash: "60", daytrade_count: 0 });
+    alpaca.getNetDeposits.mockRejectedValue(new Error("403"));
+    const { client } = fakeSupabase({ positions: [{ ...coinOpen, stop_loss: "1800" }], orders: coinOrders });
+    alpaca.placeOrder.mockResolvedValue({ id: "o1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "o1", status: "canceled", filled_qty: "0" });
+    await runLiveMirror(client);
+    expect(alpaca.placeOrder).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ qty: 0.004808 }));
+  });
+
+  it("live: no deposits on record takes the first step, never equity read as all gain", async () => {
+    liveSetup({ equity: "60", last_equity: "60", cash: "60", daytrade_count: 0 });
+    alpaca.getNetDeposits.mockResolvedValue(0);
+    const { client } = fakeSupabase({ positions: [{ ...coinOpen, stop_loss: "1800" }], orders: coinOrders });
+    alpaca.placeOrder.mockResolvedValue({ id: "o1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "o1", status: "canceled", filled_qty: "0" });
+    await runLiveMirror(client);
+    expect(alpaca.placeOrder).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ qty: 0.004808 }));
+  });
+
+  it("live: a coin's stop is sized under the fill when the holding can't be read", async () => {
+    liveSetup({ daytrade_count: 0 });
+    const { client } = fakeSupabase({ positions: [coinOpen], orders: coinOrders });
+    alpaca.getPositions.mockResolvedValueOnce([]).mockRejectedValue(new Error("timeout"));
+    alpaca.placeOrder.mockResolvedValue({ id: "o1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "o1", status: "filled", filled_qty: "0.003333", filled_avg_price: "2999.5" });
+    alpaca.placeExitOrder.mockResolvedValue({ id: "s1", status: "new" });
+    await runLiveMirror(client);
+    // 0.003333 less the 0.25% fee, rounded down to the lot.
+    expect(alpaca.placeExitOrder).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ qty: 0.003324 }));
+  });
+
+  it("live: a coin's stop-limit moves its stop and its limit together", async () => {
+    liveSetup({ daytrade_count: 0 });
+    const coinLine = {
+      mode: "live", position_id: "c1", symbol: "ETH/USD", side: "long", status: "open", target_qty: 0.003325, sim_qty: 0.003333, open_order_id: "o1",
+      add_order_id: null, add_seq: 0, stop_order_id: "s1", stop_price: 2950, stop_qty: 0.003325, opened_at: liveOpened,
+    };
+    const { client } = fakeSupabase({ positions: [{ ...coinOpen, stop_loss: "2990" }], orders: coinOrders, paper_mirror_lines: [coinLine] });
+    alpaca.getPositions.mockResolvedValue(heldAfterFee);
+    alpaca.replaceOrder.mockResolvedValue({ id: "s2", status: "new" });
+    const r = await runLiveMirror(client);
+    expect(r.errors).toEqual([]);
+    expect(alpaca.replaceOrder).toHaveBeenCalledWith(expect.anything(), "s1", { stopPrice: 2990, limitPrice: 2930.2, qty: 0.003325 });
+  });
+
+  it("live: a coin's close goes by its position symbol", async () => {
+    liveSetup({ daytrade_count: 3 });
+    const coinLine = {
+      mode: "live", position_id: "c1", symbol: "ETH/USD", side: "long", status: "open", target_qty: 0.003325, sim_qty: 0.003333, open_order_id: "o1",
+      add_order_id: null, add_seq: 0, stop_order_id: "s1", stop_price: 2950, stop_qty: 0.003325, opened_at: liveOpened,
+    };
+    const { client } = fakeSupabase({ paper_mirror_lines: [coinLine] });
+    alpaca.getPositions.mockResolvedValue(heldAfterFee);
+    alpaca.getOrder.mockImplementation(async (_c: unknown, id: string) => (id === "s1" ? { id, status: "canceled" } : { id, status: "filled", filled_qty: "0.003325", filled_avg_price: "3010" }));
+    alpaca.closePosition.mockResolvedValue({ id: "x1", status: "accepted" });
+    await runLiveMirror(client);
+    // Same day, day trades used: a coin has no day-trade rule, so it closes.
+    expect(alpaca.closePosition).toHaveBeenCalledWith(expect.anything(), "ETHUSD", 0.003325);
+  });
+
+  it("live: a stock trade is skipped and recorded with the reason", async () => {
+    liveSetup({ daytrade_count: 0 });
+    const { client, ops } = fakeSupabase({ positions: [{ ...liveOpen, opened_at: liveOpened }], orders: [{ symbol: "LOW", created_at: liveOpened }] });
     await runLiveMirror(client);
     expect(alpaca.placeOrder).not.toHaveBeenCalled();
+    const missed = ops.find((o) => o.table === "paper_mirror_events" && (o.payload as { action: string }).action === "missed");
+    expect((missed?.payload as { note: string }).note).toMatch(/Stock trade/);
+  });
+
+  it("live: a coin opens with the day trades used and the stock market closed", async () => {
+    liveSetup({ daytrade_count: 3 });
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ is_open: false }) })));
+    const { client } = fakeSupabase({ positions: [coinOpen], orders: coinOrders });
+    alpaca.placeOrder.mockResolvedValue({ id: "o1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "o1", status: "canceled", filled_qty: "0" });
+    await runLiveMirror(client);
+    expect(alpaca.placeOrder).toHaveBeenCalledTimes(1);
   });
 
   it("live: a limit the market moved past is cancelled, not left resting", async () => {
-    const liveOpened = new Date(NOW - 60_000).toISOString();
     liveSetup({ daytrade_count: 0 });
-    const { client, ops } = fakeSupabase({ positions: [{ ...liveOpen, opened_at: liveOpened }], orders: [{ symbol: "LOW", created_at: liveOpened }] });
+    const { client, ops } = fakeSupabase({ positions: [coinOpen], orders: coinOrders });
     alpaca.placeOrder.mockResolvedValue({ id: "o1", status: "accepted" });
     alpaca.getOrder.mockResolvedValueOnce({ id: "o1", status: "new" }).mockResolvedValueOnce({ id: "o1", status: "new" }).mockResolvedValueOnce({ id: "o1", status: "new" })
       .mockResolvedValue({ id: "o1", status: "canceled", filled_qty: "0" });
@@ -305,18 +384,18 @@ describe("runPaperMirror", () => {
     expect(missed).toBeDefined();
   });
 
-  it("live: an open filled at or under the stop is closed at once", async () => {
-    const liveOpened = new Date(NOW - 60_000).toISOString();
+  it("live: an open filled at or under the stop is closed at once, by the coin's position symbol", async () => {
     liveSetup({ daytrade_count: 0 });
-    const { client, ops } = fakeSupabase({ positions: [{ ...liveOpen, opened_at: liveOpened }], orders: [{ symbol: "LOW", created_at: liveOpened }] });
+    const { client, ops } = fakeSupabase({ positions: [coinOpen], orders: coinOrders });
+    alpaca.getPositions.mockResolvedValueOnce([]).mockResolvedValue(heldAfterFee);
     alpaca.placeOrder.mockResolvedValue({ id: "o1", status: "accepted" });
     alpaca.getOrder.mockImplementation(async (_c: unknown, id: string) =>
-      id === "o1" ? { id: "o1", status: "filled", filled_qty: "2", filled_avg_price: "10.95" } : { id, status: "filled", filled_qty: "2", filled_avg_price: "10.90" },
+      id === "o1" ? { id: "o1", status: "filled", filled_qty: "0.003333", filled_avg_price: "2949" } : { id, status: "filled", filled_qty: "0.003325", filled_avg_price: "2948" },
     );
     alpaca.closePosition.mockResolvedValue({ id: "x1", status: "accepted" });
     await runLiveMirror(client);
     expect(alpaca.placeExitOrder).not.toHaveBeenCalled();
-    expect(alpaca.closePosition).toHaveBeenCalledWith(expect.anything(), "LOW", 2);
+    expect(alpaca.closePosition).toHaveBeenCalledWith(expect.anything(), "ETHUSD", 0.003325);
     expect(ops.some((o) => o.table === "paper_mirror_lines" && (o.payload as { status?: string })?.status === "closed")).toBe(true);
   });
 
