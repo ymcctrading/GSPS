@@ -165,6 +165,9 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - **Scan Results Table**: View latest scan signals
 - **Score Badges**: Visual display of pattern scores (1-10 scale)
 - **Signal Cards**: Quick view of the highest-scoring setups
+- **Fed Meetings Calendar**: The Federal Reserve's scheduled policy meetings on
+  the Dashboard, and a note on a symbol's page in the week of a meeting. Dates
+  only, from the Fed's own published calendar
 
 ### 10. Settings & Configuration
 - **User Settings**: Customize preferences

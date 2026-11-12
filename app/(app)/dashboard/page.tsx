@@ -12,6 +12,7 @@ import { StaleScanNotice } from "@/components/scan/stale-scan-notice";
 import { ReconstructedScanNotice } from "@/components/scan/reconstructed-notice";
 import { LiveExpectancyToggle } from "@/components/guided/live-expectancy-toggle";
 import { EarningsCalendar } from "@/components/macro/earnings-calendar";
+import { FedMeetingsCard } from "@/components/macro/fed-meetings";
 import { MarketNews } from "@/components/macro/market-news";
 import { getDailyScans } from "@/lib/dailyScans";
 import { getTrackedExecuteSetups, withDailyScanRange } from "@/lib/dashboard/trackedExecute";
@@ -221,7 +222,10 @@ export default async function DashboardPage() {
     calendar: (
       <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
         <EarningsCalendar />
-        <MarketNews />
+        <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
+          <FedMeetingsCard />
+          <MarketNews />
+        </div>
       </div>
     ),
   };
