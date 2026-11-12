@@ -97,7 +97,7 @@ describe("simulated extended data", () => {
     expect(calls.length).toBe(puts.length);
     expect(calls.length).toBeGreaterThan(0);
     // Bids never exceed asks.
-    for (const c of chain.contracts) expect(c.ask).toBeGreaterThanOrEqual(c.bid);
+    for (const c of chain.contracts) expect(c.ask!).toBeGreaterThanOrEqual(c.bid!);
     // ITM flags are internally consistent.
     for (const c of calls) expect(c.inTheMoney).toBe(c.strike < chain.underlyingPrice);
     for (const p of puts) expect(p.inTheMoney).toBe(p.strike > chain.underlyingPrice);

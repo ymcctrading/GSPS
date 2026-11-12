@@ -9,9 +9,9 @@ import { formatUsd, cn } from "@/lib/utils";
 import type { OptionContract } from "@/lib/data/provider";
 import type { Moneyness } from "@/lib/options/contracts";
 import { readPremiumStop } from "@/lib/trade/premium-stop";
-import { GANN_OPTION_RISK_NOTE } from "@/lib/options/gannOptionPlan";
+import { OPTION_RISK_NOTE } from "@/lib/options/optionCopy";
 import type { TradeLevels } from "@/lib/types";
-import { toDateInput } from "@/lib/options/contracts";
+import { useTerms } from "@/components/vocabulary";
 
 export type OrderKind = "market" | "limit";
 export type TradeAction = "buy" | "sell";
@@ -29,10 +29,6 @@ export interface StrikeSelection {
    * (`OptionChain.simulated`). The ticket says so beside the IV, as the chain does.
    */
   simulated?: boolean;
-  /** Expirations the picker may offer, bounded by the symbol's horizon. */
-  expirations: string[];
-  maxExpiration: string;
-  defaultExpiration: string;
 }
 
 /**
@@ -61,7 +57,6 @@ export function StrikeOrderModal({
   const [orderKind, setOrderKind] = useState<OrderKind>("market");
   const [qty, setQty] = useState("1");
   const [limitPrice, setLimitPrice] = useState("");
-  const [expiration, setExpiration] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -82,13 +77,16 @@ export function StrikeOrderModal({
       setAction("buy");
       setOrderKind("market");
       setQty("1");
-      setLimitPrice(String(midPrice(selection.contract)));
-      setExpiration(selection.defaultExpiration);
+      const mid = midPrice(selection.contract);
+      setLimitPrice(mid != null ? String(mid) : "");
       setFeedback(null);
     }
   }
 
   const contract = active?.contract;
+  // A contract belongs to one expiration: its own (the OCC symbol carries it).
+  const expiration = contract?.expiration ?? "";
+  const term = useTerms();
 
   const quantity = Number(qty);
   const limit = Number(limitPrice);
@@ -102,7 +100,7 @@ export function StrikeOrderModal({
         : action === "buy"
           ? contract.ask
           : contract.bid;
-    if (!Number.isFinite(perShare) || perShare <= 0) return null;
+    if (perShare == null || !Number.isFinite(perShare) || perShare <= 0) return null;
     if (!Number.isInteger(quantity) || quantity < 1) return null;
 
     const perContract = perShare * CONTRACT_MULTIPLIER;
@@ -126,12 +124,12 @@ export function StrikeOrderModal({
    * premium only: on a short the premium is collected and the loss is open.
    */
   const stopReading = useMemo(() => {
-    if (!contract || !preview || !levels || action !== "buy") return null;
+    if (!contract || !preview || !levels || action !== "buy" || contract.delta == null) return null;
     return readPremiumStop({
       risk: Math.abs(levels.entry - levels.stopLoss),
       premium: preview.perShare,
       delta: contract.delta,
-      theta: contract.theta,
+      theta: contract.theta ?? 0,
     });
   }, [contract, preview, levels, action]);
 
@@ -214,7 +212,9 @@ export function StrikeOrderModal({
       title={title}
       description={
         contract && active
-          ? `Spot ${formatUsd(active.underlyingPrice)} · IV ${(contract.iv * 100).toFixed(1)}%` +
+          ? `Spot ${formatUsd(active.underlyingPrice)} · Exp ${contract.expiration} · ${term("impliedVol")} ${
+              contract.iv != null ? `${(contract.iv * 100).toFixed(1)}%` : "—"
+            }` +
             (active.simulated ? " · Simulated chain: IV, greeks and quotes are modelled, not exchange data" : "")
           : undefined
       }
@@ -260,10 +260,20 @@ export function StrikeOrderModal({
               {contract.type.toUpperCase()}
             </Badge>
             <span className="text-xs text-muted">
-              Bid <span className="font-mono text-foreground">{formatUsd(contract.bid)}</span> · Ask{" "}
-              <span className="font-mono text-foreground">{formatUsd(contract.ask)}</span>
+              Bid <span className="font-mono text-foreground">{usdOrDash(contract.bid)}</span> · Ask{" "}
+              <span className="font-mono text-foreground">{usdOrDash(contract.ask)}</span> · Last{" "}
+              <span className="font-mono text-foreground">{usdOrDash(contract.last)}</span>
             </span>
           </div>
+
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg border border-border p-3 text-xs sm:grid-cols-3">
+            <Row label={term("delta")} value={greekOrDash(contract.delta, 2)} />
+            <Row label={term("gamma")} value={greekOrDash(contract.gamma, 4)} />
+            <Row label={term("theta")} value={greekOrDash(contract.theta, 2)} />
+            <Row label={term("vega")} value={greekOrDash(contract.vega, 2)} />
+            <Row label={term("openInterest")} value={contract.openInterest != null ? contract.openInterest.toLocaleString() : "—"} />
+            <Row label="Volume" value={contract.volume != null ? contract.volume.toLocaleString() : "—"} />
+          </dl>
 
           {/* Buy / Sell */}
           <Field label="Action">
@@ -283,7 +293,7 @@ export function StrikeOrderModal({
               <Toggle active={orderKind === "market"} onClick={() => setOrderKind("market")}>
                 <span className="block text-sm font-medium">Buy now (market)</span>
                 <span className="block font-mono text-xs opacity-70">
-                  {formatUsd(action === "buy" ? contract.ask : contract.bid)}
+                  {usdOrDash(action === "buy" ? contract.ask : contract.bid)}
                 </span>
               </Toggle>
               <Toggle active={orderKind === "limit"} onClick={() => setOrderKind("limit")}>
@@ -317,37 +327,6 @@ export function StrikeOrderModal({
             )}
           </div>
 
-          <Field
-            label="Expiration date"
-            hint={`Available through ${active.maxExpiration}`}
-          >
-            <Input
-              type="date"
-              value={expiration}
-              min={toDateInput(new Date())}
-              max={active.maxExpiration}
-              onChange={(e) => setExpiration(e.target.value)}
-            />
-            {active.expirations.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {active.expirations.slice(0, 8).map((e) => (
-                  <button
-                    key={e}
-                    onClick={() => setExpiration(e)}
-                    className={cn(
-                      "rounded-md border px-2 py-1 font-mono text-xs transition-colors cursor-pointer",
-                      e === expiration
-                        ? "border-accent bg-accent-soft text-accent"
-                        : "border-border text-muted hover:border-accent",
-                    )}
-                  >
-                    {e.slice(5)}
-                  </button>
-                ))}
-              </div>
-            )}
-          </Field>
-
           {/* Preview cost — recomputes on every input change. */}
           <div className="rounded-lg border border-border bg-background p-3">
             <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -374,16 +353,20 @@ export function StrikeOrderModal({
                 />
                 {stopReading && (
                   <Row
-                    label={`Premium at risk (delta ${Math.abs(contract.delta).toFixed(2)})`}
+                    label={`Premium at risk (delta ${Math.abs(contract.delta ?? 0).toFixed(2)})`}
                     value={stopReading.capped ? "100% of premium (all of it)" : `${stopReading.pctOfPremium.toFixed(1)}% of premium`}
                   />
                 )}
               </dl>
             ) : (
-              <p className="text-sm text-muted">Enter a whole quantity and a valid price.</p>
+              <p className="text-sm text-muted">
+                {orderKind === "market" && (action === "buy" ? contract.ask : contract.bid) == null
+                  ? `No ${action === "buy" ? "ask" : "bid"} is quoted for this contract; use a limit order at your own price.`
+                  : "Enter a whole quantity and a valid price."}
+              </p>
             )}
             {action === "buy" && (
-              <p className="mt-2 text-xs text-muted">{GANN_OPTION_RISK_NOTE}</p>
+              <p className="mt-2 text-xs text-muted">{OPTION_RISK_NOTE}</p>
             )}
             {stopReading && (
               <p className="mt-2 text-xs text-muted">
@@ -406,13 +389,22 @@ export function StrikeOrderModal({
   );
 }
 
-function midPrice(c: OptionContract): number {
-  return Math.round(((c.bid + c.ask) / 2) * 100) / 100;
+function midPrice(c: OptionContract): number | null {
+  if (c.bid != null && c.ask != null) return Math.round(((c.bid + c.ask) / 2) * 100) / 100;
+  return c.last;
+}
+
+function usdOrDash(v: number | null | undefined): string {
+  return v != null ? formatUsd(v) : "—";
+}
+
+function greekOrDash(v: number | null | undefined, digits: number): string {
+  return v != null ? v.toFixed(digits) : "—";
 }
 
 /** Identity for a strike selection — changes exactly when the ticket should reset. */
 function selectionKey(s: StrikeSelection | null): string {
-  return s ? `${s.underlying}|${s.contract.type}|${s.contract.strike}` : "";
+  return s ? `${s.underlying}|${s.contract.type}|${s.contract.strike}|${s.contract.expiration}` : "";
 }
 
 export function MoneynessBadge({ moneyness }: { moneyness: Moneyness }) {

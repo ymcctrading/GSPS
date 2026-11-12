@@ -40,6 +40,9 @@ function assertAlpacaSupports(assetClass: AssetClass): void {
  */
 function ttlFor(path: string): number {
   if (path.includes("/trades/latest") || path.includes("/latest/trades")) return 2_000;
+  // An options chain on the free feed is delayed anyway; one read serves every
+  // viewer of the chain for 15 seconds instead of spending rate limit per view.
+  if (path.includes("/options/snapshots")) return 15_000;
   if (path.includes("/snapshot")) return 2_000;
   if (path.includes("/bars")) return 15_000;
   if (path.includes("most-actives")) return 300_000;
@@ -665,6 +668,51 @@ export async function fetchOptionLatestTrade(occSymbol: string): Promise<number 
   }
 }
 
+/**
+ * The options feed this account reads. "indicative" is Alpaca's free options
+ * feed (delayed quotes, on every account); "opra" needs a signed OPRA
+ * agreement. Override with ALPACA_OPTIONS_FEED only once that is in place.
+ */
+export function optionsFeed(): string {
+  const f = (process.env.ALPACA_OPTIONS_FEED ?? "").trim().toLowerCase();
+  return f === "opra" ? "opra" : "indicative";
+}
+
+/** Most pages of option snapshots one read follows (1,000 contracts a page). */
+const OPTION_SNAPSHOT_MAX_PAGES = 6;
+
+/**
+ * Option snapshots (latest quote, latest trade, daily bar and, where the feed
+ * has them, greeks and implied volatility), keyed by OCC symbol. `underlying`
+ * reads its chain with Alpaca's filters (`expiration_date`,
+ * `strike_price_gte`, `type`, ...); `symbols` reads named contracts.
+ */
+export async function fetchOptionSnapshots(
+  q: { underlying: string; filters?: Record<string, string> } | { symbols: string[] },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<Record<string, any>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const out: Record<string, any> = {};
+  const feed = optionsFeed();
+  if ("symbols" in q) {
+    for (const group of chunk(q.symbols.map((s) => s.toUpperCase()), 100)) {
+      const data = await get(`/v1beta1/options/snapshots`, { symbols: group.join(","), feed });
+      Object.assign(out, data.snapshots ?? {});
+    }
+    return out;
+  }
+  let pageToken: string | undefined;
+  for (let page = 0; page < OPTION_SNAPSHOT_MAX_PAGES; page++) {
+    const params: Record<string, string> = { feed, limit: "1000", ...(q.filters ?? {}) };
+    if (pageToken) params.page_token = pageToken;
+    const data = await get(`/v1beta1/options/snapshots/${encodeURIComponent(q.underlying.toUpperCase())}`, params);
+    Object.assign(out, data.snapshots ?? {});
+    pageToken = data.next_page_token ?? undefined;
+    if (!pageToken) break;
+  }
+  return out;
+}
+
 /** Most-active US equities by volume — the coarse universe for the daily market scan. */
 export async function fetchMostActives(top = 100): Promise<string[]> {
   const data = await get(`/v1beta1/screener/stocks/most-actives`, {
@@ -675,9 +723,10 @@ export async function fetchMostActives(top = 100): Promise<string[]> {
 }
 
 /**
- * Adapter exposing this module as a `MarketDataProvider`. Alpaca's free IEX feed
- * doesn't include an options chain or Level II depth, so those optional methods
- * are intentionally omitted — the API routes derive a simulated view instead.
+ * Adapter exposing this module as a `MarketDataProvider`. The options chain is
+ * the listed contracts with their real quotes (`lib/options/liveChain.ts`).
+ * Alpaca's free IEX feed has no Level II depth, so that optional method is
+ * omitted and the Level II route derives a simulated view instead.
  */
 export const alpacaProvider: MarketDataProvider = {
   name: "alpaca",
@@ -688,6 +737,10 @@ export const alpacaProvider: MarketDataProvider = {
   fetchLatestPrices,
   fetchMostActives,
   fetchAlertQuotes,
+  // Loaded on use: the chain module reads this one, so a static import would
+  // be a cycle.
+  fetchOptionChain: async (symbol, assetClass, expiration) =>
+    (await import("@/lib/options/liveChain")).fetchLiveOptionChain(symbol, assetClass, expiration),
 };
 
 /**

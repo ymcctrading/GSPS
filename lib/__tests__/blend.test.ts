@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { buildBlendedPositions, type RawPosition } from "@/lib/portfolio/blend";
 
 function equity(overrides: Partial<RawPosition> = {}): RawPosition {
@@ -83,11 +83,32 @@ describe("buildBlendedPositions", () => {
   });
 
   it("computes plausible greeks when a spot price is available", () => {
-    const [g] = buildBlendedPositions([option()], () => 220); // slightly ITM call
-    const leg = g.options[0];
-    expect(leg.greeks.delta).toBeGreaterThan(0);
-    expect(leg.greeks.delta).toBeLessThanOrEqual(1);
-    expect(leg.impliedVol).toBeGreaterThan(0);
+    // A month before the fixture contract expires (2025-01-17), so a $6
+    // premium on an at-the-money call reprices at an ordinary IV.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2024-12-17T15:00:00Z"));
+    try {
+      const [g] = buildBlendedPositions([option()], () => 220);
+      const leg = g.options[0];
+      expect(leg.greeksAvailable).toBe(true);
+      expect(leg.greeks.delta).toBeGreaterThan(0.4);
+      expect(leg.greeks.delta).toBeLessThan(0.6);
+      expect(leg.impliedVol).toBeGreaterThan(0.1);
+      expect(leg.impliedVol).toBeLessThan(0.5);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows no greeks for a premium no volatility reprices (here, an expired contract still marked at $6)", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2025-02-01T15:00:00Z"));
+    try {
+      const [g] = buildBlendedPositions([option()], () => 220);
+      expect(g.options[0].greeksAvailable).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("classifies via symbol shape when the broker sends no asset_class hint", () => {

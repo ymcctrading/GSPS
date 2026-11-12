@@ -100,3 +100,42 @@ describe("yearsBetween", () => {
     expect(yearsBetween(from, past)).toBeCloseTo(1 / 365, 6);
   });
 });
+
+describe("yearsToExpiry", () => {
+  it("measures to 4:00 PM New York time on the expiration date, in winter and in summer", async () => {
+    const { yearsToExpiry } = await import("@/lib/options/greeks");
+    const YEAR_MS = 365 * 24 * 3600 * 1000;
+    // EST: 16:00 ET is 21:00 UTC.
+    expect(yearsToExpiry("2026-12-18", new Date("2026-12-18T20:00:00Z")) * YEAR_MS).toBeCloseTo(3600 * 1000, -2);
+    // EDT: 16:00 ET is 20:00 UTC.
+    expect(yearsToExpiry("2026-07-17", new Date("2026-07-17T19:00:00Z")) * YEAR_MS).toBeCloseTo(3600 * 1000, -2);
+  });
+
+  it("is floored at one hour, so an expiring contract still prices", async () => {
+    const { yearsToExpiry } = await import("@/lib/options/greeks");
+    expect(yearsToExpiry("2026-12-18", new Date("2026-12-19T00:00:00Z"))).toBeCloseTo(1 / (365 * 24), 8);
+  });
+});
+
+describe("modelGreeksFromPremium", () => {
+  it("round-trips: the greeks at the IV that reprices a model premium match the model's own", async () => {
+    const { modelGreeksFromPremium, yearsToExpiry } = await import("@/lib/options/greeks");
+    const now = new Date("2026-11-11T21:00:00Z");
+    const t = yearsToExpiry("2026-12-18", now);
+    const premium = blackScholesPrice("call", 100, 105, t, 0.3);
+    const m = modelGreeksFromPremium("call", 100, 105, "2026-12-18", premium, now);
+    expect(m.source).toBe("model");
+    expect(m.iv!).toBeCloseTo(0.3, 2);
+    expect(m.greeks!.delta).toBeCloseTo(computeGreeks("call", 100, 105, t, 0.3).delta, 2);
+  });
+
+  it("gives nothing for a missing price, a premium at or under intrinsic, or one above the underlying", async () => {
+    const { modelGreeksFromPremium } = await import("@/lib/options/greeks");
+    const now = new Date("2026-11-11T21:00:00Z");
+    expect(modelGreeksFromPremium("call", 100, 90, "2026-12-18", null, now).source).toBe("none");
+    expect(modelGreeksFromPremium("call", 0, 90, "2026-12-18", 12, now).source).toBe("none");
+    expect(modelGreeksFromPremium("call", 100, 90, "2026-12-18", 9.5, now).source).toBe("none");
+    expect(modelGreeksFromPremium("put", 100, 110, "2026-12-18", 10, now).source).toBe("none");
+    expect(modelGreeksFromPremium("call", 100, 90, "2026-12-18", 101, now).source).toBe("none");
+  });
+});
