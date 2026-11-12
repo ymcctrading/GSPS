@@ -23,6 +23,8 @@ describe("qtyString", () => {
     expect(qtyString(10)).toBe("10");
     expect(qtyString(0.003333)).toBe("0.003333");
     expect(qtyString(1e-7)).toBe("0.0000001");
+    // Never rounded up past what is held.
+    expect(qtyString(0.0033249999999)).toBe("0.003324999");
   });
 });
 
@@ -56,6 +58,13 @@ describe("getNetDeposits", () => {
       ],
     ]);
     expect(await getNetDeposits(creds)).toBe(44);
+  });
+
+  it("pages past a hundred transfers", async () => {
+    const page = Array.from({ length: 100 }, (_, i) => ({ id: `a${i}`, activity_type: "CSD", net_amount: "1" }));
+    const calls = stubFetch([page, [{ id: "b1", activity_type: "CSD", net_amount: "5" }]]);
+    expect(await getNetDeposits(creds)).toBe(105);
+    expect(calls[1].url).toMatch(/page_token=a99/);
   });
 
   it("throws on an amount it can't read, rather than guessing", async () => {

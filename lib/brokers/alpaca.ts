@@ -90,7 +90,8 @@ const posNum = (v: unknown): number | null => {
  * fractions in plain decimals (String(1e-7) would send "1e-7").
  */
 export function qtyString(qty: number): string {
-  return Number.isInteger(qty) ? String(qty) : qty.toFixed(9).replace(/0+$/, "").replace(/\.$/, "");
+  // Rounded down, so a quantity never reads as more than was meant (or held).
+  return Number.isInteger(qty) ? String(qty) : (Math.floor(qty * 1e9 + 1e-6) / 1e9).toFixed(9).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 /**

@@ -236,6 +236,11 @@ describe("liveOpenQty (a small live account)", () => {
     // A wide stop: the loss limit binds, and a higher step allows more.
     expect(liveOpenQty("long", 3000, 1800, 60, 60, 0.1, lot).qty).toBe(0.005);
     expect(liveOpenQty("long", 3000, 1800, 60, 60, 0.2, lot).qty).toBe(0.006666);
+    // A coin's stop-limit may fill 2% under the stop, and the fee is paid both
+    // ways: the loss there, not at the stop, is what stays within the limit.
+    // $100 coin, stop $70: (100 x 1.0025 - 70 x 0.98 x 0.9975) x 0.094275 = $3.00.
+    const coinLot = { increment: 0.000001, min: 0.000001, priceIncrement: 0.01, stopGap: 0.02, feeRate: 0.0025 };
+    expect(liveOpenQty("long", 100, 70, 30, 30, 0.1, coinLot).qty).toBe(0.094275);
     expect(liveOpenQty("long", 3000, 2950, 30, 30, 0.1, { increment: 0.0001, min: 0.01 }).reason).toMatch(/smallest order costs \$30.00, more than the \$10.00 one trade may use/);
   });
 

@@ -112,15 +112,19 @@ export function isCryptoPair(symbol: string): boolean {
 export interface Lot {
   increment: number;
   min: number;
-  /** The step between prices; cents when the broker gives none. */
+  /** The step between prices; cents (a millionth under $1) when the broker gives none. */
   priceIncrement?: number;
+  /** How far under the stop the protective order may fill (a coin's stop-limit). */
+  stopGap?: number;
+  /** The broker's fee on each side, as a fraction of the trade. */
+  feeRate?: number;
 }
 export const WHOLE_SHARES: Lot = { increment: 1, min: 1 };
 
 const stepDecimals = (step: number) => Math.min(9, Math.max(0, Math.ceil(-Math.log10(step) - 1e-9)));
 /** `x` rounded down to a multiple of `step`, without float dust. */
 export function floorTo(x: number, step: number): number {
-  return Number((Math.floor(x / step + 1e-9) * step).toFixed(stepDecimals(step)));
+  return Number((Math.floor(x / step + 1e-7) * step).toFixed(stepDecimals(step)));
 }
 /** `x` rounded to the nearest multiple of `step`, without float dust. */
 export function roundTo(x: number, step: number): number {
@@ -608,6 +612,8 @@ export const LIVE_MIN_ORDER_USD = 1;
  * which closes it at market once the simulator has exited.
  */
 export const CRYPTO_STOP_LIMIT_GAP = 0.02;
+/** The broker's highest crypto fee a side (its first volume tier, taker), counted in a coin's risk. */
+export const CRYPTO_FEE_RATE = 0.0025;
 /** Engineering choice: one full-size loss at the first step is the day's hold. */
 export const LIVE_DAY_LOSS_HOLD_PCT = 0.1;
 /** Engineering choice: half the $30 starting account. */
@@ -671,13 +677,19 @@ export function liveOpenQty(
     return { qty: 0, reason: `${unit}, more than the ${usd(spend)} one trade may use (a third of the account, within the cash on hand).` };
   }
   const riskAmt = riskFraction * equity;
-  const byRisk = floorTo(riskAmt / (price - stop), lot.increment);
+  // The loss a unit can take: bought at the price plus the fee, sold at the
+  // worst the protective order may fill (a coin's stop-limit, under the
+  // stop) less the fee.
+  const fee = lot.feeRate ?? 0;
+  const worstExit = stop * (1 - (lot.stopGap ?? 0)) * (1 - fee);
+  const perUnit = price * (1 + fee) - worstExit;
+  const byRisk = floorTo(riskAmt / perUnit, lot.increment);
   if (byRisk < lot.min || byRisk * price < LIVE_MIN_ORDER_USD) {
-    return { qty: 0, reason: `Risk of ${usd(price - stop)} a unit to the stop is over the per-trade loss limit (${usd(riskAmt)} on a ${usd(equity)} account).` };
+    return { qty: 0, reason: `Risk of ${usd(perUnit)} a unit to the stop is over the per-trade loss limit (${usd(riskAmt)} on a ${usd(equity)} account).` };
   }
   const qty = Math.min(byCash, byRisk);
-  const cap = Math.min(stop + riskAmt / qty, spend / qty);
-  const limitPrice = floorTo(cap, lot.priceIncrement ?? 0.01);
+  const cap = Math.min((worstExit + riskAmt / qty) / (1 + fee), spend / qty);
+  const limitPrice = floorTo(cap, lot.priceIncrement ?? (price >= 1 ? 0.01 : 1e-6));
   if (!(limitPrice > stop)) return { qty: 0, reason: "No room between the stop and the most a unit may cost." };
   return { qty, limitPrice };
 }
@@ -889,7 +901,12 @@ async function mirrorPass(
   await Promise.all(
     [...coins].map(async (sym) => {
       const a = await getAsset(creds, sym).catch(() => getAsset(creds, brokerSymbol(sym))).catch(() => null);
-      if (a && a.tradable) lots.set(sym, { increment: a.minTradeIncrement ?? 1e-9, min: a.minOrderSize ?? 0, priceIncrement: a.priceIncrement ?? undefined });
+      if (a && a.tradable) {
+        lots.set(sym, {
+          increment: a.minTradeIncrement ?? 1e-9, min: a.minOrderSize ?? 0, priceIncrement: a.priceIncrement ?? undefined,
+          stopGap: CRYPTO_STOP_LIMIT_GAP, feeRate: CRYPTO_FEE_RATE,
+        });
+      }
     }),
   );
   const priceStep = (sym: string, price: number) => lots.get(sym)?.priceIncrement ?? (price >= 1 ? 0.01 : 1e-6);
@@ -905,10 +922,16 @@ async function mirrorPass(
   /** A coin's buy pays its fee in the coin, so what is held is read back rather than taken from the fill. */
   const boughtQty = async (symbol: string, filled: number): Promise<number> => {
     if (!isCryptoPair(symbol)) return filled;
-    const now = await getPositions(creds).catch(() => [] as AlpacaPosition[]);
-    const p = now.find((x) => mirrorSymbol(x) === symbol);
-    const q = p ? Math.abs(num(p.qty)) : NaN;
-    return q > 0 && q <= filled ? q : filled;
+    for (let i = 0; i < 2; i++) {
+      const now = await getPositions(creds).catch(() => [] as AlpacaPosition[]);
+      const p = now.find((x) => mirrorSymbol(x) === symbol);
+      const q = p ? Math.abs(num(p.qty)) : NaN;
+      if (q > 0 && q <= filled) return q;
+      await sleep(400);
+    }
+    // Unread: the fill less the most the fee can take, so the stop is never
+    // sized above what is held.
+    return floorTo(filled * (1 - CRYPTO_FEE_RATE), lots.get(symbol)?.increment ?? 1e-9);
   };
   const equity = num(account.equity);
   const lastEquity = num(account.last_equity);
@@ -950,7 +973,10 @@ async function mirrorPass(
     const scaleOf = await readLiveScales(supabase, mirror.map((m) => m.positionId));
     // What trading has made: equity less the cash put in, so a deposit never
     // moves a step. Unreadable transfers leave the first step.
-    const netDeposits = await getNetDeposits(creds).catch(() => NaN);
+    // No deposits on record means the record can't be trusted (the account
+    // was funded): the first step, never equity read as all gain.
+    const deposits = await getNetDeposits(creds).catch(() => NaN);
+    const netDeposits = deposits > 0 ? deposits : NaN;
     const scaled = scaleSimForLive(simAll, mirror, scaleOf, equity, num(account.cash), { tradingGain: equity - netDeposits, lots });
     sim = scaled.lines;
     // What the small account could not take is recorded once per position,
@@ -1024,8 +1050,9 @@ async function mirrorPass(
                 ...(a.limitPrice != null
                   ? { symbol: a.symbol, side: orderSide(a.side, true), qty: a.qty, type: "limit" as const, limitPrice: a.limitPrice, clientOrderId: clientId }
                   : { symbol: a.symbol, side: orderSide(a.side, true), qty: a.qty, type: "market" as const, clientOrderId: clientId }),
-                // Crypto takes no day order; an unfilled limit is cancelled below all the same.
-                ...(isCryptoPair(a.symbol) ? { timeInForce: "gtc" as const } : {}),
+                // Crypto takes no day order: immediate-or-cancel, so a coin's
+                // open can never rest unprotected.
+                ...(isCryptoPair(a.symbol) ? { timeInForce: "ioc" as const } : {}),
               },
             )) as AlpacaOrder;
           } catch (err) {
