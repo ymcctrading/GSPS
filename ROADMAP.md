@@ -6,7 +6,7 @@
 governs what is built and in what order. It joins this roadmap with the parity
 documents, the method's books, the cycle literature, SRC-034 and the Law of Creation.
 This file keeps each phase's detail and history.
-**Last updated:** 2026-10-23 (Q2 indicator periods and saved presets built). Previously 2026-10-22 (Q2 advanced orders: automated pyramid adds on
+**Last updated:** 2026-11-12 (Q4 order audit trail export built early). Previously 2026-10-23 (Q2 indicator periods and saved presets built). Previously 2026-10-22 (Q2 advanced orders: automated pyramid adds on
 paper, OCO answered by the method's no-fixed-target rule; see
 `docs/SYNTHESIZED_ROADMAP.md` Part 5 item 3. Also Q2's crypto scanner started
 on Alpaca's free data, and Q2's Performance replay UI built as the Scanner's
@@ -1311,6 +1311,12 @@ stickiness and word-of-mouth. 150–200 paying users.
   (viewer/trader/admin), shared alerts and watchlists.
 - **Compliance & audit logging** — complete trade audit trail, compliance
   reporting, tax reporting helpers.
+  *Started early (2026-11-12, out of phase, on the owner's "continue on the
+  roadmap"): the member's order audit trail is built. Portfolio's "Download
+  audit trail (CSV)" exports every order with the plan behind it, the broker's
+  answer and the close (`lib/audit/orderTrail.ts`, `/api/audit/orders`). The
+  canonical decision record for every scan verdict waits until the scan
+  pipeline is settled; compliance and tax reporting are not started.*
 - **Automated trading (algo)** — simple rules (e.g. high-confidence alert → buy
   100 shares with a $1k stop), in both paper and live modes.
 - **API & webhooks** — third-party alert delivery, custom integrations, data
