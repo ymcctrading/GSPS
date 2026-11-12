@@ -107,7 +107,7 @@ export function ForwardRecord() {
         {t && <GoodCallLine g={t.goodCalls} />}
         {data && data.record.length === 0 && <p className="text-sm text-muted">No calls in this window.</p>}
         {data && data.record.length > 0 && (
-          <div className="overflow-x-auto">
+          <div>
             <Table>
               <THead>
                 <TR>

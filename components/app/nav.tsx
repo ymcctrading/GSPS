@@ -1,16 +1,18 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { forgetThisBrowserPush } from "@/lib/notifications/push-client";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Radar, Briefcase, Bot, FlaskConical, BookOpen, GraduationCap, Settings, LogOut, TrendingUp, Compass, UserCircle } from "lucide-react";
+import { LayoutDashboard, Radar, Briefcase, Bot, FlaskConical, BookOpen, GraduationCap, Settings, LogOut, TrendingUp, Compass, UserCircle, ChevronDown } from "lucide-react";
 import { SymbolSearch } from "@/components/search/symbol-search";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { RecentCharts } from "@/components/app/recent-charts";
 import { clearRecentCharts } from "@/lib/charts/recent";
 import { clearCachedPlans } from "@/lib/scan/planCache";
+import { fitCount } from "@/components/app/nav-fit";
 
 /**
  * Every destination, in order. `tabBar: false` keeps one out of the phone tab
@@ -56,6 +58,148 @@ function tourAnchor(href: string): string {
 
 const TAB_BAR_LINKS = LINKS.filter((l) => l.tabBar);
 
+const TOP_BAR_ITEM =
+  "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted transition-colors hover:text-foreground lg:px-3";
+
+/**
+ * The tablet-and-desktop top bar: every destination in order, and whatever
+ * does not fit beside the search/account cluster moves into a "More" menu.
+ *
+ * It used to scroll sideways with its scrollbar hidden. On a phone-sized touch
+ * screen that is a swipe; with a mouse it is invisible and unreachable, so on a
+ * 1366px laptop the bar simply stopped at Portfolio and Automation, Backtest,
+ * Glossary, Settings and Tier Promotion could not be reached (reported
+ * 2026-11-12). Nothing in the top bar is ever clipped now: an item either shows
+ * or is listed under More.
+ *
+ * Widths come from an invisible copy of the full row (same classes, so the
+ * `lg` label switch is measured too), re-read whenever the bar or that copy
+ * changes size. The copy carries no `data-tour`, so the tour never anchors on
+ * it.
+ */
+function TopBarNav({ isActive }: { isActive: (href: string) => boolean }) {
+  const pathname = usePathname();
+  const navRef = React.useRef<HTMLElement>(null);
+  const measureRef = React.useRef<HTMLDivElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = React.useState(LINKS.length);
+  // The menu stays open only on the page it was opened on, so any navigation
+  // (a pick from it, the back button) closes it.
+  const [openOn, setOpenOn] = React.useState<string | null>(null);
+  const open = openOn === pathname;
+  const setOpen = React.useCallback((next: boolean) => setOpenOn(next ? pathname : null), [pathname]);
+
+  React.useLayoutEffect(() => {
+    const nav = navRef.current;
+    const measure = measureRef.current;
+    if (!nav || !measure) return;
+    const compute = () => {
+      const nodes = Array.from(measure.children) as HTMLElement[];
+      const more = nodes.pop();
+      const widths = nodes.map((n) => n.offsetWidth);
+      setVisible(fitCount(widths, nav.clientWidth, more?.offsetWidth ?? 0));
+    };
+    compute();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(compute);
+    ro.observe(nav);
+    ro.observe(measure);
+    return () => ro.disconnect();
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, setOpen]);
+
+  const shown = LINKS.slice(0, visible);
+  const overflow = LINKS.slice(visible);
+  const overflowActive = overflow.some((l) => isActive(l.href));
+
+  return (
+    <nav ref={navRef} aria-label="Main" className="relative hidden min-w-0 flex-1 items-center gap-1 md:flex">
+      <div className="flex min-w-0 items-center gap-1 overflow-hidden">
+        {shown.map(({ href, label, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            data-tour={tourAnchor(href)}
+            aria-label={label}
+            title={label}
+            aria-current={isActive(href) ? "page" : undefined}
+            className={cn(TOP_BAR_ITEM, isActive(href) && "bg-accent-soft text-accent hover:text-accent")}
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            <span className="hidden lg:inline">{label}</span>
+          </Link>
+        ))}
+      </div>
+
+      {overflow.length > 0 && (
+        <div ref={menuRef} className="relative shrink-0">
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-haspopup="true"
+            onClick={() => setOpen(!open)}
+            className={cn(TOP_BAR_ITEM, "cursor-pointer", overflowActive && "bg-accent-soft text-accent hover:text-accent")}
+          >
+            More
+            <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", open && "rotate-180")} />
+          </button>
+          {open && (
+            <div className="absolute right-0 top-full z-50 mt-1 flex min-w-48 flex-col gap-0.5 rounded-xl border border-border bg-surface p-1 shadow-lg">
+              {overflow.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  data-tour={tourAnchor(href)}
+                  aria-current={isActive(href) ? "page" : undefined}
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    "flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-background hover:text-foreground",
+                    isActive(href) && "bg-accent-soft text-accent hover:text-accent",
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* The measuring copy: invisible, zero-height, out of the flow. */}
+      <div aria-hidden className="pointer-events-none invisible absolute inset-x-0 top-0 h-0 overflow-hidden">
+        <div ref={measureRef} className="flex w-max items-center gap-1">
+          {LINKS.map(({ href, label, icon: Icon }) => (
+            <span key={href} className={TOP_BAR_ITEM}>
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="hidden lg:inline">{label}</span>
+            </span>
+          ))}
+          <span className={TOP_BAR_ITEM}>
+            More
+            <ChevronDown className="h-4 w-4 shrink-0" />
+          </span>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
 /**
  * Navigation, calibrated per device class.
  *
@@ -69,8 +213,9 @@ const TAB_BAR_LINKS = LINKS.filter((l) => l.tabBar);
  * destination would cross it and needs a different shape, not another tab. So
  * the tab bar renders the seven marked `tabBar` and the top bar renders all
  * nine — adding a destination means deciding which one leaves the tab bar, not
- * quietly shrinking every target. Settings and Glossary are the two currently
- * off the tab bar; both stay reachable on phones (Settings via the header's
+ * quietly shrinking every target. The top bar never clips: what does not fit
+ * there goes under its "More" menu (`TopBarNav`). Settings and Glossary are
+ * two of the destinations off the tab bar; both stay reachable on phones (Settings via the header's
  * account icon, Glossary via a plain-text link on the Settings page and
  * inline copy that links its terms).
  */
@@ -97,37 +242,14 @@ export function AppNav() {
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-border bg-surface/80 backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-3 sm:px-4 lg:gap-6 lg:px-6 2xl:max-w-7xl">
+        <div className="flex h-14 w-full items-center gap-3 px-3 sm:px-4 lg:gap-6 lg:px-6">
           <Link href="/dashboard" className="flex shrink-0 items-center gap-2 font-semibold">
             <TrendingUp className="h-5 w-5 text-accent" />
             GSPS
           </Link>
 
-          {/* Tablet and up: inline destinations. Phones use the tab bar below.
-              Nine destinations plus labels can outgrow the space between the
-              logo and the search/account/sign-out cluster before 2xl — every
-              sibling here is `shrink-0` (the logo, the right-hand group) or a
-              nav item with `whitespace-nowrap`, so the row cannot squeeze
-              individual labels into overlapping each other. It scrolls
-              instead, the same `scroll-x no-scrollbar` pattern
-              market-tabs.tsx uses for the same shape of problem. */}
-          <nav className="scroll-x no-scrollbar hidden min-w-0 flex-1 items-center gap-1 md:flex">
-            {LINKS.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                data-tour={tourAnchor(href)}
-                aria-current={isActive(href) ? "page" : undefined}
-                className={cn(
-                  "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted transition-colors hover:text-foreground lg:px-3",
-                  isActive(href) && "bg-accent-soft text-accent hover:text-accent",
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="hidden lg:inline">{label}</span>
-              </Link>
-            ))}
-          </nav>
+          {/* Tablet and up: inline destinations. Phones use the tab bar below. */}
+          <TopBarNav isActive={isActive} />
 
           {/* Below md the nav above is hidden, so this cluster is the only
               thing beside the logo; it may shrink there (the search box gives
