@@ -28,6 +28,16 @@ import { ShieldAlert } from "lucide-react";
  * action, same as the global `TRADING_DISABLED` switch's documented
  * carve-out for protective actions.
  */
+/** A response body as JSON, or `{}` when the server sent none (an error page or an empty 500). */
+async function readBody(res: Response): Promise<{ error?: string }> {
+  const text = await res.text().catch(() => "");
+  try {
+    return text ? (JSON.parse(text) as { error?: string }) : {};
+  } catch {
+    return {};
+  }
+}
+
 export function LiveTradingSettings() {
   const [connected, setConnected] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -61,8 +71,8 @@ export function LiveTradingSettings() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ apiKey, apiSecret }),
       });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Couldn't connect.");
+      const body = await readBody(res);
+      if (!res.ok) throw new Error(body.error ?? `Couldn't connect (server answered ${res.status}).`);
       setConnected(true);
       setApiKey("");
       setApiSecret("");
@@ -78,8 +88,8 @@ export function LiveTradingSettings() {
     setActionError(null);
     try {
       const res = await fetch("/api/alpaca/connect-live", { method: "DELETE" });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Couldn't pause live trading.");
+      const body = await readBody(res);
+      if (!res.ok) throw new Error(body.error ?? `Couldn't pause live trading (server answered ${res.status}).`);
       setConnected(false);
       setConfirmingPause(false);
     } catch (err) {

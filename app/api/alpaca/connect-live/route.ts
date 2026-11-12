@@ -81,13 +81,27 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // The keys are stored only encrypted. A server without its encryption key
+  // refuses here with a readable answer (an uncaught throw returned an empty
+  // body, which the page could only show as a JSON parse error).
+  let enc: string;
+  try {
+    enc = encryptJson({ key: creds.key, secret: creds.secret });
+  } catch (err) {
+    console.error("[connect-live] encrypt failed:", err instanceof Error ? err.message : String(err));
+    return NextResponse.json(
+      { error: "The server can't store keys securely right now (its encryption key isn't set). Nothing was saved.", code: "encryption_unavailable" },
+      { status: 503 },
+    );
+  }
+
   const { error } = await supabase.from("broker_connections").upsert(
     {
       user_id: user.id,
       provider: "alpaca_live",
       label: LABEL,
       status: "active",
-      credentials: { enc: encryptJson({ key: creds.key, secret: creds.secret }) },
+      credentials: { enc },
     },
     { onConflict: "user_id,provider,label" },
   );
