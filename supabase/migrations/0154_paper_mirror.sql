@@ -1,4 +1,9 @@
--- GSPS — 0151: the broker paper mirror's lines and its order log
+-- GSPS — 0154: the broker paper mirror's lines and its order log
+--
+-- Numbered 0154: 0151 (trade notes), 0152 (watchlist shares) and 0153
+-- (scheduled call log) are taken by open PRs #664, #665 and #662. Applied to
+-- production on 2026-11-12 under the name 0151_paper_mirror, before the
+-- renumber; the tables are the same.
 --
 -- Owner, 2026-11-12: the platform trades his Alpaca account for him, on paper
 -- only until the edge is verified. lib/brokers/paper-mirror.ts copies the
