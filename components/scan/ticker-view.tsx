@@ -15,6 +15,7 @@ import { ConfluenceCard } from "@/components/scan/confluence-card";
 import { OrderTicket } from "@/components/trade/order-ticket";
 import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import { SymbolNewsCard } from "@/components/scan/symbol-news";
+import { FedMeetingNotice } from "@/components/macro/fed-meetings";
 import { intradayMarkers, type IntradayChartPlan } from "@/lib/chart/planForTimeframe";
 import { GlossaryDetails } from "@/components/glossary";
 import { GlossaryTerm } from "@/components/glossary-term";
@@ -459,6 +460,8 @@ export function TickerView({ symbol }: { symbol: string }) {
       {result && <SignalRegimeCard result={result} />}
 
       {result && <ConfluenceCard result={result} />}
+
+      <FedMeetingNotice />
 
       <SymbolNewsCard key={symbol} symbol={symbol} />
 

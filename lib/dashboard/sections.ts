@@ -62,7 +62,7 @@ export const DASHBOARD_SECTIONS: readonly DashboardSectionInfo[] = [
   { id: "watchlist", label: "Watchlist" },
   { id: "setups", label: "Buy and sell setups" },
   { id: "intraday", label: "Intraday alerts" },
-  { id: "calendar", label: "Earnings calendar and market news" },
+  { id: "calendar", label: "Earnings calendar, Fed meetings and market news" },
 ];
 
 export interface DashboardLayout {

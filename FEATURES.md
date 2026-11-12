@@ -184,6 +184,9 @@ GSPS is a comprehensive trading application built with Next.js, Supabase, and Al
 - **Shared Watchlists**: Share your Dashboard list by link, read-only, with
   anyone who has the link or only members you approve; a new link stops the old
   one. Viewers see symbols only and can keep the list as their own
+- **Fed Meetings Calendar**: The Federal Reserve's scheduled policy meetings on
+  the Dashboard, and a note on a symbol's page in the week of a meeting. Dates
+  only, from the Fed's own published calendar
 
 ### 10. Settings & Configuration
 - **User Settings**: Customize preferences

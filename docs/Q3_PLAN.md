@@ -159,7 +159,14 @@ each with its publisher and link, beside the close of the session it fell on and
 that session's change (after the 4 PM close it counts on the next session, as
 `badNews.ts` reads it; crypto by its UTC day). Signed-in members, every tier.
 Read once a symbol an hour per server instance, not once a day: a page a person
-opens needs the day's headlines. The macro calendar is still held for a source.
+opens needs the day's headlines. **Macro calendar built 2026-11-12** (out of phase, on Chuck's 2026-11-12 ask):
+the Fed's scheduled policy meetings, read from federalreserve.gov's FOMC calendar
+(public domain, kept as data in `lib/macro/fomc.ts` with its read date;
+`scripts/fetch-fomc-calendar.mjs` re-reads it). A "Fed policy meetings" card in
+the Dashboard's calendar section, and a one-line note on the symbol page when a
+meeting is under way or within the week. Dates only, never an expectation, and
+it feeds no score. BLS release dates (CPI, jobs) are left out: bls.gov refuses
+automated reads.
 
 **The method:** he read the market's response to news, not the news itself: tops on
 bullish news, bottoms on bearish (*Commodities* p. 8; W006 p. 14), which is how
