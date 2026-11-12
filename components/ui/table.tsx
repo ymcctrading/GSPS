@@ -1,17 +1,20 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { ScrollX } from "@/components/ui/scroll-x";
 
 /**
  * Wide grids (the 20-column options chain, the portfolio ledger) scroll inside
  * their own box. `max-w-full` plus the `min-w-0` on the wrapper is what stops
  * the table from setting the page's width — without it a phone gets a body
- * wider than the screen and every fixed element ends up clipped.
+ * wider than the screen and every fixed element ends up clipped. `ScrollX`
+ * carries that, and on any screen shows left/right buttons while columns sit
+ * past the edge (a mouse has no swipe).
  */
 export function Table({ className, ...props }: React.TableHTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="scroll-x w-full min-w-0 max-w-full">
+    <ScrollX>
       <table className={cn("w-full text-sm", className)} {...props} />
-    </div>
+    </ScrollX>
   );
 }
 

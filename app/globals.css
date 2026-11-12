@@ -142,12 +142,25 @@ table {
   -webkit-overflow-scrolling: touch;
 }
 
-.no-scrollbar {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+/*
+ * Hidden scrollbars are for touch screens only, where a strip that runs past
+ * the edge is swiped. With a mouse there is no swipe, so a hidden scrollbar
+ * hides the content past the edge for good (2026-11-12: on a laptop the app's
+ * tab strips could not be scrolled). A fine pointer keeps a thin scrollbar.
+ */
+@media (pointer: coarse), (hover: none) {
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
+@media (pointer: fine) and (hover: hover) {
+  .no-scrollbar {
+    scrollbar-width: thin;
+  }
 }
 
 /*

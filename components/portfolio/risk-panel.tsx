@@ -12,6 +12,7 @@ import { Term } from "@/components/vocabulary";
  * as the exit manager holds it.
  */
 
+import { ScrollX } from "@/components/ui/scroll-x";
 import { useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -202,7 +203,7 @@ export function RiskPanel({ refreshKey }: { refreshKey?: unknown }) {
             </div>
 
             {data.positions.length > 0 && (
-              <div className="overflow-x-auto">
+              <ScrollX>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs uppercase tracking-wide text-muted">
@@ -252,7 +253,7 @@ export function RiskPanel({ refreshKey }: { refreshKey?: unknown }) {
                     })}
                   </tbody>
                 </table>
-              </div>
+              </ScrollX>
             )}
           </>
         )}

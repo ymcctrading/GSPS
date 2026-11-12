@@ -1,5 +1,6 @@
 "use client";
 
+import { ScrollX } from "@/components/ui/scroll-x";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -182,45 +183,47 @@ function GroupRow({
         </span>
       </button>
       {open && (
-        <div id={tableId} className="overflow-x-auto">
-          <table className="mb-2 w-full text-sm">
-            <caption className="sr-only">
-              Stocks in {group.label}, strongest first
-            </caption>
-            <thead>
-              <tr className="text-xs text-muted">
-                <th className="px-2 py-1 text-right font-normal">#</th>
-                <th className="px-2 py-1 text-left font-normal">Symbol</th>
-                <th className="px-2 py-1 text-right font-normal">
-                  In its range
-                </th>
-                <th className="px-2 py-1 text-right font-normal">Among all</th>
-              </tr>
-            </thead>
-            <tbody>
-              {group.members.map((m) => (
-                <tr key={m.symbol}>
-                  <td className="px-2 py-1 text-right tabular-nums text-muted">
-                    {m.groupRank}
-                  </td>
-                  <td className="px-2 py-1">
-                    <Link
-                      href={tickerHref(m.symbol)}
-                      className="font-medium text-accent hover:underline"
-                    >
-                      {m.symbol}
-                    </Link>
-                  </td>
-                  <td className="px-2 py-1 text-right tabular-nums">
-                    {pct(m.position)}
-                  </td>
-                  <td className="px-2 py-1 text-right tabular-nums">
-                    {pct(m.universePercentile)}
-                  </td>
+        <div id={tableId}>
+          <ScrollX>
+            <table className="mb-2 w-full text-sm">
+              <caption className="sr-only">
+                Stocks in {group.label}, strongest first
+              </caption>
+              <thead>
+                <tr className="text-xs text-muted">
+                  <th className="px-2 py-1 text-right font-normal">#</th>
+                  <th className="px-2 py-1 text-left font-normal">Symbol</th>
+                  <th className="px-2 py-1 text-right font-normal">
+                    In its range
+                  </th>
+                  <th className="px-2 py-1 text-right font-normal">Among all</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {group.members.map((m) => (
+                  <tr key={m.symbol}>
+                    <td className="px-2 py-1 text-right tabular-nums text-muted">
+                      {m.groupRank}
+                    </td>
+                    <td className="px-2 py-1">
+                      <Link
+                        href={tickerHref(m.symbol)}
+                        className="font-medium text-accent hover:underline"
+                      >
+                        {m.symbol}
+                      </Link>
+                    </td>
+                    <td className="px-2 py-1 text-right tabular-nums">
+                      {pct(m.position)}
+                    </td>
+                    <td className="px-2 py-1 text-right tabular-nums">
+                      {pct(m.universePercentile)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </ScrollX>
         </div>
       )}
     </li>

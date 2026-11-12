@@ -1,5 +1,6 @@
 "use client";
 
+import { ScrollX } from "@/components/ui/scroll-x";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -359,43 +360,45 @@ function PatternTable({ rows }: { rows: PatternRow[] }) {
   }
 
   return (
-    <div className="w-full overflow-x-auto">
-      <table className="w-full min-w-[520px] text-sm">
-        <thead>
-          <tr className="border-b border-border text-left text-xs text-muted">
-            <th className="py-2 pr-3 font-normal">Pattern</th>
-            <th className="py-2 pr-3 text-right font-normal">Trades</th>
-            <th className="py-2 pr-3 text-right font-normal">Win rate</th>
-            <th className="py-2 pr-3 text-right font-normal">Total P&L</th>
-            <th className="py-2 text-right font-normal">Avg P&L</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.pattern} className="border-b border-border/60 last:border-0">
-              <td className="py-2 pr-3">{row.pattern}</td>
-              <td className="py-2 pr-3 text-right font-mono tabular-nums">{row.trade_count}</td>
-              <td className="py-2 pr-3 text-right font-mono tabular-nums">{row.win_rate.toFixed(1)}%</td>
-              <td
-                className={cn(
-                  "py-2 pr-3 text-right font-mono tabular-nums",
-                  row.total_pnl >= 0 ? "text-bull" : "text-bear",
-                )}
-              >
-                {formatUsd(row.total_pnl)}
-              </td>
-              <td
-                className={cn(
-                  "py-2 text-right font-mono tabular-nums",
-                  row.avg_pnl >= 0 ? "text-bull" : "text-bear",
-                )}
-              >
-                {formatUsd(row.avg_pnl)}
-              </td>
+    <>
+      <ScrollX>
+        <table className="w-full min-w-[520px] text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs text-muted">
+              <th className="py-2 pr-3 font-normal">Pattern</th>
+              <th className="py-2 pr-3 text-right font-normal">Trades</th>
+              <th className="py-2 pr-3 text-right font-normal">Win rate</th>
+              <th className="py-2 pr-3 text-right font-normal">Total P&L</th>
+              <th className="py-2 text-right font-normal">Avg P&L</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.pattern} className="border-b border-border/60 last:border-0">
+                <td className="py-2 pr-3">{row.pattern}</td>
+                <td className="py-2 pr-3 text-right font-mono tabular-nums">{row.trade_count}</td>
+                <td className="py-2 pr-3 text-right font-mono tabular-nums">{row.win_rate.toFixed(1)}%</td>
+                <td
+                  className={cn(
+                    "py-2 pr-3 text-right font-mono tabular-nums",
+                    row.total_pnl >= 0 ? "text-bull" : "text-bear",
+                  )}
+                >
+                  {formatUsd(row.total_pnl)}
+                </td>
+                <td
+                  className={cn(
+                    "py-2 text-right font-mono tabular-nums",
+                    row.avg_pnl >= 0 ? "text-bull" : "text-bear",
+                  )}
+                >
+                  {formatUsd(row.avg_pnl)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollX>
       {rows.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {rows.slice(0, 3).map((row) => (
@@ -405,6 +408,6 @@ function PatternTable({ rows }: { rows: PatternRow[] }) {
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }
