@@ -399,15 +399,15 @@ function PatternTable({ rows }: { rows: PatternRow[] }) {
           </tbody>
         </table>
       </ScrollX>
-        {rows.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {rows.slice(0, 3).map((row) => (
-              <Badge key={row.pattern} variant={row.total_pnl >= 0 ? "bull" : "bear"}>
-                {row.pattern}
-              </Badge>
-            ))}
-          </div>
-        )}
+      {rows.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {rows.slice(0, 3).map((row) => (
+            <Badge key={row.pattern} variant={row.total_pnl >= 0 ? "bull" : "bear"}>
+              {row.pattern}
+            </Badge>
+          ))}
+        </div>
+      )}
     </>
   );
 }

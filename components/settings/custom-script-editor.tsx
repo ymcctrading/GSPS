@@ -25,6 +25,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { ScrollX } from "@/components/ui/scroll-x";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -509,26 +510,28 @@ export function CustomScriptEditor() {
                       bearish)
                     </p>
                     {backtestResult.events.length > 0 && (
-                      <table className="mt-2 w-full text-left">
-                        <thead className="text-muted">
-                          <tr>
-                            <th className="pr-2">Date</th>
-                            <th className="pr-2">Dir</th>
-                            <th className="pr-2">Entry</th>
-                            <th>Stop</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {backtestResult.events.slice(0, 10).map((e, i) => (
-                            <tr key={i}>
-                              <td className="pr-2">{new Date(e.date).toLocaleDateString()}</td>
-                              <td className="pr-2">{e.direction}</td>
-                              <td className="pr-2">{e.entry != null ? formatUsd(e.entry) : "—"}</td>
-                              <td>{e.stopLoss != null ? formatUsd(e.stopLoss) : "—"}</td>
+                      <ScrollX label="Backtest events">
+                        <table className="mt-2 w-full text-left">
+                          <thead className="text-muted">
+                            <tr>
+                              <th className="pr-2">Date</th>
+                              <th className="pr-2">Dir</th>
+                              <th className="pr-2">Entry</th>
+                              <th>Stop</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {backtestResult.events.slice(0, 10).map((e, i) => (
+                              <tr key={i}>
+                                <td className="pr-2">{new Date(e.date).toLocaleDateString()}</td>
+                                <td className="pr-2">{e.direction}</td>
+                                <td className="pr-2">{e.entry != null ? formatUsd(e.entry) : "—"}</td>
+                                <td>{e.stopLoss != null ? formatUsd(e.stopLoss) : "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </ScrollX>
                     )}
                     {backtestResult.events.length > 10 && (
                       <p className="mt-1 text-muted">

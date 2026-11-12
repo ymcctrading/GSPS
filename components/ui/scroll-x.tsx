@@ -88,7 +88,9 @@ export function ScrollX({
     <div className="w-full min-w-0 max-w-full">
       {edges.overflow && (
         <div className="mb-1 flex items-center justify-end gap-1 text-xs text-muted">
-          <span className="mr-1">More columns to the {edges.atEnd ? "left" : "right"}</span>
+          <span className="mr-1">
+            {edges.atStart ? "More columns to the right" : edges.atEnd ? "More columns to the left" : "More columns on both sides"}
+          </span>
           <button
             type="button"
             aria-label="Scroll left"

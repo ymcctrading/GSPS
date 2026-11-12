@@ -107,28 +107,26 @@ export function ForwardRecord() {
         {t && <GoodCallLine g={t.goodCalls} />}
         {data && data.record.length === 0 && <p className="text-sm text-muted">No calls in this window.</p>}
         {data && data.record.length > 0 && (
-          <div>
-            <Table>
-              <THead>
-                <TR>
-                  <TH>Session</TH>
-                  <TH className="text-right">Calls</TH>
-                  <TH className="text-right">Filled</TH>
-                  <TH className="text-right">Won / lost / time</TH>
-                  <TH className="text-right">Open</TH>
-                  <TH className="text-right">Never filled</TH>
-                  <TH className="text-right">Stop first</TH>
-                  <TH className="text-right">Not read</TH>
-                  <TH className="text-right">Total R</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {data.record.map((day) => (
-                  <DayRows key={day.session} day={day} open={open === day.session} toggle={() => setOpen(open === day.session ? null : day.session)} />
-                ))}
-              </TBody>
-            </Table>
-          </div>
+          <Table>
+            <THead>
+              <TR>
+                <TH>Session</TH>
+                <TH className="text-right">Calls</TH>
+                <TH className="text-right">Filled</TH>
+                <TH className="text-right">Won / lost / time</TH>
+                <TH className="text-right">Open</TH>
+                <TH className="text-right">Never filled</TH>
+                <TH className="text-right">Stop first</TH>
+                <TH className="text-right">Not read</TH>
+                <TH className="text-right">Total R</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {data.record.map((day) => (
+                <DayRows key={day.session} day={day} open={open === day.session} toggle={() => setOpen(open === day.session ? null : day.session)} />
+              ))}
+            </TBody>
+          </Table>
         )}
       </CardContent>
     </Card>

@@ -82,6 +82,8 @@ function TopBarNav({ isActive }: { isActive: (href: string) => boolean }) {
   const navRef = React.useRef<HTMLElement>(null);
   const measureRef = React.useRef<HTMLDivElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+  const menuId = React.useId();
   const [visible, setVisible] = React.useState(LINKS.length);
   // The menu stays open only on the page it was opened on, so any navigation
   // (a pick from it, the back button) closes it.
@@ -96,8 +98,11 @@ function TopBarNav({ isActive }: { isActive: (href: string) => boolean }) {
     const compute = () => {
       const nodes = Array.from(measure.children) as HTMLElement[];
       const more = nodes.pop();
-      const widths = nodes.map((n) => n.offsetWidth);
-      setVisible(fitCount(widths, nav.clientWidth, more?.offsetWidth ?? 0));
+      // Fractional widths, not the rounded offsetWidth, so the last item kept is
+      // never a few pixels too wide for the bar; 1px spare absorbs what is left.
+      const width = (el: Element) => el.getBoundingClientRect().width;
+      const widths = nodes.map(width);
+      setVisible(fitCount(widths, width(nav) - 1, more ? width(more) : 0));
     };
     compute();
     if (typeof ResizeObserver === "undefined") return;
@@ -113,7 +118,10 @@ function TopBarNav({ isActive }: { isActive: (href: string) => boolean }) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
     };
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
@@ -147,11 +155,19 @@ function TopBarNav({ isActive }: { isActive: (href: string) => boolean }) {
       </div>
 
       {overflow.length > 0 && (
-        <div ref={menuRef} className="relative shrink-0">
+        <div
+          ref={menuRef}
+          className="relative shrink-0"
+          // Tabbing out of the menu closes it.
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
+          }}
+        >
           <button
             type="button"
             aria-expanded={open}
-            aria-haspopup="true"
+            ref={buttonRef}
+            aria-controls={menuId}
             onClick={() => setOpen(!open)}
             className={cn(TOP_BAR_ITEM, "cursor-pointer", overflowActive && "bg-accent-soft text-accent hover:text-accent")}
           >
@@ -159,7 +175,7 @@ function TopBarNav({ isActive }: { isActive: (href: string) => boolean }) {
             <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", open && "rotate-180")} />
           </button>
           {open && (
-            <div className="absolute right-0 top-full z-50 mt-1 flex min-w-48 flex-col gap-0.5 rounded-xl border border-border bg-surface p-1 shadow-lg">
+            <div id={menuId} className="absolute right-0 top-full z-50 mt-1 flex min-w-48 flex-col gap-0.5 rounded-xl border border-border bg-surface p-1 shadow-lg">
               {overflow.map(({ href, label, icon: Icon }) => (
                 <Link
                   key={href}
