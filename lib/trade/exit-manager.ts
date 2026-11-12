@@ -86,6 +86,7 @@ import { handleAutomatedStopOut, reversalOffer } from "@/lib/automation/stop-out
 import type { ReversalCause } from "@/lib/gann/reverse";
 import type { createClient } from "@/lib/supabase/server";
 import { ledgerWriter } from "@/lib/supabase/ledger";
+import { newTargetHits, recordTargetHits } from "@/lib/trade/target-hits";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -305,6 +306,15 @@ async function advance(
   // extreme since it, as the replay does, so a spike between two passes
   // still counts toward break-even and the trails (readLiveBestSinceFill).
   highWater = extendHighWater(plan.side, highWater, await readLiveBestSinceFill({ symbol: plan.symbol, side: plan.side, openedAt: filledAt }));
+  // The entry order records the first time TP1 or the MTP was hit
+  // (lib/trade/target-hits.ts), as the paper exit manager does.
+  const hits = newTargetHits(plan.side, plan.high_water, highWater, {
+    takeProfit1: plan.take_profit_1,
+    masterProfit: plan.master_profit,
+  });
+  if (hits.tp1 || hits.mp) {
+    await recordTargetHits(supabase, userId, { column: "broker_order_id", value: plan.entry_order_id }, hits);
+  }
   const gann =
     LIVE_EXIT_RULE !== "bracket"
       ? await readLiveGannExit({

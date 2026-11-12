@@ -19,7 +19,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getOpenPosition, quotePrice, assetClassOf, isOption as isOptionSymbol } from "@/lib/brokers/simulator";
-import { checkBracket } from "@/lib/trade/bracket";
+import { bracketMinGap, checkBracket } from "@/lib/trade/bracket";
 import { planProtocolExit } from "@/lib/trade/protocol-exit";
 import { validateLimitPrice, type RoundingMode } from "@/lib/trade/tick-size";
 import { ledgerWriter } from "@/lib/supabase/ledger";
@@ -199,7 +199,7 @@ export async function updateProtocolExit(
 
   const { data: existing } = await supabase
     .from("protocol_exits")
-    .select("id, stop_loss, applied_stop, take_profit_1, master_profit, qty")
+    .select("id, stop_loss, applied_stop, take_profit_1, master_profit, qty, high_water, scale_out_qty, master_qty, runner_qty, scale_out_order_id, master_order_id, runner_order_id")
     .eq("user_id", userId)
     .eq("symbol", symbol)
     .eq("mode", "paper")
@@ -281,7 +281,37 @@ export async function updateProtocolExit(
     }
   }
 
-  if (newStop != null) {
+  // Once the trade has reached TP1 (the best price since the fill, or the
+  // price now, is through it), TP1 sits behind the market by design. Checking
+  // it as a fresh bracket's target refused every later edit, so an MTP added
+  // after TP1 was never saved (2026-11-12, NEE). Past TP1 the stop is checked
+  // against the price alone, and a new MTP has to sit beyond the price.
+  const best = existing.high_water == null ? price : Number(existing.high_water);
+  const tp1Passed = isLong ? Math.max(best, price) >= newTarget : Math.min(best, price) <= newTarget;
+  if (tp1Passed) {
+    const gap = bracketMinGap(price);
+    // A TP1 sale still to come (a plan split before the live rule) fills at
+    // TP1 itself, so a TP1 moved behind the market would sell below it.
+    const scaleOutPending = Number(existing.scale_out_qty ?? 0) > 0 && !existing.scale_out_order_id;
+    if (input.takeProfit1 != null && scaleOutPending && !(isLong ? newTarget >= price + gap : newTarget <= price - gap)) {
+      return {
+        status: 422,
+        body: { error: `TP1 has to sit ${isLong ? "above" : "below"} the current price (${price.toFixed(2)}) while its sale is still to come.` },
+      };
+    }
+    if (input.stopLoss != null && newStop != null && !(isLong ? newStop <= price - gap : newStop >= price + gap)) {
+      return {
+        status: 422,
+        body: { error: `The stop has to sit ${isLong ? "below" : "above"} the current price (${price.toFixed(2)}).` },
+      };
+    }
+    if (input.masterProfit != null && newMaster != null && !(isLong ? newMaster >= price + gap : newMaster <= price - gap)) {
+      return {
+        status: 422,
+        body: { error: `MTP (master take profit) has to sit ${isLong ? "above" : "below"} the current price (${price.toFixed(2)}).` },
+      };
+    }
+  } else if (newStop != null) {
     const check = checkBracket({ side: entrySide, basePrice: price, stopLoss: newStop, takeProfit: newTarget });
     if (!check.ok) {
       return { status: 422, body: { error: check.reason } };
@@ -302,6 +332,13 @@ export async function updateProtocolExit(
     takeProfit1: newTarget,
     masterProfit: newMaster,
   });
+  // A tranche that already filled fixes the split: re-planning it would hand
+  // the shares already sold back to a tranche still working, and the exit
+  // manager would then sell more than the position holds.
+  const anyFilled = Boolean(existing.scale_out_order_id || existing.master_order_id || existing.runner_order_id);
+  const split = anyFilled
+    ? {}
+    : { scale_out_qty: exitPlan.scaleOutQty, master_qty: exitPlan.masterQty, runner_qty: exitPlan.runnerQty };
 
   const { error } = await ledgerWriter(supabase)
     .from("protocol_exits")
@@ -309,9 +346,7 @@ export async function updateProtocolExit(
       stop_loss: newStop,
       take_profit_1: newTarget,
       master_profit: newMaster,
-      scale_out_qty: exitPlan.scaleOutQty,
-      master_qty: exitPlan.masterQty,
-      runner_qty: exitPlan.runnerQty,
+      ...split,
       // Only a new stop moves the stop in force; editing a target alone
       // leaves the trailed stop where the rules put it (R-008).
       ...(input.stopLoss != null ? { applied_stop: newStop, applied_stop_reason: "manual" } : {}),
