@@ -158,9 +158,13 @@ function TopBarNav({ isActive }: { isActive: (href: string) => boolean }) {
         <div
           ref={menuRef}
           className="relative shrink-0"
-          // Tabbing out of the menu closes it.
+          // Tabbing out of the menu closes it. A blur with no new focus target
+          // is a mouse press (Safari and Firefox on macOS don't focus a clicked
+          // link); closing then would unmount the link before its click lands,
+          // and clicks outside are already handled by the pointerdown listener.
           onBlur={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
+            const next = e.relatedTarget as Node | null;
+            if (next && !e.currentTarget.contains(next)) setOpen(false);
           }}
         >
           <button
