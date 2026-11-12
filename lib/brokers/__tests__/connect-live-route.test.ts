@@ -38,6 +38,18 @@ describe("POST /api/alpaca/connect-live", () => {
     if (prev !== undefined) process.env.CREDENTIALS_ENCRYPTION_KEY = prev;
   });
 
+  it("says when the key is set but too short", async () => {
+    const prev = process.env.CREDENTIALS_ENCRYPTION_KEY;
+    process.env.CREDENTIALS_ENCRYPTION_KEY = "short";
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await POST(req());
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).toMatch(/too short/);
+    spy.mockRestore();
+    if (prev === undefined) delete process.env.CREDENTIALS_ENCRYPTION_KEY;
+    else process.env.CREDENTIALS_ENCRYPTION_KEY = prev;
+  });
+
   it("saves the encrypted keys when the encryption key is set", async () => {
     const prev = process.env.CREDENTIALS_ENCRYPTION_KEY;
     process.env.CREDENTIALS_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
