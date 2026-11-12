@@ -166,3 +166,31 @@ describe("getTradeCards", () => {
     expect(rsi.since).toBe("2026-11-02");
   });
 });
+
+describe("getOpenCardsForSymbol", () => {
+  it("reads the one stock's open cards through the Dashboard's own filters", async () => {
+    const { getOpenCardsForSymbol } = await import("@/lib/cards/readCards");
+    const svc = fakeService([
+      card("edgeBottom", "AM", "2026-11-10", true),
+      card("edgeBottom", "BA", "2026-11-10", true),
+      card("edgeBottom", "AM", "2026-11-09", true),
+    ]);
+    const t = await getOpenCardsForSymbol(svc, pro, "am", tuesdayEvening);
+    expect(t.signalDate).toBe("2026-11-10");
+    expect(t.cards.map((c) => [c.symbol, c.label])).toEqual([["AM", "Swing-low breakout, three targets"]]);
+    // The Dashboard shows the same AM card.
+    const dash = await getTradeCards(svc, pro, tuesdayEvening);
+    expect(dash.cards.filter((c) => c.symbol === "AM")).toEqual(t.cards);
+  });
+  it("shows nothing to a visitor or once the card's session has passed", async () => {
+    const { getOpenCardsForSymbol } = await import("@/lib/cards/readCards");
+    const svc = fakeService([card("edgeBottom", "AM", "2026-11-10", true)]);
+    expect(await getOpenCardsForSymbol(svc, null, "AM", tuesdayEvening)).toEqual({ signalDate: null, cards: [] });
+    expect(await getOpenCardsForSymbol(svc, pro, "AM", new Date("2026-11-11T21:30:00Z"))).toEqual({ signalDate: null, cards: [] });
+  });
+  it("has no signal date when the stock has no card tonight", async () => {
+    const { getOpenCardsForSymbol } = await import("@/lib/cards/readCards");
+    const svc = fakeService([card("edgeBottom", "BA", "2026-11-10", true)]);
+    expect(await getOpenCardsForSymbol(svc, pro, "AM", tuesdayEvening)).toEqual({ signalDate: null, cards: [] });
+  });
+});
