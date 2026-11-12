@@ -43,8 +43,7 @@ import { RestReminder } from "@/components/dashboard/rest-reminder";
 import { IntradayAlerts } from "@/components/scan/intraday-alerts";
 import type { ScanRow } from "@/components/scan/results-table";
 import { TradeCards } from "@/components/dashboard/trade-cards";
-import { getTradeCards, NO_TRADE_CARDS } from "@/lib/cards/readCards";
-import { getUserEntitlementPolicy } from "@/lib/entitlements/policy";
+import { getTradeCards, NO_TRADE_CARDS, tradeCardViewer } from "@/lib/cards/readCards";
 
 export const metadata = { title: "Dashboard — GSPS" };
 export const dynamic = "force-dynamic";
@@ -69,19 +68,7 @@ export default async function DashboardPage() {
   // time), and every published kind's record (lib/cards/readCards.ts). Started
   // here so it runs beside the per-user reads below. A failed read shows the
   // no-card note rather than breaking the page.
-  const tradeCardsLoad = (
-    user
-      ? Promise.all([
-          getUserEntitlementPolicy(supabase, user.id),
-          supabase
-            .from("strategy_mode_preferences")
-            .select("mode")
-            .eq("user_id", user.id)
-            .maybeSingle()
-            .then(({ data }) => (data as { mode?: string } | null)?.mode ?? null),
-        ]).then(([policy, mode]) => ({ policy, mode }))
-      : Promise.resolve(null)
-  )
+  const tradeCardsLoad = (user ? tradeCardViewer(supabase, user.id) : Promise.resolve(null))
     .then((viewer) => getTradeCards(createServiceClient(), viewer))
     .catch(() => NO_TRADE_CARDS);
 

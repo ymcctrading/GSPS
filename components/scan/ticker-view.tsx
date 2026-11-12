@@ -31,6 +31,8 @@ import { SHOWN_TIME_RECORDS } from "@/lib/timing/shownRecords";
 import { bindCachedPlansTo, planEvent, planEventLevel, planSessionKey, readCachedPlan, writeCachedPlan } from "@/lib/scan/planCache";
 import { clearRecentCharts, rememberRecentChart } from "@/lib/charts/recent";
 import { createClient } from "@/lib/supabase/client";
+import { TickerCardPanel } from "@/components/scan/ticker-card-panel";
+import { cardChartMarkers, cardPlanRelation, drawPlanLines, type SymbolTradeCards } from "@/lib/cards/tickerCard";
 
 /** Least time between two plan reads the price or the clock asks for. */
 const PLAN_EVENT_PACING_MS = 60_000;
@@ -67,6 +69,25 @@ export function TickerView({ symbol }: { symbol: string }) {
     };
   }, []);
   const saraMarkersUnlocked = tier !== null && hasFeature(tier, "sara_sniper_chart_markers");
+
+  // The trade card open on this stock, as the Dashboard shows it to this
+  // member (/api/cards/symbol, the same reader): a card that exists on the
+  // Dashboard exists here too (AM, 2026-11-12). Kept with the symbol it
+  // answers so a client-side move to another stock never shows the last one's.
+  const [cardsFor, setCardsFor] = useState<{ symbol: string; data: SymbolTradeCards } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/cards/symbol?symbol=${encodeURIComponent(symbol)}`)
+      .then((res) => (res.ok ? (res.json() as Promise<SymbolTradeCards>) : null))
+      .then((data) => {
+        if (!cancelled && data && Array.isArray(data.cards)) setCardsFor({ symbol, data });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol]);
+  const openCards = cardsFor?.symbol === symbol ? cardsFor.data : null;
 
   // Set only by the intraday alerts panel's "Trade this" link (see
   // components/scan/intraday-alerts.tsx and lib/routes.ts's tickerHref),
@@ -281,7 +302,13 @@ export function TickerView({ symbol }: { symbol: string }) {
       ? approachingFigure(result.levels.entry, result.direction)
       : null;
   if (roundAhead) markers.push({ price: roundAhead.figure.price, label: "Round number", kind: "structural" });
-  if (result?.levels && !retired) {
+  const planState = result?.decision?.outputState ?? null;
+  const cardRelation = cardPlanRelation((openCards?.cards.length ?? 0) > 0, result?.direction, planState);
+  // The card's own lines, labelled apart; where the daily plan reads the
+  // other side without an Execute, the card leads and the plan's lines are
+  // not drawn (lib/cards/tickerCard.ts).
+  markers.push(...cardChartMarkers(openCards?.cards[0]));
+  if (result?.levels && !retired && drawPlanLines(cardRelation)) {
     markers.push(
       { price: result.levels.entry, label: "Entry", kind: "entry" },
       { price: result.levels.stopLoss, label: "SL", kind: "stop" },
@@ -426,6 +453,9 @@ export function TickerView({ symbol }: { symbol: string }) {
                 Running the structural scan — macro structure, support analysis, pattern triggers…
               </CardContent>
             </Card>
+          )}
+          {openCards && (
+            <TickerCardPanel symbol={symbol} data={openCards} relation={cardRelation} planState={planState} />
           )}
           {result && (
             <OrderTicket

@@ -1,0 +1,22 @@
+-- GSPS — 0156: run the nightly trade-card job after the engine card parts
+--
+-- On 2026-11-12 the nightly cards job (/api/cards/nightly, 0148) was called
+-- at 22:20 UTC while the engine card part 5 (/api/cards/edge?part=5, 0150)
+-- was running on the same small host (Render, the temporary host until the
+-- app is back on Vercel). The host answered 502 at 22:24 and the job wrote
+-- no cards that night (the night before, the same pair ran together and the
+-- job wrote 508 cards in 80 s). The cause is not proven (no host logs read),
+-- but the overlap is the one thing that can be removed cheaply: the engine
+-- parts run every 4 minutes from 22:00 to 22:44 UTC (up to 225 s each on
+-- Render), so the nightly job moves to 22:50 UTC, after the last part. It
+-- also then scores the engine's cards of the same night's run from the
+-- following night on, as before.
+--
+-- 22:50 UTC is 5:50 PM New York in winter, 6:50 PM in summer: after the
+-- close either way. Engineering choice.
+--
+-- Rollback:
+--   select cron.schedule('gsps-card-calls', '20 22 * * 1-5', $$select gsps_ops.call_endpoint('/api/cards/nightly')$$);
+
+-- cron.schedule with an existing job name updates that job in place.
+select cron.schedule('gsps-card-calls', '50 22 * * 1-5', $$select gsps_ops.call_endpoint('/api/cards/nightly')$$);
