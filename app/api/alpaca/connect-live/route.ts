@@ -88,9 +88,15 @@ export async function POST(req: NextRequest) {
   try {
     enc = encryptJson({ key: creds.key, secret: creds.secret });
   } catch (err) {
-    console.error("[connect-live] encrypt failed:", err instanceof Error ? err.message : String(err));
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[connect-live] encrypt failed:", msg);
+    const why = /not configured/.test(msg)
+      ? "its encryption key isn't set"
+      : /32 bytes/.test(msg)
+        ? "its encryption key isn't 32 bytes of base64"
+        : "encryption failed";
     return NextResponse.json(
-      { error: "The server can't store keys securely right now (its encryption key isn't set). Nothing was saved.", code: "encryption_unavailable" },
+      { error: `The server can't store keys securely right now (${why}). Nothing was saved.`, code: "encryption_unavailable" },
       { status: 503 },
     );
   }
