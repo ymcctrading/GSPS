@@ -14,12 +14,16 @@
  *   long, a put for a short. Monday to Thursday only, and not on the dates
  *   in `OPTION_PLAN.noEntryDates`.
  * - **Contract.** At least 7 calendar days out (never the expiring week),
- *   a spread within 20% of the ask, open interest of 100 or more, the one
+ *   a spread within 20% of the ask (half the ask while a trade's budget is
+ *   under $200, the owner's choice for the small account), the strike
+ *   nearest the trade's TP1 when it has one (the owner's way: a cheaper
+ *   contract out of the money at the target, sold early on a profit), open interest of 100 or more, the one
  *   closest to the money that a third of the account buys, then the
  *   expiration nearest 30 days. None qualifying means no trade.
  * - **Exits, whichever first.** The stock reaches the trade's TP1, breaks
  *   its stop, or the app closes the stock trade; the option doubles (a
- *   resting limit at +100%); it falls to half its cost; once it has been up
+ *   resting limit at +100%, or +50% while a trade's budget is under $200,
+ *   the owner's choice for the small account); it falls to half its cost; once it has been up
  *   50% it is sold back at its cost (break-even); and every contract is sold
  *   in the last two runs of a Friday session.
  * - **Brakes.** At most two open (one under $20 of equity); none under $15
@@ -52,7 +56,7 @@ import {
   type AlpacaPosition,
 } from "@/lib/brokers/alpaca";
 import { fetchDayRanges, fetchOptionSnapshots } from "@/lib/data/alpaca";
-import { chooseLiveContract, ceilTick, liveOptionBudget, type ChainSnapshot } from "@/lib/brokers/live-options";
+import { LIVE_OPTION_BUDGET_FRACTION, chooseLiveContract, ceilTick, liveOptionBudget, type ChainSnapshot } from "@/lib/brokers/live-options";
 import { MOMENTUM_DAY_LOSS_HOLD, MOMENTUM_EQUITY_FLOOR, nyDate, nyMinutes, nyWeekday } from "@/lib/brokers/live-momentum";
 import { parseOccSymbol } from "@/lib/portfolio/occ";
 import { tradingDisabled } from "@/lib/trade/kill-switch";
@@ -61,6 +65,8 @@ import { EXECUTE_SCORE_THRESHOLD } from "@/lib/scoring/weights";
 export const OPTION_PLAN = {
   /** Owner's plan: the option doubles. */
   takeProfit: 1,
+  /** Owner, 2026-11-13 ("$5 wins are good. smaller wins are ok"): the take-profit while a trade's budget is under `smallBudget`. */
+  smallBudgetTakeProfit: 0.5,
   /** Owner's plan: sold at half its cost. */
   cut: 0.5,
   /** Owner's plan: once up this much, the stop is the cost. */
@@ -71,6 +77,14 @@ export const OPTION_PLAN = {
   minDays: 7,
   maxDays: 45,
   maxSpreadFrac: 0.2,
+  /**
+   * Owner, 2026-11-13 (decision card, "Loosen the spread rule"): while a
+   * trade's budget is under `smallBudget`, a spread up to half the ask is
+   * taken. A contract must still be bid. Engineering choices: the half, and
+   * $200 (the cheapest contract within 20% on that day's setups was $187).
+   */
+  smallBudgetSpreadFrac: 0.5,
+  smallBudget: 200,
   minOpenInterest: 100,
   minScore: EXECUTE_SCORE_THRESHOLD,
   /** Losses in a row that stop entries for the next trading day. */
@@ -205,9 +219,19 @@ export function planEntryHold(g: PlanGateInput): string | null {
   return null;
 }
 
-/** The +100% resting sell: in cents, or on the coarse tick. */
-export function planTakeProfit(avg: number): { fine: number; coarse: number } {
-  const target = avg * (1 + OPTION_PLAN.takeProfit);
+/** The widest spread taken, as a fraction of the ask, at this trade budget. */
+export function planSpreadLimit(budget: number): number {
+  return budget < OPTION_PLAN.smallBudget - 1e-6 ? OPTION_PLAN.smallBudgetSpreadFrac : OPTION_PLAN.maxSpreadFrac;
+}
+
+/** The take-profit gain at this trade budget: +50% while small, else +100%. */
+export function planTakeProfitGain(budget: number): number {
+  return budget < OPTION_PLAN.smallBudget - 1e-6 ? OPTION_PLAN.smallBudgetTakeProfit : OPTION_PLAN.takeProfit;
+}
+
+/** The resting sell at `gain` (default +100%): in cents, or on the coarse tick. */
+export function planTakeProfit(avg: number, gain: number = OPTION_PLAN.takeProfit): { fine: number; coarse: number } {
+  const target = avg * (1 + gain);
   return { fine: Number((Math.ceil(target * 100 - 1e-7) / 100).toFixed(2)), coarse: ceilTick(target) };
 }
 
@@ -287,8 +311,8 @@ async function settle(creds: AlpacaCreds, id: string): Promise<AlpacaOrder> {
   return o;
 }
 
-async function restTakeProfit(creds: AlpacaCreds, symbol: string, qty: number, avg: number, clientOrderId: string): Promise<{ order: AlpacaOrder; tp: number }> {
-  const { fine, coarse } = planTakeProfit(avg);
+async function restTakeProfit(creds: AlpacaCreds, symbol: string, qty: number, avg: number, clientOrderId: string, gain: number): Promise<{ order: AlpacaOrder; tp: number }> {
+  const { fine, coarse } = planTakeProfit(avg, gain);
   try {
     return { order: (await placeOrder(creds, { symbol, side: "sell", qty, type: "limit", limitPrice: fine, timeInForce: "day", clientOrderId })) as AlpacaOrder, tp: fine };
   } catch (err) {
@@ -326,6 +350,12 @@ export async function optionPlanPass(
   const weekday = nyWeekday(now);
   const equity = num(account.equity);
   const dayTrades = num(account.daytrade_count ?? NaN);
+  const optionsBp = num((account as unknown as { options_buying_power?: string }).options_buying_power);
+  const cash = Number.isFinite(optionsBp) ? Math.min(num(account.cash), optionsBp) : num(account.cash);
+  const budget = opts.fixedBudget != null ? Math.min(opts.fixedBudget, liveOptionBudget(equity, cash)) : liveOptionBudget(equity, cash);
+  // The take-profit follows today's trade budget (a third of the account): +50% while small.
+  const tpGain = planTakeProfitGain(opts.fixedBudget != null ? opts.fixedBudget : LIVE_OPTION_BUDGET_FRACTION * equity);
+  const tpLabel = `+${Math.round(tpGain * 100)}%`;
 
   const recent = await listOrders(creds, { since: new Date(now - 30 * 86_400_000), maxPages: 1 });
   const planBuys = recent.filter((o) => o.side === "buy" && (o.client_order_id ?? "").startsWith(CLIENT_PREFIX) && num(o.filled_qty) > 0);
@@ -428,9 +458,9 @@ export async function optionPlanPass(
         if (!(free >= 1 + OPTION_PLAN.dayTradeReserve)) continue;
         free -= 1;
       }
-      const { order: o, tp } = await restTakeProfit(creds, p.symbol, num(p.qty), avg, `${CLIENT_PREFIX}tp-${id}-${now}`);
+      const { order: o, tp } = await restTakeProfit(creds, p.symbol, num(p.qty), avg, `${CLIENT_PREFIX}tp-${id}-${now}`, tpGain);
       result.placed++;
-      await logEvent(supabase, { position_id: id, symbol: p.symbol, side: "long", action: "plan_take_profit", qty: num(p.qty), sim_price: null, stop_price: null, broker_order_id: o.id, status: o.status, note: `Limit ${tp} (+100%).` }, mode);
+      await logEvent(supabase, { position_id: id, symbol: p.symbol, side: "long", action: "plan_take_profit", qty: num(p.qty), sim_price: null, stop_price: null, broker_order_id: o.id, status: o.status, note: `Limit ${tp} (${tpLabel}).` }, mode);
     } catch (err) {
       result.errors.push(`plan take-profit ${p.symbol}: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -468,9 +498,6 @@ export async function optionPlanPass(
     result.held.push("plan: no Execute-grade trade opened by the app within the hour.");
     return result;
   }
-  const optionsBp = num((account as unknown as { options_buying_power?: string }).options_buying_power);
-  const cash = Number.isFinite(optionsBp) ? Math.min(num(account.cash), optionsBp) : num(account.cash);
-  const budget = opts.fixedBudget != null ? Math.min(opts.fixedBudget, liveOptionBudget(equity, cash)) : liveOptionBudget(equity, cash);
   const reasons: string[] = [];
   try {
     const prices = await fetchDayRanges(picks.map((l) => l.symbol.toUpperCase()));
@@ -502,7 +529,7 @@ export async function optionPlanPass(
       }
       const c = chooseLiveContract(chain, {
         underlying: sym, type, underlyingPrice: price, budget, today, minDays: OPTION_PLAN.minDays, maxDays: OPTION_PLAN.maxDays,
-        maxSpreadFrac: OPTION_PLAN.maxSpreadFrac, openInterest: oi, minOpenInterest: OPTION_PLAN.minOpenInterest,
+        maxSpreadFrac: planSpreadLimit(budget), strikeTarget: l.tp1, openInterest: oi, minOpenInterest: OPTION_PLAN.minOpenInterest,
       });
       if ("reason" in c) {
         reasons.push(`${sym} (${l.score}/9): ${c.reason}`);
@@ -525,9 +552,9 @@ export async function optionPlanPass(
       const got = num(s.filled_qty);
       // Bought today: its take-profit rests today only with a day trade to spare beyond the reserve.
       if (got > 0 && free >= 1 + OPTION_PLAN.dayTradeReserve) {
-        const { order: tpOrder, tp } = await restTakeProfit(creds, c.symbol, got, num(s.filled_avg_price), `${CLIENT_PREFIX}tp-${l.positionId}-${now}`);
+        const { order: tpOrder, tp } = await restTakeProfit(creds, c.symbol, got, num(s.filled_avg_price), `${CLIENT_PREFIX}tp-${l.positionId}-${now}`, tpGain);
         result.placed++;
-        await logEvent(supabase, { position_id: l.positionId, symbol: c.symbol, side: "long", action: "plan_take_profit", qty: got, sim_price: null, stop_price: null, broker_order_id: tpOrder.id, status: tpOrder.status, note: `Limit ${tp} (+100%).` }, mode);
+        await logEvent(supabase, { position_id: l.positionId, symbol: c.symbol, side: "long", action: "plan_take_profit", qty: got, sim_price: null, stop_price: null, broker_order_id: tpOrder.id, status: tpOrder.status, note: `Limit ${tp} (${tpLabel}).` }, mode);
       }
       return result;
     }

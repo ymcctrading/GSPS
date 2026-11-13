@@ -26,6 +26,7 @@ import {
   optionPlanPass,
   planEntryHold,
   planExit,
+  planSpreadLimit,
   planTakeProfit,
   planTradeId,
   type PlanStockLine,
@@ -47,6 +48,20 @@ describe("the plan's contract filter", () => {
       AAA261120C00054000: quote(0.09, 0.08, 0.3), // 4 days out: refused
     };
     expect(chooseLiveContract(chain, { ...q, openInterest: oi })).toMatchObject({ symbol: "AAA261127C00056000" });
+  });
+
+  it("aims the strike at the setup's TP1 when it lies on the trade's side", () => {
+    const chain = {
+      AAA261127C00051000: quote(0.09, 0.08, 0.45),
+      AAA261127C00055000: quote(0.06, 0.05, 0.2),
+      AAA261127C00060000: quote(0.03, 0.025, 0.08),
+    };
+    const all = new Map(Object.keys(chain).map((k) => [k, 500]));
+    expect(chooseLiveContract(chain, { ...q, openInterest: all, strikeTarget: 54 })).toMatchObject({ symbol: "AAA261127C00055000" });
+    expect(chooseLiveContract(chain, { ...q, openInterest: all, strikeTarget: 61 })).toMatchObject({ symbol: "AAA261127C00060000" });
+    // A target on the wrong side of the price is ignored: closest to the money.
+    expect(chooseLiveContract(chain, { ...q, openInterest: all, strikeTarget: 45 })).toMatchObject({ symbol: "AAA261127C00051000" });
+    expect(chooseLiveContract(chain, { ...q, openInterest: all, strikeTarget: null })).toMatchObject({ symbol: "AAA261127C00051000" });
   });
 
   it("says no trade when nothing qualifies", () => {
@@ -165,13 +180,14 @@ describe("optionPlanPass", () => {
     data.fetchOptionSnapshots.mockResolvedValue({ [CALL]: quote(0.09, 0.08, 0.2) });
   });
 
-  it("carries the app's Execute-grade trade as a call and rests a +100% take-profit", async () => {
+  it("carries the app's Execute-grade trade as a call and rests a +50% take-profit while the account is small", async () => {
     alpaca.placeOrder.mockResolvedValueOnce({ id: "b1", status: "accepted" }).mockResolvedValueOnce({ id: "t1", status: "new" });
     alpaca.getOrder.mockResolvedValue({ id: "b1", status: "filled", filled_qty: "1", filled_avg_price: "0.09" });
     const r = await optionPlanPass(supabase, creds, account, [], OPEN, [line()], new Set(), Date.now() + 30_000, MON_11);
     expect(r.errors).toEqual([]);
     expect(alpaca.placeOrder).toHaveBeenNthCalledWith(1, creds, expect.objectContaining({ symbol: CALL, side: "buy", qty: 1, type: "limit", limitPrice: 0.1, clientOrderId: `gsps-plan-${ID}-${MON_11}` }));
-    expect(alpaca.placeOrder).toHaveBeenNthCalledWith(2, creds, expect.objectContaining({ symbol: CALL, side: "sell", qty: 1, limitPrice: 0.18 }));
+    expect(alpaca.placeOrder).toHaveBeenNthCalledWith(2, creds, expect.objectContaining({ symbol: CALL, side: "sell", qty: 1, limitPrice: 0.14 }));
+    expect(String(events[1].note)).toMatch(/\+50%/);
     expect(events.map((e) => e.action)).toEqual(["plan_open", "plan_take_profit"]);
     expect(events[0]).toMatchObject({ position_id: ID, mode: "live", stop_price: 18 });
   });
@@ -187,6 +203,21 @@ describe("optionPlanPass", () => {
     expect(r.held.join(" ")).toMatch(/no Execute-grade trade/);
     alpaca.listOrders.mockResolvedValue([{ id: "b0", side: "buy", symbol: CALL, client_order_id: `gsps-plan-${ID}-1`, filled_qty: "1", filled_avg_price: "0.09", filled_at: "2026-11-16T15:30:00Z" }]);
     await optionPlanPass(supabase, creds, account, [], OPEN, [line()], new Set(), Date.now() + 30_000, MON_11);
+    expect(alpaca.placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("takes a spread up to half the ask while the budget is under $200 (owner's choice), 20% above it", async () => {
+    expect(planSpreadLimit(10)).toBe(0.5);
+    expect(planSpreadLimit(199.99)).toBe(0.5);
+    expect(planSpreadLimit(200)).toBe(0.2);
+    data.fetchOptionSnapshots.mockResolvedValue({ [CALL]: quote(0.1, 0.06, 0.2) }); // 40% wide
+    alpaca.placeOrder.mockResolvedValue({ id: "b1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "b1", status: "canceled", filled_qty: "0" });
+    await optionPlanPass(supabase, creds, account, [], OPEN, [line()], new Set(), Date.now() + 30_000, MON_11);
+    expect(alpaca.placeOrder).toHaveBeenCalledWith(creds, expect.objectContaining({ symbol: CALL, side: "buy" }));
+    alpaca.placeOrder.mockClear();
+    const big = { ...account, equity: "3000", last_equity: "3000", cash: "3000" };
+    await optionPlanPass(supabase, creds, big, [], OPEN, [line()], new Set(), Date.now() + 30_000, MON_11);
     expect(alpaca.placeOrder).not.toHaveBeenCalled();
   });
 
@@ -340,6 +371,14 @@ describe("optionPlanPass", () => {
     await optionPlanPass(supabase, creds, big, [], OPEN, [line()], new Set(), Date.now() + 30_000, MON_11, { mode: "paper", fixedBudget: 10 });
     expect(alpaca.placeOrder).toHaveBeenCalledWith(creds, expect.objectContaining({ symbol: CALL }));
     expect(events[0]).toMatchObject({ mode: "paper" });
+  });
+
+  it("rests +100% once a third of the account is $200 or more", async () => {
+    alpaca.placeOrder.mockResolvedValueOnce({ id: "b1", status: "accepted" }).mockResolvedValueOnce({ id: "t1", status: "new" });
+    alpaca.getOrder.mockResolvedValue({ id: "b1", status: "filled", filled_qty: "1", filled_avg_price: "0.09" });
+    const big = { ...account, equity: "600", last_equity: "600", cash: "600" };
+    await optionPlanPass(supabase, creds, big, [], OPEN, [line()], new Set(), Date.now() + 30_000, MON_11);
+    expect(alpaca.placeOrder).toHaveBeenNthCalledWith(2, creds, expect.objectContaining({ side: "sell", limitPrice: 0.18 }));
   });
 
   it("uses the plan's figures", () => {
