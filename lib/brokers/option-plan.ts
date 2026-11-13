@@ -90,6 +90,17 @@ export const OPTION_PLAN = {
   strikeBand: 0.5,
 } as const;
 
+/**
+ * Same-day test days on the paper account only (owner, 2026-11-13: "Have
+ * the paper account take some same day trades today, just to test"). On
+ * these New York dates paper may enter on any weekday, follows the day's
+ * Execute-grade setups as well as the app's own trades (the runner adds
+ * them), and sells everything before the close. Never read for live.
+ */
+export const PAPER_TEST_DAYS: readonly string[] = ["2026-11-13"];
+/** Engineering choice: a same-day test buys nothing in the session's last hour. */
+const PAPER_TEST_ENTRY_STOPS_BEFORE_CLOSE_MIN = 60;
+
 const PDT_EQUITY = 25_000;
 const PDT_MAX = 3;
 const CLIENT_PREFIX = "gsps-plan-";
@@ -123,6 +134,8 @@ export function planExit(p: {
   stock: { side: "long" | "short"; price: number; stop: number | null; tp1: number | null } | null;
   toClose: number;
   weekday: number;
+  /** A same-day test day (paper only): sold before the close on any weekday. */
+  sameDay?: boolean;
 }): PlanExitReason | null {
   if (!p.stock) return "trade_closed";
   const { side, price, stop, tp1 } = p.stock;
@@ -131,7 +144,7 @@ export function planExit(p: {
   if (priced && p.current <= p.avgEntry * (1 - OPTION_PLAN.cut) + 1e-9) return "cut";
   if (priced && p.armed && p.current <= p.avgEntry) return "break_even";
   if (Number.isFinite(price) && tp1 != null && (side === "long" ? price >= tp1 : price <= tp1)) return "tp1";
-  if (p.weekday === 5 && !(p.toClose > OPTION_PLAN.closeOutBeforeCloseMin)) return "close_out";
+  if ((p.weekday === 5 || p.sameDay) && !(p.toClose > OPTION_PLAN.closeOutBeforeCloseMin)) return "close_out";
   return null;
 }
 
@@ -141,7 +154,7 @@ const EXIT_NOTE: Record<PlanExitReason, string> = {
   cut: "Worth half its cost; sold.",
   break_even: "Back to its cost after a 50% gain; sold at break-even.",
   tp1: "The stock reached the trade's TP1; sold.",
-  close_out: "Friday close-out; sold.",
+  close_out: "Close-out before the bell (Friday, or a same-day test); sold.",
 };
 
 export interface PlanGateInput {
@@ -158,6 +171,8 @@ export interface PlanGateInput {
   dayTradesFree: number;
   /** The New York date of the second loss in a row, when the last two closed trades lost. */
   lossStreakDate: string | null;
+  /** A same-day test day (paper only): any weekday, entries stop an hour before the close. */
+  sameDay?: boolean;
 }
 
 /** The next weekday after `day` (YYYY-MM-DD). */
@@ -172,9 +187,13 @@ export function nextWeekday(day: string): string {
 export function planEntryHold(g: PlanGateInput): string | null {
   if (g.halted) return "Trading is halted.";
   if (!g.marketOpen) return "Market closed.";
-  if (g.weekday < 1 || g.weekday > 4) return "Entries Monday to Thursday only (held overnight; flat by Friday's close).";
-  if (OPTION_PLAN.noEntryDates.includes(g.today)) return `No new entries on ${g.today} (the plan's holiday window).`;
-  if (!(g.toClose >= OPTION_PLAN.entryStopsBeforeCloseMin)) return "Too close to the close for an entry.";
+  if (g.sameDay) {
+    if (!(g.toClose >= PAPER_TEST_ENTRY_STOPS_BEFORE_CLOSE_MIN)) return "Same-day test: no entry in the last hour.";
+  } else {
+    if (g.weekday < 1 || g.weekday > 4) return "Entries Monday to Thursday only (held overnight; flat by Friday's close).";
+    if (OPTION_PLAN.noEntryDates.includes(g.today)) return `No new entries on ${g.today} (the plan's holiday window).`;
+    if (!(g.toClose >= OPTION_PLAN.entryStopsBeforeCloseMin)) return "Too close to the close for an entry.";
+  }
   if (!(g.equity >= MOMENTUM_EQUITY_FLOOR)) return `Account under the $${MOMENTUM_EQUITY_FLOOR} floor.`;
   if (!(g.lastEquity > 0) || (g.equity - g.lastEquity) / g.lastEquity <= -MOMENTUM_DAY_LOSS_HOLD) return `Account down ${MOMENTUM_DAY_LOSS_HOLD * 100}% or more today.`;
   if (g.lossStreakDate && (g.today === g.lossStreakDate || g.today === nextWeekday(g.lossStreakDate))) {
@@ -298,6 +317,7 @@ export async function optionPlanPass(
   opts: { mode?: "paper" | "live"; fixedBudget?: number } = {},
 ): Promise<PlanResult> {
   const mode = opts.mode ?? "live";
+  const sameDay = mode === "paper" && PAPER_TEST_DAYS.includes(nyDate(now));
   const result: PlanResult = { placed: 0, held: [], errors: [] };
   if (!clock.isOpen) return result;
   const minutes = nyMinutes(now);
@@ -345,7 +365,7 @@ export async function optionPlanPass(
     const current = num(p.current_price);
     const u = parseOccSymbol(p.symbol)?.underlying ?? "";
     const stock = line ? { side: line.side, price: num(ranges.get(u)?.price), stop: line.stop, tp1: line.tp1 } : null;
-    const reason = planExit({ avgEntry: avg, current, armed: !!id && armed.has(id), stock, toClose, weekday });
+    const reason = planExit({ avgEntry: avg, current, armed: !!id && armed.has(id), stock, toClose, weekday, sameDay });
     return { p, id: id ?? randomUUID(), avg, current, reason };
   });
   // Emergencies first, so they get the reserve.
@@ -428,7 +448,7 @@ export async function optionPlanPass(
   const sameDayUnreserved = [...heldSyms].filter((sym) => boughtToday.has(sym) && restingSells(sym).length === 0).length;
   const hold = planEntryHold({
     minutes, toClose, weekday, today, marketOpen: clock.isOpen, halted: tradingDisabled(), equity, lastEquity: num(account.last_equity),
-    openContracts: heldSyms.size, dayTradesFree: free - sameDayUnreserved, lossStreakDate: lossStreakDate(recent, heldSyms),
+    openContracts: heldSyms.size, dayTradesFree: free - sameDayUnreserved, lossStreakDate: lossStreakDate(recent, heldSyms), sameDay,
   });
   if (hold) {
     result.held.push(`plan: ${hold}`);

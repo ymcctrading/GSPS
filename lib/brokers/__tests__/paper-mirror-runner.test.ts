@@ -18,9 +18,12 @@ const alpaca = vi.hoisted(() => ({
 vi.mock("@/lib/brokers/alpaca", () => alpaca);
 const liveConn = vi.hoisted(() => ({ readLiveAlpacaConnection: vi.fn(async () => null as unknown) }));
 vi.mock("@/lib/brokers/live-creds", () => liveConn);
-const momo = vi.hoisted(() => ({ momentumPass: vi.fn(async () => ({ placed: 0, held: [] as string[], errors: [] as string[] })) }));
+const momo = vi.hoisted(() => ({
+  momentumPass: vi.fn(async () => ({ placed: 0, held: [] as string[], errors: [] as string[] })),
+  nyDate: (ms: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms)),
+}));
 vi.mock("@/lib/brokers/live-momentum", () => momo);
-const plan = vi.hoisted(() => ({ optionPlanPass: vi.fn(async () => ({ placed: 0, held: [] as string[], errors: [] as string[] })) }));
+const plan = vi.hoisted(() => ({ optionPlanPass: vi.fn(async () => ({ placed: 0, held: [] as string[], errors: [] as string[] })), PAPER_TEST_DAYS: [] as string[] }));
 vi.mock("@/lib/brokers/option-plan", () => plan);
 const pm = vi.hoisted(() => ({ readPlanScores: vi.fn(async () => ({ scores: new Map<string, number>([["LOW:bullish", 8]]), error: null as string | null })) }));
 vi.mock("@/lib/automation/portfolio-manager", () => pm);
@@ -391,6 +394,29 @@ describe("runPaperMirror", () => {
     expect(plan.optionPlanPass).toHaveBeenLastCalledWith(
       paper, expect.objectContaining({ mode: "paper" }), expect.anything(), [], expect.objectContaining({ isOpen: true }), [], new Set(), expect.any(Number), expect.any(Number), { mode: "paper", fixedBudget: 10 },
     );
+  });
+
+  it("a paper same-day test day adds the day's Execute-grade setups at a $500 budget; live never does", async () => {
+    plan.PAPER_TEST_DAYS.push("2026-11-16");
+    try {
+      liveSetup({ daytrade_count: 0 });
+      const monitors = [
+        { id: "m1", symbol: "NVS", direction: "bullish", score: "8", stop_loss: "160", take_profit_1: "172", last_evaluated_at: "2026-11-16T14:18:00Z" },
+        { id: "m2", symbol: "BAD", direction: null, score: "7", stop_loss: "10", take_profit_1: null, last_evaluated_at: "2026-11-16T14:18:00Z" },
+      ];
+      const paper = fakeSupabase({ active_monitors: monitors }).client;
+      await runPaperMirror(paper);
+      expect(plan.optionPlanPass).toHaveBeenLastCalledWith(
+        paper, expect.anything(), expect.anything(), expect.anything(), expect.anything(),
+        [expect.objectContaining({ positionId: "m1", symbol: "NVS", side: "long", stop: 160, tp1: 172, score: 8, automated: true })],
+        expect.any(Set), expect.any(Number), expect.any(Number), { mode: "paper", fixedBudget: 500 },
+      );
+      const live = fakeSupabase({ active_monitors: monitors }).client;
+      await runLiveMirror(live);
+      expect(plan.optionPlanPass).toHaveBeenLastCalledWith(live, expect.anything(), expect.anything(), expect.anything(), expect.anything(), [], expect.any(Set), expect.any(Number), expect.any(Number), { mode: "live" });
+    } finally {
+      plan.PAPER_TEST_DAYS.length = 0;
+    }
   });
 
   it("an unreadable score stops the plan pass, and a failure never fails the run", async () => {

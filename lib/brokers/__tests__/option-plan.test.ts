@@ -288,6 +288,26 @@ describe("optionPlanPass", () => {
     expect(r.held.join(" ")).toMatch(/reserve/);
   });
 
+  it("a paper same-day test day enters on a Friday and sells before the close; live keeps its rules", async () => {
+    const FRI_11 = Date.parse("2026-11-13T16:00:00Z");
+    const fri = { isOpen: true, nextClose: Date.parse("2026-11-13T21:00:00Z") };
+    alpaca.placeOrder.mockResolvedValue({ id: "b1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "b1", status: "canceled", filled_qty: "0" });
+    const fresh = line({ openedAt: new Date(FRI_11).toISOString() });
+    const live = await optionPlanPass(supabase, creds, account, [], fri, [fresh], new Set(), Date.now() + 30_000, FRI_11);
+    expect(alpaca.placeOrder).not.toHaveBeenCalled();
+    expect(live.held.join(" ")).toMatch(/Monday to Thursday/);
+    await optionPlanPass(supabase, creds, account, [], fri, [fresh], new Set(), Date.now() + 30_000, FRI_11, { mode: "paper", fixedBudget: 500 });
+    expect(alpaca.placeOrder).toHaveBeenCalledWith(creds, expect.objectContaining({ symbol: CALL, side: "buy" }));
+    // No entry in the last hour of a test day.
+    alpaca.placeOrder.mockClear();
+    const late = await optionPlanPass(supabase, creds, account, [], fri, [line({ openedAt: new Date(FRI_11 + 4 * 3600_000).toISOString() })], new Set(), Date.now() + 30_000, FRI_11 + 4.5 * 3600_000, { mode: "paper", fixedBudget: 500 });
+    expect(alpaca.placeOrder).not.toHaveBeenCalled();
+    expect(late.held.join(" ")).toMatch(/last hour/);
+    expect(planExit({ avgEntry: 0.1, current: 0.12, armed: false, stock: { side: "long", price: 20, stop: 18, tp1: 24 }, toClose: 50, weekday: 3, sameDay: true })).toBe("close_out");
+    expect(planExit({ avgEntry: 0.1, current: 0.12, armed: false, stock: { side: "long", price: 20, stop: 18, tp1: 24 }, toClose: 50, weekday: 3 })).toBeNull();
+  });
+
   it("is flat by Friday's close and buys nothing on a Friday", async () => {
     alpaca.listOrders.mockResolvedValue(bought("2026-11-18T15:00:00Z"));
     alpaca.closePosition.mockResolvedValue({ id: "x1", status: "accepted" });
