@@ -83,7 +83,20 @@ export function ceilTick(price: number): number {
  */
 export function chooseLiveContract(
   snaps: Record<string, ChainSnapshot>,
-  q: { underlying: string; type: "call" | "put"; underlyingPrice: number; budget: number; today: string; minDays?: number; maxDays?: number },
+  q: {
+    underlying: string;
+    type: "call" | "put";
+    underlyingPrice: number;
+    budget: number;
+    today: string;
+    minDays?: number;
+    maxDays?: number;
+    /** The widest bid-ask spread taken, as a fraction of the ask (none when unset). */
+    maxSpreadFrac?: number;
+    /** Open interest by contract; with `minOpenInterest`, a contract missing from it is not taken. */
+    openInterest?: Map<string, number>;
+    minOpenInterest?: number;
+  },
 ): LiveContractPick | { reason: string } {
   const budget = q.budget;
   const minDays = q.minDays ?? LIVE_OPTION_MIN_DAYS;
@@ -99,6 +112,8 @@ export function chooseLiveContract(
     const ask = s.latestQuote?.ap;
     const bid = s.latestQuote?.bp;
     if (typeof ask !== "number" || !(ask > 0) || typeof bid !== "number" || !(bid > 0) || !Number.isFinite(ask)) continue;
+    if (q.maxSpreadFrac != null && !((ask - bid) / ask <= q.maxSpreadFrac + 1e-9)) continue;
+    if (q.minOpenInterest != null && !((q.openInterest?.get(symbol.toUpperCase()) ?? NaN) >= q.minOpenInterest)) continue;
     const cost = ask * 100;
     if (cost > budget) continue;
     const qty = Math.floor(budget / cost + 1e-9);
@@ -109,7 +124,8 @@ export function chooseLiveContract(
     cands.push({ symbol: symbol.toUpperCase(), expiration: p.expiration, strike: p.strike, ask, qty, limitPrice, delta: typeof d === "number" && Number.isFinite(d) ? Math.abs(d) : null, days });
   }
   if (cands.length === 0) {
-    return { reason: `No ${q.type} on ${q.underlying} ${minDays} to ${maxDays} days out costs $${budget.toFixed(2)} or less (a third of the account).` };
+    const filters = [q.maxSpreadFrac != null ? `a spread within ${Math.round(q.maxSpreadFrac * 100)}% of the ask` : "", q.minOpenInterest != null ? `open interest of ${q.minOpenInterest} or more` : ""].filter(Boolean);
+    return { reason: `No ${q.type} on ${q.underlying} ${minDays} to ${maxDays} days out${filters.length ? ` with ${filters.join(" and ")}` : ""} costs $${budget.toFixed(2)} or less (a third of the account).` };
   }
   // Distance out of the money, in the stock's price: negative is in the money.
   const out = (c: Cand) => (q.type === "call" ? c.strike - q.underlyingPrice : q.underlyingPrice - c.strike);

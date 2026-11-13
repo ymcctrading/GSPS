@@ -82,6 +82,8 @@ import { tradingDisabled } from "@/lib/trade/kill-switch";
 import { OWNER_EMAILS } from "@/lib/auth/owner";
 import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { momentumPass } from "@/lib/brokers/live-momentum";
+import { optionPlanPass, type PlanStockLine } from "@/lib/brokers/option-plan";
+import { readPlanScores } from "@/lib/automation/portfolio-manager";
 
 /** Positions opened before this are never mirrored (they'd be bought at today's price). */
 export const MIRROR_START = "2026-11-12T15:45:00Z";
@@ -148,6 +150,8 @@ export interface SimLine {
   assetClass?: AssetClass;
   /** Live only: the open goes as a day limit at this price, the most the account's caps allow a share. */
   limitPrice?: number;
+  /** The exit plan's TP1, when it has one (read by the live account's option plan). */
+  tp1?: number | null;
 }
 
 export type MirrorStatus = "open" | "closed" | "broker_stopped" | "missed";
@@ -436,7 +440,7 @@ async function readClock(creds: AlpacaCreds): Promise<{ isOpen: boolean; nextClo
   }
 }
 
-async function ownerUserId(supabase: SupabaseClient): Promise<string | null> {
+export async function ownerUserId(supabase: SupabaseClient): Promise<string | null> {
   const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
   if (error) return null;
   const owner = OWNER_EMAILS[0];
@@ -444,7 +448,7 @@ async function ownerUserId(supabase: SupabaseClient): Promise<string | null> {
   return u?.id ?? null;
 }
 
-async function readSimLines(supabase: SupabaseClient, userId: string): Promise<SimLine[]> {
+export async function readSimLines(supabase: SupabaseClient, userId: string): Promise<SimLine[]> {
   const { data: positions, error } = await supabase
     .from("positions")
     .select("id, symbol, side, qty, avg_entry_price, stop_loss, opened_at, asset_class")
@@ -459,7 +463,7 @@ async function readSimLines(supabase: SupabaseClient, userId: string): Promise<S
   const [exitsRes, entriesRes] = await Promise.all([
     supabase
       .from("protocol_exits")
-      .select("symbol, applied_stop, stop_loss, status, created_at")
+      .select("symbol, applied_stop, stop_loss, take_profit_1, status, created_at")
       .eq("user_id", userId)
       .eq("mode", "paper")
       .neq("status", "closed")
@@ -493,6 +497,7 @@ async function readSimLines(supabase: SupabaseClient, userId: string): Promise<S
       (o) => o.symbol === p.symbol && Math.abs(Date.parse(o.created_at as string) - openedMs) <= FIVE_MIN,
     );
     const assetClass = p.asset_class as AssetClass;
+    const tp1 = exit ? num(exit.take_profit_1) : NaN;
     return {
       positionId: p.id as string,
       symbol: assetClass === "crypto" ? cryptoPair(p.symbol as string) : (p.symbol as string),
@@ -503,6 +508,7 @@ async function readSimLines(supabase: SupabaseClient, userId: string): Promise<S
       price: num(p.avg_entry_price),
       openedAt: new Date(openedMs).toISOString(),
       automated,
+      tp1: Number.isFinite(tp1) && tp1 > 0 ? tp1 : null,
     };
   });
 }
@@ -561,14 +567,15 @@ async function cancelStop(creds: AlpacaCreds, stopId: string, hops = 0): Promise
 
 export type MirrorMode = "paper" | "live";
 
-/** Paper practices momentum at the live account's size: a third of its $30 start. */
+/** Paper practices at the live account's size: a third of its $30 start. */
 export const PAPER_MOMENTUM_BUDGET = 10;
 /**
- * Live momentum stays off until the owner settles the live account's
- * trading plan (owner, 2026-11-13: "Have paper start once the market opens
- * today. Well wait until we determine our trading plan for the live account").
+ * The owner's options plan runs on both accounts (owner, 2026-11-13: "Go
+ * with A. But only apply to icharles account for now", then "Add the rules
+ * to the live account as well. This what we're going to use to trade").
+ * Momentum is retired the same day: it only manages what it already holds.
  */
-export const LIVE_MOMENTUM_ENABLED = false;
+export const OPTION_PLAN_AUTHORIZED = { by: "owner", on: "2026-11-13" } as const;
 
 /**
  * The live account (owner, 2026-11-12: "its not about proving an edge, as
@@ -823,27 +830,39 @@ async function runMirror(supabase: SupabaseClient, mode: MirrorMode): Promise<Mi
   }
   try {
     await mirrorPass(supabase, mode, creds, userId, deadline, result);
-    if (mode === "paper" || LIVE_MOMENTUM_ENABLED) {
-      // The owner's momentum options (lib/brokers/live-momentum.ts), on the
-      // same keys and lease, after the mirror, on fresh reads; on paper as
-      // practice at the live account's size. Never fails the run.
-      const liveCreds = creds;
-      await (async () => {
-        const [account, positions, clock, open] = await Promise.all([
-          getAccount(liveCreds),
-          getPositions(liveCreds),
-          readClock(liveCreds),
-          readMirrorLines(supabase, mode, []),
-        ]);
-        const m = await momentumPass(
-          supabase, liveCreds, account, positions, clock, new Set(open.map((l) => l.symbol)), started + MIRROR_BUDGET_MS * 2, Date.now(),
-          mode === "paper" ? { mode, fixedBudget: PAPER_MOMENTUM_BUDGET } : { mode },
-        );
-        result.placed += m.placed;
-        result.held.push(...m.held);
-        result.errors.push(...m.errors);
-      })().catch((err) => result.errors.push(`momentum: ${err instanceof Error ? err.message : String(err)}`));
-    }
+    // The owner's options plan (lib/brokers/option-plan.ts), on the same
+    // keys and lease, after the mirror, on fresh reads; on paper at the live
+    // account's size. Momentum's leftovers are managed first. Never fails the run.
+    const planCreds = creds;
+    await (async () => {
+      const [account, positions, clock, open] = await Promise.all([
+        getAccount(planCreds),
+        getPositions(planCreds),
+        readClock(planCreds),
+        readMirrorLines(supabase, mode, []),
+      ]);
+      const mirrorSymbols = new Set(open.map((l) => l.symbol));
+      const budget = mode === "paper" ? { fixedBudget: PAPER_MOMENTUM_BUDGET } : {};
+      const m = await momentumPass(supabase, planCreds, account, positions, clock, mirrorSymbols, started + MIRROR_BUDGET_MS * 2, Date.now(), { mode, ...budget, entries: false });
+      result.placed += m.placed;
+      result.held.push(...m.held);
+      result.errors.push(...m.errors);
+      if (!clock.isOpen) return;
+      // A failed read stops the pass: with no lines, every contract would read as closed.
+      const sim = await readSimLines(supabase, userId);
+      const { scores, error } = await readPlanScores(supabase, userId, sim.map((l) => l.symbol));
+      if (error) throw new Error(`scores: ${error}`);
+      const lines: PlanStockLine[] = sim.map((l) => ({
+        positionId: l.positionId, symbol: l.symbol, side: l.side, stop: l.stop, tp1: l.tp1 ?? null, openedAt: l.openedAt,
+        automated: l.automated, assetClass: l.assetClass,
+        score: scores.get(`${l.symbol.toUpperCase()}:${l.side === "long" ? "bullish" : "bearish"}`) ?? null,
+      }));
+      const [account2, positions2] = m.placed > 0 ? await Promise.all([getAccount(planCreds), getPositions(planCreds)]) : [account, positions];
+      const p = await optionPlanPass(supabase, planCreds, account2, positions2, clock, lines, mirrorSymbols, started + MIRROR_BUDGET_MS * 3, Date.now(), { mode, ...budget });
+      result.placed += p.placed;
+      result.held.push(...p.held);
+      result.errors.push(...p.errors);
+    })().catch((err) => result.errors.push(`option plan: ${err instanceof Error ? err.message : String(err)}`));
   } finally {
     await supabase.from("paper_mirror_lock").update({ held_until: new Date().toISOString() }).eq("id", lockId);
   }

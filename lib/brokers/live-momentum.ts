@@ -33,6 +33,11 @@
  *   out of all trades by the end of the trading week").
  * Every figure here is an engineering choice the owner can change, except
  * the third (his) and the +50% (his example).
+ *
+ * Retired the same day for the owner's options plan (`lib/brokers/option-plan.ts`,
+ * owner 2026-11-13: "Go with A"; "Add the rules to the live account as
+ * well"): the runner calls it with `entries: false`, so any contract it
+ * bought is still managed to its exit and nothing new is bought.
  */
 
 import { randomUUID } from "node:crypto";
@@ -298,7 +303,7 @@ export async function momentumPass(
   mirrorSymbols: Set<string>,
   deadline: number,
   now = Date.now(),
-  opts: { mode?: "paper" | "live"; fixedBudget?: number } = {},
+  opts: { mode?: "paper" | "live"; fixedBudget?: number; entries?: boolean } = {},
 ): Promise<MomentumResult> {
   const mode = opts.mode ?? "live";
   const result: MomentumResult = { placed: 0, held: [], errors: [] };
@@ -399,6 +404,9 @@ export async function momentumPass(
     }
   }
 
+  // Retired (the owner's options plan, 2026-11-13): contracts still held are
+  // managed to their exits, and nothing new is bought.
+  if (opts.entries === false) return result;
   // At most one entry.
   const hold = momentumEntryHold({
     minutes, toClose, weekday: nyWeekday(now), marketOpen, halted: tradingDisabled(), equity, lastEquity, dayTrades,
