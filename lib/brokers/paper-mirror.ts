@@ -81,6 +81,7 @@ import {
 import { tradingDisabled } from "@/lib/trade/kill-switch";
 import { OWNER_EMAILS } from "@/lib/auth/owner";
 import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
+import { momentumPass } from "@/lib/brokers/live-momentum";
 
 /** Positions opened before this are never mirrored (they'd be bought at today's price). */
 export const MIRROR_START = "2026-11-12T15:45:00Z";
@@ -417,16 +418,21 @@ async function logEvent(supabase: SupabaseClient, mode: MirrorMode, row: EventRo
 }
 
 async function isMarketOpen(creds: AlpacaCreds): Promise<boolean> {
+  return (await readClock(creds)).isOpen;
+}
+
+/** The broker's clock: open now, and when this session closes (unreadable reads as closed). */
+async function readClock(creds: AlpacaCreds): Promise<{ isOpen: boolean; nextClose: number }> {
   try {
     const host = creds.mode === "live" ? "https://api.alpaca.markets" : "https://paper-api.alpaca.markets";
     const res = await fetch(`${host}/v2/clock`, {
       headers: { "APCA-API-KEY-ID": creds.key, "APCA-API-SECRET-KEY": creds.secret },
     });
-    if (!res.ok) return false;
-    const clock = (await res.json()) as { is_open?: boolean };
-    return clock.is_open === true;
+    if (!res.ok) return { isOpen: false, nextClose: NaN };
+    const clock = (await res.json()) as { is_open?: boolean; next_close?: string };
+    return { isOpen: clock.is_open === true, nextClose: clock.next_close ? Date.parse(clock.next_close) : NaN };
   } catch {
-    return false;
+    return { isOpen: false, nextClose: NaN };
   }
 }
 
@@ -554,6 +560,15 @@ async function cancelStop(creds: AlpacaCreds, stopId: string, hops = 0): Promise
 }
 
 export type MirrorMode = "paper" | "live";
+
+/** Paper practices momentum at the live account's size: a third of its $30 start. */
+export const PAPER_MOMENTUM_BUDGET = 10;
+/**
+ * Live momentum stays off until the owner settles the live account's
+ * trading plan (owner, 2026-11-13: "Have paper start once the market opens
+ * today. Well wait until we determine our trading plan for the live account").
+ */
+export const LIVE_MOMENTUM_ENABLED = false;
 
 /**
  * The live account (owner, 2026-11-12: "its not about proving an edge, as
@@ -808,6 +823,27 @@ async function runMirror(supabase: SupabaseClient, mode: MirrorMode): Promise<Mi
   }
   try {
     await mirrorPass(supabase, mode, creds, userId, deadline, result);
+    if (mode === "paper" || LIVE_MOMENTUM_ENABLED) {
+      // The owner's momentum options (lib/brokers/live-momentum.ts), on the
+      // same keys and lease, after the mirror, on fresh reads; on paper as
+      // practice at the live account's size. Never fails the run.
+      const liveCreds = creds;
+      await (async () => {
+        const [account, positions, clock, open] = await Promise.all([
+          getAccount(liveCreds),
+          getPositions(liveCreds),
+          readClock(liveCreds),
+          readMirrorLines(supabase, mode, []),
+        ]);
+        const m = await momentumPass(
+          supabase, liveCreds, account, positions, clock, new Set(open.map((l) => l.symbol)), started + MIRROR_BUDGET_MS * 2, Date.now(),
+          mode === "paper" ? { mode, fixedBudget: PAPER_MOMENTUM_BUDGET } : { mode },
+        );
+        result.placed += m.placed;
+        result.held.push(...m.held);
+        result.errors.push(...m.errors);
+      })().catch((err) => result.errors.push(`momentum: ${err instanceof Error ? err.message : String(err)}`));
+    }
   } finally {
     await supabase.from("paper_mirror_lock").update({ held_until: new Date().toISOString() }).eq("id", lockId);
   }

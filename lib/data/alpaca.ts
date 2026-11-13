@@ -756,6 +756,39 @@ export async function fetchMostActives(top = 100): Promise<string[]> {
   return (data.most_actives ?? []).map((a: { symbol: string }) => a.symbol);
 }
 
+/** One of the day's biggest movers, as Alpaca's screener lists it. */
+export interface Mover {
+  symbol: string;
+  pct: number;
+  price: number;
+}
+
+/** The day's top gainers and losers by percent change (Alpaca's screener). */
+export async function fetchMovers(top = 50): Promise<{ gainers: Mover[]; losers: Mover[] }> {
+  const data = await get(`/v1beta1/screener/stocks/movers`, { top: String(top) });
+  const read = (rows: unknown): Mover[] =>
+    (Array.isArray(rows) ? rows : [])
+      .map((r: { symbol?: unknown; percent_change?: unknown; price?: unknown }) => ({ symbol: String(r.symbol ?? ""), pct: Number(r.percent_change), price: Number(r.price) }))
+      .filter((m) => m.symbol !== "" && Number.isFinite(m.pct) && Number.isFinite(m.price));
+  return { gainers: read(data?.gainers), losers: read(data?.losers) };
+}
+
+/** The day so far for a few stocks: last price, the session's high and low (IEX). */
+export async function fetchDayRanges(symbols: string[]): Promise<Map<string, { price: number; high: number; low: number }>> {
+  const out = new Map<string, { price: number; high: number; low: number }>();
+  for (const group of chunk(symbols.map((s) => s.toUpperCase()), 100)) {
+    if (group.length === 0) continue;
+    const data = await get(`/v2/stocks/snapshots`, { symbols: group.join(","), feed: "iex" });
+    for (const [sym, snap] of Object.entries((data ?? {}) as Record<string, { latestTrade?: { p?: number }; dailyBar?: { h?: number; l?: number; c?: number } }>)) {
+      const price = snap?.latestTrade?.p ?? snap?.dailyBar?.c;
+      const high = snap?.dailyBar?.h;
+      const low = snap?.dailyBar?.l;
+      if (typeof price === "number" && typeof high === "number" && typeof low === "number") out.set(sym, { price, high, low });
+    }
+  }
+  return out;
+}
+
 /**
  * Adapter exposing this module as a `MarketDataProvider`. The options chain is
  * the listed contracts with their real quotes (`lib/options/liveChain.ts`).

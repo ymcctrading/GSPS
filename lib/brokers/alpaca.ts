@@ -504,6 +504,7 @@ export interface AlpacaOrder {
   submitted_at?: string | null;
   created_at?: string | null;
   filled_at?: string | null;
+  updated_at?: string | null;
   canceled_at?: string | null;
   expired_at?: string | null;
   failed_at?: string | null;
