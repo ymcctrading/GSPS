@@ -26,6 +26,7 @@ import {
   optionPlanPass,
   planEntryHold,
   planExit,
+  optionsLevelOf,
   planSpreadLimit,
   sameDayMomentum,
   planTakeProfit,
@@ -161,7 +162,7 @@ describe("optionPlanPass", () => {
     },
   } as unknown as SupabaseClient;
   const creds = { key: "k", secret: "s", mode: "live" as const };
-  const account = { equity: "30", last_equity: "30", cash: "30", buying_power: "30", currency: "USD", daytrade_count: 0 };
+  const account = { equity: "30", last_equity: "30", cash: "30", buying_power: "30", currency: "USD", daytrade_count: 0, options_trading_level: 2, options_approved_level: 2 };
   const MON_11 = Date.parse("2026-11-16T16:00:00Z");
   const FRI_1540 = Date.parse("2026-11-20T20:39:00Z");
   const OPEN = { isOpen: true, nextClose: Date.parse("2026-11-16T21:00:00Z") };
@@ -221,6 +222,18 @@ describe("optionPlanPass", () => {
     const big = { ...account, equity: "3000", last_equity: "3000", cash: "3000" };
     await optionPlanPass(supabase, creds, big, [], OPEN, [line()], new Set(), Date.now() + 30_000, MON_11);
     expect(alpaca.placeOrder).not.toHaveBeenCalled();
+  });
+
+  it("live buys nothing below options level 2, or when the broker reports no level", async () => {
+    const r = await optionPlanPass(supabase, creds, { ...account, options_trading_level: 1, options_approved_level: 1 }, [], OPEN, [line()], new Set(), Date.now() + 30_000, MON_11);
+    expect(alpaca.placeOrder).not.toHaveBeenCalled();
+    expect(r.held.join(" ")).toMatch(/options level is 1; buying calls and puts needs level 2/);
+    const { options_trading_level: _a, options_approved_level: _b, ...noLevel } = account;
+    void _a; void _b;
+    const r2 = await optionPlanPass(supabase, creds, noLevel, [], OPEN, [line()], new Set(), Date.now() + 30_000, MON_11);
+    expect(alpaca.placeOrder).not.toHaveBeenCalled();
+    expect(r2.held.join(" ")).toMatch(/options level is unknown/);
+    expect(optionsLevelOf({ ...account, options_trading_level: "3", options_approved_level: "2" } as never)).toBe(2);
   });
 
   it("buys no contract that fails the filter", async () => {
