@@ -96,6 +96,14 @@ export function chooseLiveContract(
     /** Open interest by contract; with `minOpenInterest`, a contract missing from it is not taken. */
     openInterest?: Map<string, number>;
     minOpenInterest?: number;
+    /**
+     * The strike to aim for (the setup's TP1, owner 2026-11-13: buy the call
+     * whose strike sits near where the move is expected to reach, cheaper for
+     * being out of the money, and sell early on a profit). When it lies on
+     * the trade's side of the price, the affordable contract whose strike is
+     * nearest it is taken instead of the one closest to the money.
+     */
+    strikeTarget?: number | null;
   },
 ): LiveContractPick | { reason: string } {
   const budget = q.budget;
@@ -131,8 +139,10 @@ export function chooseLiveContract(
   const out = (c: Cand) => (q.type === "call" ? c.strike - q.underlyingPrice : q.underlyingPrice - c.strike);
   // Closest to the money: delta nearest a half, else the strike nearest the stock.
   const allDeltas = cands.every((c) => c.delta != null);
+  const t = q.strikeTarget;
+  const aimed = t != null && Number.isFinite(t) && (q.type === "call" ? t > q.underlyingPrice : t < q.underlyingPrice);
   cands.sort((a, b) => {
-    const near = allDeltas ? Math.abs((a.delta as number) - 0.5) - Math.abs((b.delta as number) - 0.5) : Math.abs(out(a)) - Math.abs(out(b));
+    const near = aimed ? Math.abs(a.strike - (t as number)) - Math.abs(b.strike - (t as number)) : allDeltas ? Math.abs((a.delta as number) - 0.5) - Math.abs((b.delta as number) - 0.5) : Math.abs(out(a)) - Math.abs(out(b));
     if (Math.abs(near) > 1e-9) return near;
     return Math.abs(a.days - PREFERRED_DAYS) - Math.abs(b.days - PREFERRED_DAYS);
   });
