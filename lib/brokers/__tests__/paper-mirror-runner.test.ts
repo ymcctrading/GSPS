@@ -20,6 +20,10 @@ const liveConn = vi.hoisted(() => ({ readLiveAlpacaConnection: vi.fn(async () =>
 vi.mock("@/lib/brokers/live-creds", () => liveConn);
 const momo = vi.hoisted(() => ({ momentumPass: vi.fn(async () => ({ placed: 0, held: [] as string[], errors: [] as string[] })) }));
 vi.mock("@/lib/brokers/live-momentum", () => momo);
+const plan = vi.hoisted(() => ({ optionPlanPass: vi.fn(async () => ({ placed: 0, held: [] as string[], errors: [] as string[] })) }));
+vi.mock("@/lib/brokers/option-plan", () => plan);
+const pm = vi.hoisted(() => ({ readPlanScores: vi.fn(async () => ({ scores: new Map<string, number>([["LOW:bullish", 8]]), error: null as string | null })) }));
+vi.mock("@/lib/automation/portfolio-manager", () => pm);
 
 import { runLiveMirror, runPaperMirror } from "@/lib/brokers/paper-mirror";
 
@@ -368,22 +372,38 @@ describe("runPaperMirror", () => {
     expect(alpaca.closePosition).toHaveBeenCalledWith(expect.anything(), "ETHUSD", 0.003325);
   });
 
-  it("runs momentum on paper as practice at $10; live waits for the owner's plan", async () => {
+  it("runs the options plan on both accounts (paper at $10); momentum only manages what it holds", async () => {
     liveSetup({ daytrade_count: 0 });
-    await runLiveMirror(fakeSupabase({}).client);
-    expect(momo.momentumPass).not.toHaveBeenCalled();
+    const live = fakeSupabase({ positions: [{ ...liveOpen, opened_at: liveOpened }], orders: [{ symbol: "LOW", created_at: liveOpened }] }).client;
+    await runLiveMirror(live);
+    expect(momo.momentumPass).toHaveBeenLastCalledWith(
+      live, expect.objectContaining({ mode: "live" }), expect.anything(), expect.anything(), expect.objectContaining({ isOpen: true }), expect.any(Set), expect.any(Number), expect.any(Number), { mode: "live", entries: false },
+    );
+    expect(plan.optionPlanPass).toHaveBeenLastCalledWith(
+      live, expect.objectContaining({ mode: "live" }), expect.anything(), expect.anything(), expect.objectContaining({ isOpen: true }),
+      [expect.objectContaining({ symbol: "LOW", side: "long", automated: true, score: 8 })], expect.any(Set), expect.any(Number), expect.any(Number), { mode: "live" },
+    );
     const paper = fakeSupabase({}).client;
     await runPaperMirror(paper);
-    expect(momo.momentumPass).toHaveBeenCalledWith(
-      paper, expect.objectContaining({ mode: "paper" }), expect.anything(), [], expect.objectContaining({ isOpen: true }), new Set(), expect.any(Number), expect.any(Number), { mode: "paper", fixedBudget: 10 },
+    expect(momo.momentumPass).toHaveBeenLastCalledWith(
+      paper, expect.objectContaining({ mode: "paper" }), expect.anything(), [], expect.objectContaining({ isOpen: true }), new Set(), expect.any(Number), expect.any(Number), { mode: "paper", fixedBudget: 10, entries: false },
+    );
+    expect(plan.optionPlanPass).toHaveBeenLastCalledWith(
+      paper, expect.objectContaining({ mode: "paper" }), expect.anything(), [], expect.objectContaining({ isOpen: true }), [], new Set(), expect.any(Number), expect.any(Number), { mode: "paper", fixedBudget: 10 },
     );
   });
 
-  it("paper: a momentum failure never fails the run", async () => {
-    momo.momentumPass.mockRejectedValueOnce(new Error("movers down"));
+  it("an unreadable score stops the plan pass, and a failure never fails the run", async () => {
+    pm.readPlanScores.mockResolvedValueOnce({ scores: new Map(), error: "db down" });
+    plan.optionPlanPass.mockClear();
     const r = await runPaperMirror(fakeSupabase({}).client);
     expect(r.ran).toBe(true);
-    expect(r.errors.join(" ")).toMatch(/momentum: movers down/);
+    expect(plan.optionPlanPass).not.toHaveBeenCalled();
+    expect(r.errors.join(" ")).toMatch(/option plan: scores: db down/);
+    momo.momentumPass.mockRejectedValueOnce(new Error("orders down"));
+    const r2 = await runPaperMirror(fakeSupabase({}).client);
+    expect(r2.ran).toBe(true);
+    expect(r2.errors.join(" ")).toMatch(/option plan: orders down/);
   });
 
   it("live: a stock trade is skipped and recorded with the reason", async () => {
