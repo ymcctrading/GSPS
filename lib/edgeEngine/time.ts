@@ -199,14 +199,36 @@ function fromPivot(ctx: TimeContext, known: Pivot[], p: Pivot, out: TimeCandidat
 
 /** Goertzel power of `x` at period `per` (bars). */
 export function goertzel(x: ArrayLike<number>, per: number): { power: number; phase: number } {
-  const w = (2 * Math.PI) / per;
+  const { cos, sin } = trigTable(per, x.length);
   let re = 0;
   let im = 0;
   for (let i = 0; i < x.length; i++) {
-    re += x[i] * Math.cos(w * i);
-    im -= x[i] * Math.sin(w * i);
+    re += x[i] * cos[i];
+    im -= x[i] * sin[i];
   }
   return { power: re * re + im * im, phase: Math.atan2(im, re) };
+}
+
+/**
+ * cos(w·i) and sin(w·i) for i < n at w = 2π/per, computed once a process and reused: the same values the loop
+ * computed inline, so every result is unchanged (dominantCycles calls this for 121 periods at every bar it reads).
+ */
+const trigTables = new Map<string, { cos: Float64Array; sin: Float64Array }>();
+function trigTable(per: number, n: number): { cos: Float64Array; sin: Float64Array } {
+  const key = `${per}|${n}`;
+  let t = trigTables.get(key);
+  if (!t) {
+    const w = (2 * Math.PI) / per;
+    const cos = new Float64Array(n);
+    const sin = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      cos[i] = Math.cos(w * i);
+      sin[i] = Math.sin(w * i);
+    }
+    t = { cos, sin };
+    trigTables.set(key, t);
+  }
+  return t;
 }
 
 /**

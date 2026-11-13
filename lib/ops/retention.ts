@@ -60,3 +60,10 @@ export type RetainedTable = keyof typeof NOTIFICATION_RETENTION_DAYS;
  */
 export const CRON_HISTORY_RETENTION_DAYS = 30;
 
+/**
+ * The scheduled-call log (`gsps_ops.endpoint_calls`, migration 0153, not yet
+ * applied), pruned by its own 10-minute sweep. Read by hand when a job is
+ * questioned (the Nov 10 card run was asked about a day later, after pg_net's
+ * 6-hour copy was gone), so 30 days, as the cron run history. Engineering choice.
+ */
+export const ENDPOINT_CALL_RETENTION_DAYS = 30;
