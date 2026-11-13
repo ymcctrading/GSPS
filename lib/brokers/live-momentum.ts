@@ -15,8 +15,9 @@
  *
  * Each half-hour run in the session:
  * - Exits first. A contract held is sold once it is worth half what it cost
- *   (the premium is the whole risk, so this keeps half of it), and at the
- *   last run before the close; a resting day limit takes the +50% gain the
+ *   (the premium is the whole risk, so this keeps half of it), and in the
+ *   runs within 55 minutes of the close (the broker's clock, so a half day
+ *   closes early too); a resting day limit takes the +50% gain the
  *   owner named ($10 to $15). A same-day sell the day-trade rule would
  *   refuse is held to the next session.
  * - Then at most one entry, from 10:00 to 15:00 New York: the day's biggest
@@ -54,10 +55,17 @@ import { parseOccSymbol } from "@/lib/portfolio/occ";
 import { tradingDisabled } from "@/lib/trade/kill-switch";
 
 export const MOMENTUM = {
-  /** New York minutes: entries from 10:00 to 15:00, close-out from 15:40. */
+  /** New York minutes: entries from 10:00 to 15:00. */
   entryFrom: 10 * 60,
   entryUntil: 15 * 60,
-  closeOutFrom: 15 * 60 + 35,
+  /** No entry this close to the session's close (a half day ends early). */
+  entryStopsBeforeCloseMin: 80,
+  /**
+   * Close-out begins this close to the session's close: on the half-hour
+   * schedule that is two runs (about 3:10 and 3:40 on a full day), so one
+   * refused or raced sell is tried again before the bell.
+   */
+  closeOutBeforeCloseMin: 55,
   minPrice: 5,
   minMovePct: 5,
   /** Still running: within this fraction of the day's high (riser) or low (faller). */
@@ -68,7 +76,8 @@ export const MOMENTUM = {
   cut: 0.5,
   maxOpen: 3,
   maxEntriesADay: 3,
-  minDays: 1,
+  /** Never a contract that expires the next session (a hold overnight would ride it into expiry). */
+  minDays: 2,
   maxDays: 21,
   /** Movers whose chains are read in one run, strongest first. */
   chainsPerRun: 5,
@@ -150,11 +159,13 @@ export function takeProfitPrice(avgEntry: number): number {
 export function momentumExit(p: {
   avgEntry: number;
   current: number;
-  minutes: number;
+  /** Minutes to the session's close (the broker's clock); not finite reads as closing. */
+  toClose: number;
   openedToday: boolean;
   sameDaySellOk: boolean;
 }): "cut" | "close_out" | "held_for_day_trades" | null {
-  const why = Number.isFinite(p.current) && p.avgEntry > 0 && p.current <= p.avgEntry * (1 - MOMENTUM.cut) ? "cut" : p.minutes >= MOMENTUM.closeOutFrom ? "close_out" : null;
+  const closing = !(p.toClose > MOMENTUM.closeOutBeforeCloseMin);
+  const why = Number.isFinite(p.current) && p.avgEntry > 0 && p.current <= p.avgEntry * (1 - MOMENTUM.cut) ? "cut" : closing ? "close_out" : null;
   if (!why) return null;
   if (p.openedToday && !p.sameDaySellOk) return "held_for_day_trades";
   return why;
@@ -167,6 +178,8 @@ export function nyWeekday(ms: number): number {
 
 export interface MomentumGateInput {
   minutes: number;
+  /** Minutes to the session's close. */
+  toClose: number;
   /** New York weekday, 0 Sunday to 6 Saturday. */
   weekday: number;
   marketOpen: boolean;
@@ -176,8 +189,8 @@ export interface MomentumGateInput {
   dayTrades: number;
   openContracts: number;
   boughtToday: number;
-  /** Contracts bought today and still held: each needs a day trade to sell today. */
-  heldFromToday: number;
+  /** Day trades still free for a same-day sell after those already spoken for (Infinity at $25,000 and over). */
+  dayTradesFree: number;
 }
 
 /**
@@ -189,13 +202,15 @@ export interface MomentumGateInput {
 export function momentumEntryHold(g: MomentumGateInput): string | null {
   if (g.halted) return "Trading is halted.";
   if (!g.marketOpen) return "Market closed.";
-  if (g.minutes < MOMENTUM.entryFrom || g.minutes >= MOMENTUM.entryUntil) return "Outside the entry window (10:00 to 15:00 New York).";
+  if (g.minutes < MOMENTUM.entryFrom || g.minutes >= MOMENTUM.entryUntil || !(g.toClose >= MOMENTUM.entryStopsBeforeCloseMin)) {
+    return "Outside the entry window (10:00 to 15:00 New York, and not within 80 minutes of the close).";
+  }
   if (!(g.equity >= MOMENTUM_EQUITY_FLOOR)) return `Account under the $${MOMENTUM_EQUITY_FLOOR} floor.`;
   if (!(g.lastEquity > 0) || (g.equity - g.lastEquity) / g.lastEquity <= -MOMENTUM_DAY_LOSS_HOLD) return `Account down ${MOMENTUM_DAY_LOSS_HOLD * 100}% or more today.`;
   if (g.openContracts >= MOMENTUM.maxOpen) return `${MOMENTUM.maxOpen} contracts already open.`;
   if (g.boughtToday >= MOMENTUM.maxEntriesADay) return `${MOMENTUM.maxEntriesADay} bought today already.`;
-  if (g.equity < PDT_EQUITY && !(g.dayTrades + g.heldFromToday < PDT_MAX) && g.weekday === 5) {
-    return `Day trades used (${Number.isFinite(g.dayTrades) ? g.dayTrades : "unknown"} of ${PDT_MAX} in five sessions), and a Friday buy must be sold today.`;
+  if (!(g.dayTradesFree >= 1) && g.weekday === 5) {
+    return `Day trades used (${Number.isFinite(g.dayTrades) ? g.dayTrades : "unknown"} of ${PDT_MAX} in five sessions, with today's holdings), and a Friday buy must be sold today.`;
   }
   return null;
 }
@@ -261,7 +276,7 @@ export async function momentumPass(
   creds: AlpacaCreds,
   account: AlpacaAccount,
   positions: AlpacaPosition[],
-  marketOpen: boolean,
+  clock: { isOpen: boolean; nextClose: number },
   mirrorSymbols: Set<string>,
   deadline: number,
   now = Date.now(),
@@ -269,22 +284,39 @@ export async function momentumPass(
 ): Promise<MomentumResult> {
   const mode = opts.mode ?? "live";
   const result: MomentumResult = { placed: 0, held: [], errors: [] };
+  const marketOpen = clock.isOpen;
   if (!marketOpen) return result;
   const minutes = nyMinutes(now);
+  const toClose = (clock.nextClose - now) / 60_000;
   const today = nyDate(now);
   const equity = num(account.equity);
   const lastEquity = num(account.last_equity);
   const dayTrades = num(account.daytrade_count ?? NaN);
-  const sameDaySellOk = equity >= PDT_EQUITY || dayTrades < PDT_MAX;
 
   // Momentum's contracts: every option the account holds that the mirror doesn't own.
   const held = positions.filter((p) => parseOccSymbol(p.symbol) && !mirrorSymbols.has(p.symbol) && num(p.qty) > 0);
   const recent = await listOrders(creds, { since: new Date(now - 30 * 86_400_000), maxPages: 1 });
   const momoBuys = recent.filter((o) => o.side === "buy" && (o.client_order_id ?? "").startsWith(CLIENT_PREFIX) && num(o.filled_qty) > 0);
-  const boughtTodaySyms = new Set(momoBuys.filter((o) => o.filled_at && nyDate(Date.parse(o.filled_at)) === today).map((o) => o.symbol));
+  // A buy part filled then cancelled may carry no fill time: its last update dates it.
+  const boughtAt = (o: AlpacaOrder) => o.filled_at ?? o.updated_at ?? o.submitted_at ?? o.created_at ?? null;
+  const boughtTodaySyms = new Set(momoBuys.filter((o) => { const t = boughtAt(o); return t != null && nyDate(Date.parse(t)) === today; }).map((o) => o.symbol));
   const tradeIdFor = (symbol: string) => tradeIdOf(momoBuys.find((o) => o.symbol === symbol)?.client_order_id) ?? randomUUID();
-  const open = await getOpenOrdersNested(creds);
+  let open = await getOpenOrdersNested(creds);
   const restingSells = (symbol: string) => open.filter((o) => o.symbol === symbol && o.side === "sell");
+
+  // Day trades: each contract bought today that will be sold today spends
+  // one. Those with a sell already resting are counted first; the rest are
+  // given a same-day sell only while one is free.
+  let free = equity >= PDT_EQUITY ? Infinity : Number.isFinite(dayTrades) ? Math.max(0, PDT_MAX - dayTrades) : 0;
+  const sameDay = held.filter((p) => boughtTodaySyms.has(p.symbol));
+  const mayDayTrade = new Set<string>();
+  for (const p of [...sameDay].sort((a, b) => Number(restingSells(b.symbol).length > 0) - Number(restingSells(a.symbol).length > 0))) {
+    if (free >= 1) {
+      mayDayTrade.add(p.symbol);
+      free -= 1;
+    }
+  }
+  const sellOk = (symbol: string) => !boughtTodaySyms.has(symbol) || mayDayTrade.has(symbol);
 
   // Exits, then the take-profit on what stays.
   const stillHeld: AlpacaPosition[] = [];
@@ -294,16 +326,28 @@ export async function momentumPass(
     const current = num(p.current_price);
     const qty = num(p.qty);
     const openedToday = boughtTodaySyms.has(p.symbol);
-    const exit = momentumExit({ avgEntry: avg, current, minutes, openedToday, sameDaySellOk });
+    const exit = momentumExit({ avgEntry: avg, current, toClose, openedToday, sameDaySellOk: sellOk(p.symbol) });
     const id = tradeIdFor(p.symbol);
     try {
       if (exit === "held_for_day_trades") {
         result.held.push(`${p.symbol}: sell held to the next session (day trades used).`);
         stillHeld.push(p);
       } else if (exit) {
-        for (const o of restingSells(p.symbol)) await cancelOrder(creds, o.id).catch(() => undefined);
-        await sleep(300);
-        const out = (await closePosition(creds, p.symbol)) as AlpacaOrder;
+        // The resting take-profit reserves the contracts: each cancel is
+        // confirmed before the sell, which is tried twice.
+        for (const o of restingSells(p.symbol)) {
+          await cancelOrder(creds, o.id).catch(() => undefined);
+          const c = await settle(creds, o.id).catch(() => null);
+          if (c && c.status === "filled") throw new Error(`take-profit ${o.id} filled before the sell; nothing more to sell.`);
+        }
+        open = open.filter((o) => o.symbol !== p.symbol);
+        let out: AlpacaOrder;
+        try {
+          out = (await closePosition(creds, p.symbol)) as AlpacaOrder;
+        } catch {
+          await sleep(1000);
+          out = (await closePosition(creds, p.symbol)) as AlpacaOrder;
+        }
         result.placed++;
         const s = await settle(creds, out.id).catch(() => out);
         await logEvent(supabase, {
@@ -321,8 +365,8 @@ export async function momentumPass(
   for (const p of stillHeld) {
     if (Date.now() > deadline) break;
     if (restingSells(p.symbol).length > 0) continue;
-    // A same-day take-profit is a day trade: none rests while the rule would refuse it.
-    if (boughtTodaySyms.has(p.symbol) && !sameDaySellOk) continue;
+    // A same-day take-profit is a day trade: none rests unless one is free for it.
+    if (!sellOk(p.symbol)) continue;
     const avg = num(p.avg_entry_price);
     if (!(avg > 0)) continue;
     const id = tradeIdFor(p.symbol);
@@ -339,10 +383,9 @@ export async function momentumPass(
   }
 
   // At most one entry.
-  const heldFromToday = stillHeld.filter((p) => boughtTodaySyms.has(p.symbol)).length;
   const hold = momentumEntryHold({
-    minutes, weekday: nyWeekday(now), marketOpen, halted: tradingDisabled(), equity, lastEquity, dayTrades,
-    openContracts: stillHeld.length, boughtToday: boughtTodaySyms.size, heldFromToday,
+    minutes, toClose, weekday: nyWeekday(now), marketOpen, halted: tradingDisabled(), equity, lastEquity, dayTrades,
+    openContracts: stillHeld.length, boughtToday: boughtTodaySyms.size, dayTradesFree: free,
   });
   if (hold) {
     result.held.push(`momentum: ${hold}`);
@@ -382,6 +425,7 @@ export async function momentumPass(
         continue;
       }
       const id = randomUUID();
+      if (Date.now() > deadline) break;
       const order = (await placeOrder(creds, { symbol: c.symbol, side: "buy", qty: c.qty, type: "limit", limitPrice: c.limitPrice, clientOrderId: `${CLIENT_PREFIX}${id}` })) as AlpacaOrder;
       result.placed++;
       let s = await settle(creds, order.id);
@@ -397,7 +441,9 @@ export async function momentumPass(
         ...fills(s),
       }, mode);
       const got = num(s.filled_qty);
-      if (got > 0 && sameDaySellOk) {
+      // Its take-profit rests today only with a day trade free for it;
+      // otherwise the next session's run places it.
+      if (got > 0 && free >= 1) {
         const tp = takeProfitPrice(num(s.filled_avg_price));
         const tpOrder = (await placeOrder(creds, { symbol: c.symbol, side: "sell", qty: got, type: "limit", limitPrice: tp, clientOrderId: `${CLIENT_PREFIX}tp-${id}-${now}` })) as AlpacaOrder;
         result.placed++;

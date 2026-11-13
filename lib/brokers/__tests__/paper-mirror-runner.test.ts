@@ -368,20 +368,20 @@ describe("runPaperMirror", () => {
     expect(alpaca.closePosition).toHaveBeenCalledWith(expect.anything(), "ETHUSD", 0.003325);
   });
 
-  it("runs the owner's momentum pass after the mirror: live at its own size, paper as practice at $10", async () => {
+  it("runs momentum on paper as practice at $10; live waits for the owner's plan", async () => {
     liveSetup({ daytrade_count: 0 });
-    const { client } = fakeSupabase({});
-    await runLiveMirror(client);
-    expect(momo.momentumPass).toHaveBeenCalledWith(client, expect.objectContaining({ mode: "live" }), expect.anything(), [], true, new Set(), expect.any(Number), expect.any(Number), { mode: "live" });
+    await runLiveMirror(fakeSupabase({}).client);
+    expect(momo.momentumPass).not.toHaveBeenCalled();
     const paper = fakeSupabase({}).client;
     await runPaperMirror(paper);
-    expect(momo.momentumPass).toHaveBeenLastCalledWith(paper, expect.objectContaining({ mode: "paper" }), expect.anything(), [], true, new Set(), expect.any(Number), expect.any(Number), { mode: "paper", fixedBudget: 10 });
+    expect(momo.momentumPass).toHaveBeenCalledWith(
+      paper, expect.objectContaining({ mode: "paper" }), expect.anything(), [], expect.objectContaining({ isOpen: true }), new Set(), expect.any(Number), expect.any(Number), { mode: "paper", fixedBudget: 10 },
+    );
   });
 
-  it("live: a momentum failure never fails the run", async () => {
-    liveSetup({ daytrade_count: 0 });
+  it("paper: a momentum failure never fails the run", async () => {
     momo.momentumPass.mockRejectedValueOnce(new Error("movers down"));
-    const r = await runLiveMirror(fakeSupabase({}).client);
+    const r = await runPaperMirror(fakeSupabase({}).client);
     expect(r.ran).toBe(true);
     expect(r.errors.join(" ")).toMatch(/momentum: movers down/);
   });

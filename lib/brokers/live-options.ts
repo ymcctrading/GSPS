@@ -52,15 +52,26 @@ export interface LiveContractPick {
 
 const daysBetween = (fromDay: string, toDay: string) => Math.round((Date.parse(`${toDay}T00:00:00Z`) - Date.parse(`${fromDay}T00:00:00Z`)) / DAY_MS);
 
-/** Option prices tick in cents up to $3, in nickels above (the standard increments). */
-export function floorTick(price: number): number {
-  const tick = price >= 3 ? 0.05 : 0.01;
-  return Number((Math.floor(price / tick + 1e-7) * tick).toFixed(2));
+/**
+ * The coarse option tick, valid on every class: a nickel under $3, a dime
+ * above (penny-pilot classes also take cents, which this never needs).
+ */
+const coarseTick = (price: number) => (price >= 3 ? 0.1 : 0.05);
+const roundDown = (price: number, tick: number) => Number((Math.floor(price / tick + 1e-7) * tick).toFixed(2));
+
+/**
+ * The most to bid without passing `price`: on the coarse tick when that still
+ * covers the ask, else in cents (only a penny-pilot class quotes off the
+ * nickel, so cents are valid there).
+ */
+export function floorTick(price: number, ask = 0): number {
+  const coarse = roundDown(price, coarseTick(price));
+  return coarse >= ask && coarse > 0 ? coarse : roundDown(price, 0.01);
 }
 
-/** `price` rounded up to the option tick. */
+/** `price` rounded up to the coarse tick (valid on every class). */
 export function ceilTick(price: number): number {
-  const tick = price >= 3 ? 0.05 : 0.01;
+  const tick = coarseTick(price);
   return Number((Math.ceil(price / tick - 1e-7) * tick).toFixed(2));
 }
 
@@ -92,7 +103,7 @@ export function chooseLiveContract(
     if (cost > budget) continue;
     const qty = Math.floor(budget / cost + 1e-9);
     if (qty < 1) continue;
-    const limitPrice = floorTick(budget / (100 * qty));
+    const limitPrice = floorTick(budget / (100 * qty), ask);
     if (!(limitPrice >= ask)) continue;
     const d = s.greeks?.delta;
     cands.push({ symbol: symbol.toUpperCase(), expiration: p.expiration, strike: p.strike, ask, qty, limitPrice, delta: typeof d === "number" && Number.isFinite(d) ? Math.abs(d) : null, days });
@@ -102,9 +113,10 @@ export function chooseLiveContract(
   }
   // Distance out of the money, in the stock's price: negative is in the money.
   const out = (c: Cand) => (q.type === "call" ? c.strike - q.underlyingPrice : q.underlyingPrice - c.strike);
+  // Closest to the money: delta nearest a half, else the strike nearest the stock.
   const allDeltas = cands.every((c) => c.delta != null);
   cands.sort((a, b) => {
-    const near = allDeltas ? (b.delta as number) - (a.delta as number) : out(a) - out(b);
+    const near = allDeltas ? Math.abs((a.delta as number) - 0.5) - Math.abs((b.delta as number) - 0.5) : Math.abs(out(a)) - Math.abs(out(b));
     if (Math.abs(near) > 1e-9) return near;
     return Math.abs(a.days - PREFERRED_DAYS) - Math.abs(b.days - PREFERRED_DAYS);
   });
