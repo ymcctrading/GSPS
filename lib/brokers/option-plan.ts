@@ -109,9 +109,33 @@ export const OPTION_PLAN = {
  * the paper account take some same day trades today, just to test"). On
  * these New York dates paper may enter on any weekday, follows the day's
  * Execute-grade setups as well as the app's own trades (the runner adds
- * them), and sells everything before the close. Never read for live.
+ * them), may buy a contract expiring that day, needs momentum to enter
+ * (`sameDayMomentum`), and sells everything before the close. Live has its
+ * own list, `LIVE_SAME_DAY_DAYS`.
  */
 export const PAPER_TEST_DAYS: readonly string[] = ["2026-11-13"];
+/**
+ * Same-day days on the live account (owner, 2026-11-13, asked whether live
+ * should buy that day's expiring contracts too: "if there is clear evidence
+ * that price is rising with momentum. then yes"). As a paper test day, plus:
+ * every entry needs momentum (`sameDayMomentum`), and an entry keeps one day
+ * trade beyond the emergency reserve so the next week can still trade.
+ */
+export const LIVE_SAME_DAY_DAYS: readonly string[] = ["2026-11-13"];
+/** Engineering choice: "still running" is within this fraction of the day's high (a rise) or low (a fall). */
+const SAME_DAY_RUNNING = 0.01;
+
+/**
+ * Clear momentum on a same-day day: price has cleared the setup's entry
+ * level in the trade's direction and is still running (within 1% of the
+ * day's high for a rise, its low for a fall).
+ */
+export function sameDayMomentum(side: "long" | "short", entry: number | null | undefined, r: { price: number; high: number; low: number } | undefined): boolean {
+  if (!r || !(r.price > 0) || entry == null || !(entry > 0)) return false;
+  return side === "long"
+    ? r.price > entry && r.price >= r.high * (1 - SAME_DAY_RUNNING)
+    : r.price < entry && r.price <= r.low * (1 + SAME_DAY_RUNNING);
+}
 /** Engineering choice: a same-day test buys nothing in the session's last hour. */
 const PAPER_TEST_ENTRY_STOPS_BEFORE_CLOSE_MIN = 60;
 
@@ -132,6 +156,8 @@ export interface PlanStockLine {
   assetClass?: string;
   /** The setup's current score out of nine, in the trade's direction (null when unread). */
   score: number | null;
+  /** The setup's entry level (the level price must clear), when known. */
+  entry?: number | null;
 }
 
 export type PlanExitReason = "trade_closed" | "stock_stop" | "cut" | "break_even" | "tp1" | "close_out";
@@ -341,7 +367,11 @@ export async function optionPlanPass(
   opts: { mode?: "paper" | "live"; fixedBudget?: number } = {},
 ): Promise<PlanResult> {
   const mode = opts.mode ?? "live";
-  const sameDay = mode === "paper" && PAPER_TEST_DAYS.includes(nyDate(now));
+  const sameDay = (mode === "paper" ? PAPER_TEST_DAYS : LIVE_SAME_DAY_DAYS).includes(nyDate(now));
+  // A same-day test may buy a contract expiring that day (owner, 2026-11-13:
+  // "because today is the end of the week, we can find some sameday
+  // contracts that should qualify"); it is sold before the close.
+  const minDays = sameDay ? 0 : OPTION_PLAN.minDays;
   const result: PlanResult = { placed: 0, held: [], errors: [] };
   if (!clock.isOpen) return result;
   const minutes = nyMinutes(now);
@@ -388,11 +418,23 @@ export async function optionPlanPass(
   for (const p of held) if (boughtToday.has(p.symbol) && restingSells(p.symbol).length > 0) free -= 1;
   free = Math.max(free, 0);
 
+  // Each contract is valued at the middle of its quote: on a wide spread the
+  // bid alone would read a fresh buy as half its cost (and cut it), and the
+  // last trade can be stale. The position's own price is the fallback.
+  const quotes = held.length > 0
+    ? ((await fetchOptionSnapshots({ symbols: held.map((p) => p.symbol) }).catch(() => ({}))) as Record<string, ChainSnapshot>)
+    : {};
+  const valueOf = (p: AlpacaPosition) => {
+    const q = quotes[p.symbol]?.latestQuote;
+    const ask = num(q?.ap);
+    const bid = num(q?.bp);
+    return ask > 0 && bid > 0 && bid <= ask ? (ask + bid) / 2 : num(p.current_price);
+  };
   const plans = held.map((p) => {
     const id = tradeIdFor(p.symbol);
     const line = id ? lineById.get(id) : undefined;
     const avg = num(p.avg_entry_price);
-    const current = num(p.current_price);
+    const current = valueOf(p);
     const u = parseOccSymbol(p.symbol)?.underlying ?? "";
     const stock = line ? { side: line.side, price: num(ranges.get(u)?.price), stop: line.stop, tp1: line.tp1 } : null;
     const reason = planExit({ avgEntry: avg, current, armed: !!id && armed.has(id), stock, toClose, weekday, sameDay });
@@ -413,7 +455,8 @@ export async function optionPlanPass(
         continue;
       }
       if (boughtToday.has(p.symbol) && restingSells(p.symbol).length === 0) {
-        const need = EMERGENCY_EXITS.has(reason) ? 1 : 1 + OPTION_PLAN.dayTradeReserve;
+        // On a same-day day the close-out is a must: the contract may expire today.
+        const need = EMERGENCY_EXITS.has(reason) || (sameDay && reason === "close_out") ? 1 : 1 + OPTION_PLAN.dayTradeReserve;
         if (!(free >= need)) {
           result.held.push(`${p.symbol}: ${reason} sale held to the next session (day trades).`);
           stillHeld.push(x);
@@ -478,7 +521,7 @@ export async function optionPlanPass(
   const sameDayUnreserved = [...heldSyms].filter((sym) => boughtToday.has(sym) && restingSells(sym).length === 0).length;
   const hold = planEntryHold({
     minutes, toClose, weekday, today, marketOpen: clock.isOpen, halted: tradingDisabled(), equity, lastEquity: num(account.last_equity),
-    openContracts: heldSyms.size, dayTradesFree: free - sameDayUnreserved, lossStreakDate: lossStreakDate(recent, heldSyms), sameDay,
+    openContracts: heldSyms.size, dayTradesFree: free - sameDayUnreserved - (sameDay && mode === "live" ? 1 : 0), lossStreakDate: lossStreakDate(recent, heldSyms), sameDay,
   });
   if (hold) {
     result.held.push(`plan: ${hold}`);
@@ -488,12 +531,11 @@ export async function optionPlanPass(
   // The app's own trades, Execute grade, opened within the hour, not yet carried.
   const carried = new Set(planBuys.map((o) => planTradeId(o.client_order_id)).filter(Boolean));
   const heldUnderlyings = new Set([...heldSyms].map((sym) => parseOccSymbol(sym)?.underlying ?? ""));
-  const picks = lines
+  let picks = lines
     .filter((l) => l.automated && (l.assetClass ?? "us_equity") === "us_equity" && l.stop != null && !carried.has(l.positionId))
     .filter((l) => now - Date.parse(l.openedAt) <= OPTION_PLAN.followWindowMs && !heldUnderlyings.has(l.symbol.toUpperCase()))
     .filter((l) => l.score != null && l.score >= OPTION_PLAN.minScore)
-    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || Date.parse(b.openedAt) - Date.parse(a.openedAt))
-    .slice(0, OPTION_PLAN.chainsPerRun);
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || Date.parse(b.openedAt) - Date.parse(a.openedAt));
   if (picks.length === 0) {
     result.held.push("plan: no Execute-grade trade opened by the app within the hour.");
     return result;
@@ -501,6 +543,15 @@ export async function optionPlanPass(
   const reasons: string[] = [];
   try {
     const prices = await fetchDayRanges(picks.map((l) => l.symbol.toUpperCase()));
+    if (sameDay) {
+      const moving = picks.filter((l) => sameDayMomentum(l.side, l.entry, prices.get(l.symbol.toUpperCase())));
+      if (moving.length === 0) {
+        result.held.push(`plan: no setup moving with clear momentum (${picks.map((l) => l.symbol).join(", ")}).`.slice(0, 400));
+        return result;
+      }
+      picks = moving;
+    }
+    picks = picks.slice(0, OPTION_PLAN.chainsPerRun);
     for (const l of picks) {
       if (Date.now() > deadline) break;
       const sym = l.symbol.toUpperCase();
@@ -510,7 +561,7 @@ export async function optionPlanPass(
         continue;
       }
       const type = l.side === "long" ? "call" : "put";
-      const start = nyDate(now + OPTION_PLAN.minDays * 86_400_000);
+      const start = nyDate(now + minDays * 86_400_000);
       const end = nyDate(now + OPTION_PLAN.maxDays * 86_400_000);
       const band = OPTION_PLAN.strikeBand;
       const lo = type === "call" ? price * (1 - band / 5) : price * (1 - band);
@@ -528,7 +579,7 @@ export async function optionPlanPass(
         if (Number.isFinite(n)) oi.set(c.symbol.toUpperCase(), n);
       }
       const c = chooseLiveContract(chain, {
-        underlying: sym, type, underlyingPrice: price, budget, today, minDays: OPTION_PLAN.minDays, maxDays: OPTION_PLAN.maxDays,
+        underlying: sym, type, underlyingPrice: price, budget, today, minDays, maxDays: OPTION_PLAN.maxDays,
         maxSpreadFrac: planSpreadLimit(budget), strikeTarget: l.tp1, openInterest: oi, minOpenInterest: OPTION_PLAN.minOpenInterest,
       });
       if ("reason" in c) {
