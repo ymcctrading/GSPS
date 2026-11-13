@@ -6,6 +6,7 @@ const alpaca = vi.hoisted(() => ({
   getAccount: vi.fn(async () => ({ equity: "100000", last_equity: "100000", cash: "100000" }) as Record<string, unknown>),
   getPositions: vi.fn(async () => [] as unknown[]),
   placeOrder: vi.fn(),
+  placeSpreadOrder: vi.fn(async () => ({ id: "sp1", status: "new" })),
   placeExitOrder: vi.fn(),
   replaceOrder: vi.fn(),
   cancelOrder: vi.fn(async () => null),
@@ -426,6 +427,31 @@ describe("runPaperMirror", () => {
     } finally {
       plan.PAPER_TEST_DAYS.length = 0;
       plan.LIVE_SAME_DAY_DAYS.length = 0;
+    }
+  });
+
+  it("places the owner's paper idea once on its day, never on live", async () => {
+    vi.setSystemTime(Date.parse("2026-11-13T16:09:00Z"));
+    try {
+      alpaca.getOrderByClientId.mockResolvedValue(null);
+      const { client, ops } = fakeSupabase({});
+      await runPaperMirror(client);
+      expect(alpaca.placeSpreadOrder).toHaveBeenCalledTimes(1);
+      expect(alpaca.placeSpreadOrder).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+        clientOrderId: "gsps-idea-spy-780-785-20261127", qty: 1, limitPrice: 0.28,
+        legs: [expect.objectContaining({ symbol: "SPY261127C00780000", side: "buy" }), expect.objectContaining({ symbol: "SPY261127C00785000", side: "sell" })],
+      }));
+      expect(ops.some((o) => o.table === "paper_mirror_events" && (o.payload as { action: string }).action === "idea_open")).toBe(true);
+      // Already at the broker: not sent again.
+      alpaca.getOrderByClientId.mockResolvedValue({ id: "sp1", status: "new" });
+      await runPaperMirror(fakeSupabase({}).client);
+      expect(alpaca.placeSpreadOrder).toHaveBeenCalledTimes(1);
+      liveSetup({ daytrade_count: 0 });
+      alpaca.getOrderByClientId.mockResolvedValue(null);
+      await runLiveMirror(fakeSupabase({}).client);
+      expect(alpaca.placeSpreadOrder).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.setSystemTime(NOW);
     }
   });
 

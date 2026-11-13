@@ -213,6 +213,8 @@ export interface PlanGateInput {
   lossStreakDate: string | null;
   /** A same-day test day (paper only): any weekday, entries stop an hour before the close. */
   sameDay?: boolean;
+  /** The broker's options level for the account; under 2 it may not buy calls or puts. Unchecked when unset. */
+  optionsLevel?: number;
 }
 
 /** The next weekday after `day` (YYYY-MM-DD). */
@@ -242,12 +244,21 @@ export function planEntryHold(g: PlanGateInput): string | null {
   const cap = g.equity < OPTION_PLAN.smallAccount ? 1 : OPTION_PLAN.maxOpen;
   if (g.openContracts >= cap) return `${cap} trade${cap === 1 ? "" : "s"} already open${cap === 1 ? ` (under $${OPTION_PLAN.smallAccount})` : ""}.`;
   if (!(g.dayTradesFree >= OPTION_PLAN.dayTradeReserve)) return "No day trade free to keep in reserve for an emergency exit.";
+  if (g.optionsLevel != null && !(g.optionsLevel >= 2)) {
+    return `The account's options level is ${Number.isFinite(g.optionsLevel) ? g.optionsLevel : "unknown"}; buying calls and puts needs level 2 (Alpaca: Account, Options).`;
+  }
   return null;
 }
 
 /** The widest spread taken, as a fraction of the ask, at this trade budget. */
 export function planSpreadLimit(budget: number): number {
   return budget < OPTION_PLAN.smallBudget - 1e-6 ? OPTION_PLAN.smallBudgetSpreadFrac : OPTION_PLAN.maxSpreadFrac;
+}
+
+/** The account's options level: the lower of its trading and approved levels, NaN when neither is reported. */
+export function optionsLevelOf(account: AlpacaAccount): number {
+  const levels = [account.options_trading_level, account.options_approved_level].map((v) => num(v)).filter((n) => Number.isFinite(n));
+  return levels.length > 0 ? Math.min(...levels) : NaN;
 }
 
 /** The take-profit gain at this trade budget: +50% while small, else +100%. */
@@ -522,6 +533,8 @@ export async function optionPlanPass(
   const hold = planEntryHold({
     minutes, toClose, weekday, today, marketOpen: clock.isOpen, halted: tradingDisabled(), equity, lastEquity: num(account.last_equity),
     openContracts: heldSyms.size, dayTradesFree: free - sameDayUnreserved - (sameDay && mode === "live" ? 1 : 0), lossStreakDate: lossStreakDate(recent, heldSyms), sameDay,
+    // The live account's level is read; one the broker doesn't report fails closed. Paper is level 3.
+    optionsLevel: mode === "live" ? optionsLevelOf(account) : undefined,
   });
   if (hold) {
     result.held.push(`plan: ${hold}`);

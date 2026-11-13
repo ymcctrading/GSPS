@@ -258,6 +258,33 @@ export async function placeOrder(creds: AlpacaCreds, input: PlaceOrderInput) {
   return alpacaFetch(creds, "/v2/orders", { method: "POST", body: JSON.stringify(body) });
 }
 
+/** One leg of a multi-leg option order. */
+export interface SpreadLeg {
+  symbol: string;
+  side: "buy" | "sell";
+  positionIntent: "buy_to_open" | "sell_to_open" | "buy_to_close" | "sell_to_close";
+}
+
+/**
+ * A multi-leg option order (Alpaca `mleg`, options level 3): the legs fill
+ * together, one ratio each, at a net limit (a debit is positive). Day only.
+ */
+export async function placeSpreadOrder(
+  creds: AlpacaCreds,
+  input: { legs: SpreadLeg[]; qty: number; limitPrice: number; clientOrderId: string },
+) {
+  const body = {
+    order_class: "mleg",
+    qty: qtyString(input.qty),
+    type: "limit",
+    limit_price: String(input.limitPrice),
+    time_in_force: "day",
+    client_order_id: input.clientOrderId,
+    legs: input.legs.map((l) => ({ symbol: l.symbol, ratio_qty: "1", side: l.side, position_intent: l.positionIntent })),
+  };
+  return alpacaFetch(creds, "/v2/orders", { method: "POST", body: JSON.stringify(body) });
+}
+
 export interface ExitOrderInput {
   symbol: string;
   /** The side that *closes* the position: `sell` for a long. */
@@ -422,6 +449,9 @@ export interface AlpacaAccount {
   shorting_enabled?: boolean;
   /** Day trades in the last five sessions; under $25,000 a fourth is refused. */
   daytrade_count?: number | string;
+  /** The options level the account may trade at (0 none, 1 covered calls and cash-secured puts, 2 buying calls and puts, 3 spreads). */
+  options_trading_level?: number | string;
+  options_approved_level?: number | string;
 }
 
 export interface AlpacaPosition {

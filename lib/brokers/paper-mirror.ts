@@ -62,6 +62,7 @@
  * are not figures the method gives.
  */
 
+import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   cancelOrder,
@@ -75,11 +76,13 @@ import {
   getPositions,
   placeExitOrder,
   placeOrder,
+  placeSpreadOrder,
   replaceOrder,
   type AlpacaCreds,
   type AlpacaOrder,
   type AlpacaPosition,
   type ExitOrderInput,
+  type SpreadLeg,
 } from "@/lib/brokers/alpaca";
 import { tradingDisabled } from "@/lib/trade/kill-switch";
 import { OWNER_EMAILS } from "@/lib/auth/owner";
@@ -517,6 +520,63 @@ export async function readSimLines(supabase: SupabaseClient, userId: string): Pr
   });
 }
 
+/**
+ * The owner's own trade ideas, placed once on the paper account as practice
+ * (owner, 2026-11-13: SPY "setting up to clear 780 within the next two
+ * weeks", then "implement this strategy on the practice account"). Each goes
+ * on its New York date only, as a day limit, once: a client order id the
+ * broker already holds is not sent again. Nothing manages them after (no
+ * automated exit; the owner decides), and no other pass touches them.
+ */
+export const PAPER_IDEAS: readonly {
+  id: string;
+  day: string;
+  legs: SpreadLeg[];
+  qty: number;
+  limitPrice: number;
+  note: string;
+}[] = [
+  {
+    id: "gsps-idea-spy-780-785-20261127",
+    day: "2026-11-13",
+    legs: [
+      { symbol: "SPY261127C00780000", side: "buy", positionIntent: "buy_to_open" },
+      { symbol: "SPY261127C00785000", side: "sell", positionIntent: "sell_to_open" },
+    ],
+    qty: 1,
+    limitPrice: 0.28,
+    note: "SPY to clear 780 within two weeks: buy the Nov 27 780 call, sell the Nov 27 785 call, net debit up to 0.28 ($28); pays up to $500 at 785 or above at expiry.",
+  },
+];
+
+async function placePaperIdeas(supabase: SupabaseClient, creds: AlpacaCreds, now: number): Promise<void> {
+  const today = nyDate(now);
+  for (const idea of PAPER_IDEAS) {
+    if (idea.day !== today) continue;
+    const existing = await getOrderByClientId(creds, idea.id);
+    if (existing) {
+      if (existing.status === "filled") {
+        const { data } = await supabase.from("paper_mirror_events").select("id").eq("mode", "paper").eq("action", "idea_filled").eq("broker_order_id", existing.id).limit(1);
+        if ((data ?? []).length === 0) {
+          await logIdea(supabase, idea, existing, "idea_filled", `Filled at a net ${existing.filled_avg_price ?? "?"}.`);
+        }
+      }
+      continue;
+    }
+    const order = (await placeSpreadOrder(creds, { legs: idea.legs, qty: idea.qty, limitPrice: idea.limitPrice, clientOrderId: idea.id })) as AlpacaOrder;
+    await logIdea(supabase, idea, order, "idea_open", idea.note);
+  }
+}
+
+async function logIdea(supabase: SupabaseClient, idea: (typeof PAPER_IDEAS)[number], o: AlpacaOrder, action: string, note: string): Promise<void> {
+  const { error } = await supabase.from("paper_mirror_events").insert({
+    mode: "paper", position_id: randomUUID(), symbol: idea.legs.map((l) => l.symbol).join("/"), side: "long", action,
+    qty: idea.qty, sim_price: idea.limitPrice, stop_price: null, broker_order_id: o.id, status: o.status, note,
+    ...(o.status === "filled" ? { fill_price: num(o.filled_avg_price), filled_qty: num(o.filled_qty), filled_at: o.filled_at ?? null } : {}),
+  });
+  if (error) throw new Error(`paper_mirror_events: ${error.message}`);
+}
+
 /** The owner's Execute-grade setups read in the last day, as plan lines (a same-day day only). */
 async function readTestSetups(supabase: SupabaseClient, userId: string): Promise<PlanStockLine[]> {
   const { data, error } = await supabase
@@ -902,6 +962,7 @@ async function runMirror(supabase: SupabaseClient, mode: MirrorMode): Promise<Mi
       result.held.push(...p.held);
       result.errors.push(...p.errors);
     })().catch((err) => result.errors.push(`option plan: ${err instanceof Error ? err.message : String(err)}`));
+    if (mode === "paper") await placePaperIdeas(supabase, planCreds, Date.now()).catch((err) => result.errors.push(`paper idea: ${err instanceof Error ? err.message : String(err)}`));
   } finally {
     await supabase.from("paper_mirror_lock").update({ held_until: new Date().toISOString() }).eq("id", lockId);
   }
