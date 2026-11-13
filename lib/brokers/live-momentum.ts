@@ -8,8 +8,10 @@
  *
  * This is the owner's own trading on his own account, by his word, and not
  * the platform's method: it reaches no scan, score, plan, member or replay.
- * It runs only inside the live mirror's run, on his connected live keys, and
- * stops with his Pause, `LIVE_MIRROR_DISABLED` or `TRADING_DISABLED`.
+ * It runs only inside the mirror's run: on his connected live keys (stopped
+ * by his Pause, `LIVE_MIRROR_DISABLED` or `TRADING_DISABLED`), and on his
+ * paper account as practice at the live account's size ("I thought I asked
+ * you to place practice option trades", 2026-11-13; `PAPER_MIRROR_DISABLED`).
  *
  * Each half-hour run in the session:
  * - Exits first. A contract held is sold once it is worth half what it cost
@@ -227,8 +229,8 @@ interface EventRow {
   filled_at?: string | null;
 }
 
-async function logEvent(supabase: SupabaseClient, row: EventRow): Promise<void> {
-  const { error } = await supabase.from("paper_mirror_events").insert({ ...row, mode: "live" });
+async function logEvent(supabase: SupabaseClient, row: EventRow, mode: "paper" | "live"): Promise<void> {
+  const { error } = await supabase.from("paper_mirror_events").insert({ ...row, mode });
   if (error) throw new Error(`paper_mirror_events: ${error.message}`);
 }
 
@@ -263,7 +265,9 @@ export async function momentumPass(
   mirrorSymbols: Set<string>,
   deadline: number,
   now = Date.now(),
+  opts: { mode?: "paper" | "live"; fixedBudget?: number } = {},
 ): Promise<MomentumResult> {
+  const mode = opts.mode ?? "live";
   const result: MomentumResult = { placed: 0, held: [], errors: [] };
   if (!marketOpen) return result;
   const minutes = nyMinutes(now);
@@ -306,7 +310,7 @@ export async function momentumPass(
           position_id: id, symbol: p.symbol, side: "long", action: "momentum_close", qty, sim_price: current, stop_price: null,
           broker_order_id: out.id, status: s.status,
           note: exit === "cut" ? `Worth half its cost (${current} against ${avg}); sold.` : "End of session; sold.", ...fills(s),
-        });
+        }, mode);
       } else {
         stillHeld.push(p);
       }
@@ -328,7 +332,7 @@ export async function momentumPass(
         symbol: p.symbol, side: "sell", qty: num(p.qty), type: "limit", limitPrice: tp, clientOrderId: `${CLIENT_PREFIX}tp-${id}-${now}`,
       })) as AlpacaOrder;
       result.placed++;
-      await logEvent(supabase, { position_id: id, symbol: p.symbol, side: "long", action: "momentum_take_profit", qty: num(p.qty), sim_price: null, stop_price: null, broker_order_id: o.id, status: o.status, note: `Limit ${tp} (+50%).` });
+      await logEvent(supabase, { position_id: id, symbol: p.symbol, side: "long", action: "momentum_take_profit", qty: num(p.qty), sim_price: null, stop_price: null, broker_order_id: o.id, status: o.status, note: `Limit ${tp} (+50%).` }, mode);
     } catch (err) {
       result.errors.push(`momentum take-profit ${p.symbol}: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -346,7 +350,8 @@ export async function momentumPass(
   }
   const optionsBp = num((account as unknown as { options_buying_power?: string }).options_buying_power);
   const cash = Number.isFinite(optionsBp) ? Math.min(num(account.cash), optionsBp) : num(account.cash);
-  const budget = liveOptionBudget(equity, cash);
+  // Paper practices the same picks at the live account's size, not its own $100,000.
+  const budget = opts.fixedBudget != null ? Math.min(opts.fixedBudget, liveOptionBudget(equity, cash)) : liveOptionBudget(equity, cash);
   try {
     const movers = await fetchMovers(50);
     const candidates = moverCandidates(movers);
@@ -390,13 +395,13 @@ export async function momentumPass(
         broker_order_id: order.id, status: s.status,
         note: `${pick.symbol} ${pick.pct >= 0 ? "+" : ""}${pick.pct.toFixed(1)}% today at ${pick.price}; ${pick.type} ${c.strike} ${c.expiration}, limit ${c.limitPrice} (budget $${budget.toFixed(2)}).`,
         ...fills(s),
-      });
+      }, mode);
       const got = num(s.filled_qty);
       if (got > 0 && sameDaySellOk) {
         const tp = takeProfitPrice(num(s.filled_avg_price));
         const tpOrder = (await placeOrder(creds, { symbol: c.symbol, side: "sell", qty: got, type: "limit", limitPrice: tp, clientOrderId: `${CLIENT_PREFIX}tp-${id}-${now}` })) as AlpacaOrder;
         result.placed++;
-        await logEvent(supabase, { position_id: id, symbol: c.symbol, side: "long", action: "momentum_take_profit", qty: got, sim_price: null, stop_price: null, broker_order_id: tpOrder.id, status: tpOrder.status, note: `Limit ${tp} (+50%).` });
+        await logEvent(supabase, { position_id: id, symbol: c.symbol, side: "long", action: "momentum_take_profit", qty: got, sim_price: null, stop_price: null, broker_order_id: tpOrder.id, status: tpOrder.status, note: `Limit ${tp} (+50%).` }, mode);
       }
       return result;
     }

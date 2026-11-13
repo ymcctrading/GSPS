@@ -556,6 +556,9 @@ async function cancelStop(creds: AlpacaCreds, stopId: string, hops = 0): Promise
 
 export type MirrorMode = "paper" | "live";
 
+/** Paper practices momentum at the live account's size: a third of its $30 start. */
+export const PAPER_MOMENTUM_BUDGET = 10;
+
 /**
  * The live account (owner, 2026-11-12: "its not about proving an edge, as
  * much its about testing what we've done 'with real bullets'", a $30 account,
@@ -809,9 +812,10 @@ async function runMirror(supabase: SupabaseClient, mode: MirrorMode): Promise<Mi
   }
   try {
     await mirrorPass(supabase, mode, creds, userId, deadline, result);
-    if (mode === "live") {
+    {
       // The owner's momentum options (lib/brokers/live-momentum.ts), on the
-      // same keys and lease, after the mirror, on fresh reads. Never fails the run.
+      // same keys and lease, after the mirror, on fresh reads; on paper as
+      // practice at the live account's size. Never fails the run.
       const liveCreds = creds;
       await (async () => {
         const [account, positions, marketOpen, open] = await Promise.all([
@@ -820,7 +824,10 @@ async function runMirror(supabase: SupabaseClient, mode: MirrorMode): Promise<Mi
           isMarketOpen(liveCreds),
           readMirrorLines(supabase, mode, []),
         ]);
-        const m = await momentumPass(supabase, liveCreds, account, positions, marketOpen, new Set(open.map((l) => l.symbol)), started + MIRROR_BUDGET_MS * 2);
+        const m = await momentumPass(
+          supabase, liveCreds, account, positions, marketOpen, new Set(open.map((l) => l.symbol)), started + MIRROR_BUDGET_MS * 2, Date.now(),
+          mode === "paper" ? { mode, fixedBudget: PAPER_MOMENTUM_BUDGET } : { mode },
+        );
         result.placed += m.placed;
         result.held.push(...m.held);
         result.errors.push(...m.errors);

@@ -163,6 +163,18 @@ describe("momentumPass", () => {
     expect((events[0] as { mode: string }).mode).toBe("live");
   });
 
+  it("paper practices at the live size, and logs as paper", async () => {
+    data.fetchMovers.mockResolvedValue({ gainers: [{ symbol: "RUN", pct: 30, price: 20 }], losers: [] });
+    data.fetchDayRanges.mockResolvedValue(new Map([["RUN", { price: 20, high: 20.2, low: 15 }]]));
+    data.fetchOptionSnapshots.mockResolvedValue({ RUN261127C00025000: quote(0.08, 0.06, 0.1), RUN261127C00021000: quote(0.9, 0.8, 0.45) });
+    alpaca.placeOrder.mockResolvedValue({ id: "b1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "b1", status: "canceled", filled_qty: "0" });
+    const big = { ...account, equity: "100000", last_equity: "100000", cash: "100000" };
+    await momentumPass(supabase, creds, big, [], true, new Set(), Date.now() + 30_000, MON_11, { mode: "paper", fixedBudget: 10 });
+    expect(alpaca.placeOrder).toHaveBeenCalledWith(creds, expect.objectContaining({ symbol: "RUN261127C00025000", qty: 1, limitPrice: 0.1 }));
+    expect(events[0]).toMatchObject({ mode: "paper" });
+  });
+
   it("sells a contract worth half its cost after cancelling its take-profit", async () => {
     const pos = { symbol: "RUN261127C00025000", qty: "1", side: "long", avg_entry_price: "0.10", current_price: "0.05", asset_class: "us_option" };
     alpaca.getOpenOrdersNested.mockResolvedValue([{ id: "t1", symbol: pos.symbol, side: "sell" }]);
