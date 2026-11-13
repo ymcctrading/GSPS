@@ -264,6 +264,30 @@ describe("optionPlanPass", () => {
     expect(r.held.join(" ")).toMatch(/held to the next session/);
   });
 
+  it("a cut that is the second loss in a row buys nothing the same run", async () => {
+    const PRIOR = "RUN261127C00030000";
+    alpaca.listOrders.mockResolvedValue([
+      { id: "p0", side: "buy", symbol: PRIOR, client_order_id: `gsps-plan-${ID2}-1`, filled_qty: "1", filled_avg_price: "0.10", filled_at: "2026-11-12T15:00:00Z" },
+      { id: "p1", side: "sell", symbol: PRIOR, filled_qty: "1", filled_avg_price: "0.04", filled_at: "2026-11-13T15:00:00Z" },
+      ...bought("2026-11-13T16:00:00Z"),
+    ]);
+    alpaca.closePosition.mockResolvedValue({ id: "x1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "x1", status: "filled", filled_qty: "1", filled_avg_price: "0.05" });
+    const fresh = line({ positionId: "44444444-4444-4444-8444-444444444444", symbol: "NEW" });
+    const r = await optionPlanPass(supabase, creds, account, [held({ current_price: "0.05" }) as never], OPEN, [line(), fresh], new Set(), Date.now() + 30_000, MON_11);
+    expect(alpaca.closePosition).toHaveBeenCalledWith(creds, CALL);
+    expect(alpaca.placeOrder).not.toHaveBeenCalled();
+    expect(r.held.join(" ")).toMatch(/sold this run/);
+  });
+
+  it("keeps a day trade for each contract bought today before another entry", async () => {
+    alpaca.listOrders.mockResolvedValue(bought("2026-11-16T15:00:00Z"));
+    const fresh = line({ positionId: "44444444-4444-4444-8444-444444444444", symbol: "NEW" });
+    const r = await optionPlanPass(supabase, creds, { ...account, daytrade_count: 2 }, [held() as never], OPEN, [line(), fresh], new Set(), Date.now() + 30_000, MON_11);
+    expect(alpaca.placeOrder).not.toHaveBeenCalled();
+    expect(r.held.join(" ")).toMatch(/reserve/);
+  });
+
   it("is flat by Friday's close and buys nothing on a Friday", async () => {
     alpaca.listOrders.mockResolvedValue(bought("2026-11-18T15:00:00Z"));
     alpaca.closePosition.mockResolvedValue({ id: "x1", status: "accepted" });
@@ -272,7 +296,7 @@ describe("optionPlanPass", () => {
     const r = await optionPlanPass(supabase, creds, account, [held() as never], fri, [line({ positionId: ID2, openedAt: new Date(FRI_1540 - 600_000).toISOString() }), line()], new Set(), Date.now() + 30_000, FRI_1540);
     expect(alpaca.closePosition).toHaveBeenCalledWith(creds, CALL);
     expect(alpaca.placeOrder).not.toHaveBeenCalled();
-    expect(r.held.join(" ")).toMatch(/Monday to Thursday/);
+    expect(r.held.join(" ")).toMatch(/sold this run/);
   });
 
   it("never touches an option it didn't buy, or a mirror symbol; does nothing with the market closed", async () => {

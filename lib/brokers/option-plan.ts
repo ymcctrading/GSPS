@@ -24,9 +24,11 @@
  *   in the last two runs of a Friday session.
  * - **Brakes.** At most two open (one under $20 of equity); none under $15
  *   or once the account is down 10% on the day; none on the day of a second
- *   loss in a row or the trading day after it; and one day trade always kept
- *   for an emergency same-day exit (a stop, a cut or the break-even), so a
- *   same-day take-profit uses a day trade only when another stays free.
+ *   loss in a row or the trading day after it, nor in a run that sold (its
+ *   sale is not yet in the orders read); and one day trade always kept for
+ *   an emergency same-day exit (a stop, a cut or the break-even) of each
+ *   contract bought today, so a same-day take-profit uses a day trade only
+ *   when another stays free.
  *
  * The half-hour schedule checks the stop, cut and break-even only twice an
  * hour: an option takes no stop order. Engineering choices, labelled: the
@@ -415,9 +417,18 @@ export async function optionPlanPass(
   }
 
   const heldSyms = new Set(held.map((p) => p.symbol).filter((sym) => !sold.has(sym)));
+  // A sale this run is not in this run's order read, so the loss streak
+  // can't see it: a run that sold buys nothing, and the next run reads it.
+  if (sold.size > 0) {
+    result.held.push("plan: sold this run; the next run decides any entry on fresh orders.");
+    return result;
+  }
+  // One day trade kept for each contract bought today with no sell resting,
+  // and one more for the contract an entry would add.
+  const sameDayUnreserved = [...heldSyms].filter((sym) => boughtToday.has(sym) && restingSells(sym).length === 0).length;
   const hold = planEntryHold({
     minutes, toClose, weekday, today, marketOpen: clock.isOpen, halted: tradingDisabled(), equity, lastEquity: num(account.last_equity),
-    openContracts: heldSyms.size, dayTradesFree: free, lossStreakDate: lossStreakDate(recent, heldSyms),
+    openContracts: heldSyms.size, dayTradesFree: free - sameDayUnreserved, lossStreakDate: lossStreakDate(recent, heldSyms),
   });
   if (hold) {
     result.held.push(`plan: ${hold}`);

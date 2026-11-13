@@ -20,8 +20,11 @@
  * him in Settings (`broker_connections`, `alpaca_live`), never `envCreds`.
  * Each mode has its own lines, events and run lease; the live pass adds the
  * small-account rules below. Both run in the manager's scheduled call, one
- * after the other, each within `MIRROR_BUDGET_MS`, so together they add up
- * to 30 seconds to that call (no person waits on it).
+ * after the other. Each mirror pass stays within `MIRROR_BUDGET_MS`, and the
+ * owner's options plan that follows it (with momentum's leftovers) ends by
+ * twice that from the mode's start, so the two modes add up to about 60
+ * seconds to that call (no person waits on it; a pass past its deadline
+ * stops and the next run continues).
  *
  * Only the owner's account (`OWNER_EMAILS[0]`, `lib/auth/owner.ts`), and only
  * the positions automation opened after `MIRROR_START`. Members are never
@@ -858,7 +861,7 @@ async function runMirror(supabase: SupabaseClient, mode: MirrorMode): Promise<Mi
         score: scores.get(`${l.symbol.toUpperCase()}:${l.side === "long" ? "bullish" : "bearish"}`) ?? null,
       }));
       const [account2, positions2] = m.placed > 0 ? await Promise.all([getAccount(planCreds), getPositions(planCreds)]) : [account, positions];
-      const p = await optionPlanPass(supabase, planCreds, account2, positions2, clock, lines, mirrorSymbols, started + MIRROR_BUDGET_MS * 3, Date.now(), { mode, ...budget });
+      const p = await optionPlanPass(supabase, planCreds, account2, positions2, clock, lines, mirrorSymbols, started + MIRROR_BUDGET_MS * 2, Date.now(), { mode, ...budget });
       result.placed += p.placed;
       result.held.push(...p.held);
       result.errors.push(...p.errors);
