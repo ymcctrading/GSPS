@@ -26,6 +26,7 @@ import {
   nyMinutes,
   nyWeekday,
   rankMovers,
+  takeProfitCoarse,
   takeProfitPrice,
 } from "@/lib/brokers/live-momentum";
 
@@ -95,10 +96,11 @@ describe("momentum rules", () => {
     expect(moverCandidates(movers)).toEqual(["FADE", "DROP", "RUN"]);
   });
 
-  it("rests the take-profit at +50% on a tick every class takes, and cuts at half the cost", () => {
-    expect(takeProfitPrice(0.07)).toBe(0.15); // 0.105 up to the nickel
+  it("rests the take-profit at +50% (cents, else the coarse tick), and cuts at half the cost", () => {
+    expect(takeProfitPrice(0.07)).toBe(0.11);
     expect(takeProfitPrice(0.1)).toBe(0.15);
-    expect(takeProfitPrice(2.5)).toBe(3.8); // 3.75 up to the dime
+    expect(takeProfitCoarse(0.07)).toBe(0.15);
+    expect(takeProfitCoarse(2.5)).toBe(3.8); // 3.75 up to the dime
     const base = { avgEntry: 0.1, toClose: 300, openedToday: true, sameDaySellOk: true };
     expect(momentumExit({ ...base, current: 0.06 })).toBeNull();
     expect(momentumExit({ ...base, current: 0.05 })).toBe("cut");
@@ -164,7 +166,7 @@ describe("momentumPass", () => {
     const r = await momentumPass(supabase, creds, account, [], OPEN, new Set(), Date.now() + 30_000, MON_11);
     expect(r.errors).toEqual([]);
     expect(alpaca.placeOrder).toHaveBeenNthCalledWith(1, creds, expect.objectContaining({ symbol: "RUN261127C00025000", side: "buy", qty: 1, type: "limit", limitPrice: 0.1 }));
-    expect(alpaca.placeOrder).toHaveBeenNthCalledWith(2, creds, expect.objectContaining({ symbol: "RUN261127C00025000", side: "sell", qty: 1, type: "limit", limitPrice: 0.15 }));
+    expect(alpaca.placeOrder).toHaveBeenNthCalledWith(2, creds, expect.objectContaining({ symbol: "RUN261127C00025000", side: "sell", qty: 1, type: "limit", limitPrice: 0.12 }));
     expect(events.map((e) => (e as { action: string }).action)).toEqual(["momentum_open", "momentum_take_profit"]);
     expect((events[0] as { mode: string }).mode).toBe("live");
   });
@@ -183,6 +185,7 @@ describe("momentumPass", () => {
 
   it("sells a contract worth half its cost after cancelling its take-profit", async () => {
     const pos = { symbol: "RUN261127C00025000", qty: "1", side: "long", avg_entry_price: "0.10", current_price: "0.05", asset_class: "us_option" };
+    alpaca.listOrders.mockResolvedValue([{ id: "o1", side: "buy", symbol: pos.symbol, client_order_id: "gsps-momo-11111111-1111-1111-1111-111111111111", filled_qty: "1", filled_at: "2026-11-13T15:00:00Z" }]);
     alpaca.getOpenOrdersNested.mockResolvedValue([{ id: "t1", symbol: pos.symbol, side: "sell" }]);
     alpaca.closePosition.mockResolvedValue({ id: "x1", status: "accepted" });
     alpaca.getOrder.mockImplementation(async (_c: unknown, id: string) => (id === "t1" ? { id, status: "canceled" } : { id: "x1", status: "filled", filled_qty: "1", filled_avg_price: "0.05" }));
@@ -207,6 +210,14 @@ describe("momentumPass", () => {
     const r = await momentumPass(supabase, creds, { ...account, daytrade_count: 2 }, [a as never, b as never], OPEN, new Set(), Date.now() + 30_000, MON_11);
     expect(alpaca.placeOrder).not.toHaveBeenCalled(); // a's take-profit already holds the one free day trade
     expect(r.held.join(" ")).not.toMatch(/Friday/);
+  });
+
+  it("never touches an option the owner bought by hand", async () => {
+    const pos = { symbol: "HAND261127C00025000", qty: "1", side: "long", avg_entry_price: "0.10", current_price: "0.01", asset_class: "us_option" };
+    data.fetchMovers.mockResolvedValue({ gainers: [], losers: [] });
+    await momentumPass(supabase, creds, account, [pos as never], OPEN, new Set(), Date.now() + 30_000, MON_11);
+    expect(alpaca.closePosition).not.toHaveBeenCalled();
+    expect(alpaca.placeOrder).not.toHaveBeenCalled();
   });
 
   it("never touches a symbol the mirror owns, and does nothing with the market closed", async () => {

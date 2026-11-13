@@ -146,8 +146,14 @@ export function moverCandidates(movers: { gainers: Mover[]; losers: Mover[] }, l
     .map((m) => m.symbol.toUpperCase());
 }
 
-/** The resting take-profit for a contract bought at `avgEntry`. */
+/**
+ * The resting take-profit for a contract bought at `avgEntry`: +50% in
+ * cents (a penny-pilot class), and on the coarse tick every class takes.
+ */
 export function takeProfitPrice(avgEntry: number): number {
+  return Number((Math.ceil(avgEntry * (1 + MOMENTUM.takeProfit) * 100 - 1e-7) / 100).toFixed(2));
+}
+export function takeProfitCoarse(avgEntry: number): number {
   return ceilTick(avgEntry * (1 + MOMENTUM.takeProfit));
 }
 
@@ -258,6 +264,18 @@ function tradeIdOf(clientOrderId: string | undefined): string | null {
   return m ? m[1] : null;
 }
 
+/** Rests the +50% take-profit: in cents, else (a class that quotes in nickels) on the coarse tick. */
+async function restTakeProfit(creds: AlpacaCreds, symbol: string, qty: number, avg: number, clientOrderId: string): Promise<{ order: AlpacaOrder; tp: number }> {
+  const fine = takeProfitPrice(avg);
+  try {
+    return { order: (await placeOrder(creds, { symbol, side: "sell", qty, type: "limit", limitPrice: fine, clientOrderId })) as AlpacaOrder, tp: fine };
+  } catch (err) {
+    const coarse = takeProfitCoarse(avg);
+    if (coarse === fine) throw err;
+    return { order: (await placeOrder(creds, { symbol, side: "sell", qty, type: "limit", limitPrice: coarse, clientOrderId: `${clientOrderId}-c` })) as AlpacaOrder, tp: coarse };
+  }
+}
+
 async function settle(creds: AlpacaCreds, id: string): Promise<AlpacaOrder> {
   let o = await getOrder(creds, id);
   for (let i = 0; i < 3 && !["filled", "canceled", "expired", "rejected", "done_for_day"].includes(o.status); i++) {
@@ -294,9 +312,11 @@ export async function momentumPass(
   const dayTrades = num(account.daytrade_count ?? NaN);
 
   // Momentum's contracts: every option the account holds that the mirror doesn't own.
-  const held = positions.filter((p) => parseOccSymbol(p.symbol) && !mirrorSymbols.has(p.symbol) && num(p.qty) > 0);
   const recent = await listOrders(creds, { since: new Date(now - 30 * 86_400_000), maxPages: 1 });
   const momoBuys = recent.filter((o) => o.side === "buy" && (o.client_order_id ?? "").startsWith(CLIENT_PREFIX) && num(o.filled_qty) > 0);
+  // Only contracts momentum bought: an option the owner trades by hand is never touched.
+  const momoSymbols = new Set(momoBuys.map((o) => o.symbol));
+  const held = positions.filter((p) => parseOccSymbol(p.symbol) && momoSymbols.has(p.symbol) && !mirrorSymbols.has(p.symbol) && num(p.qty) > 0);
   // A buy part filled then cancelled may carry no fill time: its last update dates it.
   const boughtAt = (o: AlpacaOrder) => o.filled_at ?? o.updated_at ?? o.submitted_at ?? o.created_at ?? null;
   const boughtTodaySyms = new Set(momoBuys.filter((o) => { const t = boughtAt(o); return t != null && nyDate(Date.parse(t)) === today; }).map((o) => o.symbol));
@@ -371,10 +391,7 @@ export async function momentumPass(
     if (!(avg > 0)) continue;
     const id = tradeIdFor(p.symbol);
     try {
-      const tp = takeProfitPrice(avg);
-      const o = (await placeOrder(creds, {
-        symbol: p.symbol, side: "sell", qty: num(p.qty), type: "limit", limitPrice: tp, clientOrderId: `${CLIENT_PREFIX}tp-${id}-${now}`,
-      })) as AlpacaOrder;
+      const { order: o, tp } = await restTakeProfit(creds, p.symbol, num(p.qty), avg, `${CLIENT_PREFIX}tp-${id}-${now}`);
       result.placed++;
       await logEvent(supabase, { position_id: id, symbol: p.symbol, side: "long", action: "momentum_take_profit", qty: num(p.qty), sim_price: null, stop_price: null, broker_order_id: o.id, status: o.status, note: `Limit ${tp} (+50%).` }, mode);
     } catch (err) {
@@ -444,8 +461,7 @@ export async function momentumPass(
       // Its take-profit rests today only with a day trade free for it;
       // otherwise the next session's run places it.
       if (got > 0 && free >= 1) {
-        const tp = takeProfitPrice(num(s.filled_avg_price));
-        const tpOrder = (await placeOrder(creds, { symbol: c.symbol, side: "sell", qty: got, type: "limit", limitPrice: tp, clientOrderId: `${CLIENT_PREFIX}tp-${id}-${now}` })) as AlpacaOrder;
+        const { order: tpOrder, tp } = await restTakeProfit(creds, c.symbol, got, num(s.filled_avg_price), `${CLIENT_PREFIX}tp-${id}-${now}`);
         result.placed++;
         await logEvent(supabase, { position_id: id, symbol: c.symbol, side: "long", action: "momentum_take_profit", qty: got, sim_price: null, stop_price: null, broker_order_id: tpOrder.id, status: tpOrder.status, note: `Limit ${tp} (+50%).` }, mode);
       }
