@@ -293,6 +293,8 @@ export function planMirrorActions(
         actions.push({ kind: "hold", positionId: s.positionId, symbol: s.symbol, reason: "Waits for the earlier line in this symbol to close." });
       } else if (openLines >= maxOpen) {
         actions.push({ kind: "missed", positionId: s.positionId, symbol: s.symbol, side: s.side, reason: `Already ${maxOpen} mirrored lines open.` });
+      } else if (s.side === "short" && isCryptoPair(s.symbol)) {
+        actions.push({ kind: "missed", positionId: s.positionId, symbol: s.symbol, side: s.side, reason: "The broker doesn't short crypto." });
       } else if (mirroredSymbols.has(s.symbol) || brokerHeld.has(s.symbol)) {
         actions.push({ kind: "missed", positionId: s.positionId, symbol: s.symbol, side: s.side, reason: "The account already holds this symbol." });
       } else {
@@ -1140,7 +1142,11 @@ async function mirrorPass(
           await must(lines().update({ target_qty: a.targetAfter }).eq("position_id", a.positionId).eq("mode", mode), "line target");
           let order: AlpacaOrder;
           try {
-            order = (await placeOrder(creds, { symbol: a.symbol, side: orderSide(a.side, true), qty: a.qty, type: "market", clientOrderId: clientId })) as AlpacaOrder;
+            order = (await placeOrder(creds, {
+              symbol: a.symbol, side: orderSide(a.side, true), qty: a.qty, type: "market", clientOrderId: clientId,
+              // Crypto takes no day order.
+              ...(isCryptoPair(a.symbol) ? { timeInForce: "ioc" as const } : {}),
+            })) as AlpacaOrder;
           } catch (err) {
             const reached = await getOrderByClientId(creds, clientId).catch(() => null);
             if (!reached) {
