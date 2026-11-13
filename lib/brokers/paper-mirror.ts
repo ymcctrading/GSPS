@@ -81,6 +81,7 @@ import {
 import { tradingDisabled } from "@/lib/trade/kill-switch";
 import { OWNER_EMAILS } from "@/lib/auth/owner";
 import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
+import { momentumPass } from "@/lib/brokers/live-momentum";
 
 /** Positions opened before this are never mirrored (they'd be bought at today's price). */
 export const MIRROR_START = "2026-11-12T15:45:00Z";
@@ -808,6 +809,23 @@ async function runMirror(supabase: SupabaseClient, mode: MirrorMode): Promise<Mi
   }
   try {
     await mirrorPass(supabase, mode, creds, userId, deadline, result);
+    if (mode === "live") {
+      // The owner's momentum options (lib/brokers/live-momentum.ts), on the
+      // same keys and lease, after the mirror, on fresh reads. Never fails the run.
+      const liveCreds = creds;
+      await (async () => {
+        const [account, positions, marketOpen, open] = await Promise.all([
+          getAccount(liveCreds),
+          getPositions(liveCreds),
+          isMarketOpen(liveCreds),
+          readMirrorLines(supabase, mode, []),
+        ]);
+        const m = await momentumPass(supabase, liveCreds, account, positions, marketOpen, new Set(open.map((l) => l.symbol)), started + MIRROR_BUDGET_MS * 2);
+        result.placed += m.placed;
+        result.held.push(...m.held);
+        result.errors.push(...m.errors);
+      })().catch((err) => result.errors.push(`momentum: ${err instanceof Error ? err.message : String(err)}`));
+    }
   } finally {
     await supabase.from("paper_mirror_lock").update({ held_until: new Date().toISOString() }).eq("id", lockId);
   }

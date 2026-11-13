@@ -18,6 +18,8 @@ const alpaca = vi.hoisted(() => ({
 vi.mock("@/lib/brokers/alpaca", () => alpaca);
 const liveConn = vi.hoisted(() => ({ readLiveAlpacaConnection: vi.fn(async () => null as unknown) }));
 vi.mock("@/lib/brokers/live-creds", () => liveConn);
+const momo = vi.hoisted(() => ({ momentumPass: vi.fn(async () => ({ placed: 0, held: [] as string[], errors: [] as string[] })) }));
+vi.mock("@/lib/brokers/live-momentum", () => momo);
 
 import { runLiveMirror, runPaperMirror } from "@/lib/brokers/paper-mirror";
 
@@ -364,6 +366,24 @@ describe("runPaperMirror", () => {
     await runLiveMirror(client);
     // Same day, day trades used: a coin has no day-trade rule, so it closes.
     expect(alpaca.closePosition).toHaveBeenCalledWith(expect.anything(), "ETHUSD", 0.003325);
+  });
+
+  it("live: runs the owner's momentum pass after the mirror; paper never does", async () => {
+    liveSetup({ daytrade_count: 0 });
+    const { client } = fakeSupabase({});
+    await runLiveMirror(client);
+    expect(momo.momentumPass).toHaveBeenCalledTimes(1);
+    expect(momo.momentumPass).toHaveBeenCalledWith(client, expect.objectContaining({ mode: "live" }), expect.anything(), [], true, new Set(), expect.any(Number));
+    await runPaperMirror(fakeSupabase({}).client);
+    expect(momo.momentumPass).toHaveBeenCalledTimes(1);
+  });
+
+  it("live: a momentum failure never fails the run", async () => {
+    liveSetup({ daytrade_count: 0 });
+    momo.momentumPass.mockRejectedValueOnce(new Error("movers down"));
+    const r = await runLiveMirror(fakeSupabase({}).client);
+    expect(r.ran).toBe(true);
+    expect(r.errors.join(" ")).toMatch(/momentum: movers down/);
   });
 
   it("live: a stock trade is skipped and recorded with the reason", async () => {
