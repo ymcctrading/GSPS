@@ -85,7 +85,7 @@ import { tradingDisabled } from "@/lib/trade/kill-switch";
 import { OWNER_EMAILS } from "@/lib/auth/owner";
 import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { momentumPass } from "@/lib/brokers/live-momentum";
-import { PAPER_TEST_DAYS, optionPlanPass, type PlanStockLine } from "@/lib/brokers/option-plan";
+import { LIVE_SAME_DAY_DAYS, PAPER_TEST_DAYS, optionPlanPass, type PlanStockLine } from "@/lib/brokers/option-plan";
 import { nyDate } from "@/lib/brokers/live-momentum";
 import { readPlanScores } from "@/lib/automation/portfolio-manager";
 
@@ -517,11 +517,11 @@ export async function readSimLines(supabase: SupabaseClient, userId: string): Pr
   });
 }
 
-/** The owner's Execute-grade setups read in the last day, as plan lines (a paper same-day test only). */
+/** The owner's Execute-grade setups read in the last day, as plan lines (a same-day day only). */
 async function readTestSetups(supabase: SupabaseClient, userId: string): Promise<PlanStockLine[]> {
   const { data, error } = await supabase
     .from("active_monitors")
-    .select("id, symbol, direction, score, stop_loss, take_profit_1, last_evaluated_at")
+    .select("id, symbol, direction, score, entry, stop_loss, take_profit_1, last_evaluated_at")
     .eq("profile_id", userId)
     .eq("state", "EXECUTE")
     .gte("last_evaluated_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString());
@@ -535,6 +535,7 @@ async function readTestSetups(supabase: SupabaseClient, userId: string): Promise
     return [{
       positionId: m.id as string, symbol: String(m.symbol), side: m.direction === "bullish" ? ("long" as const) : ("short" as const),
       stop, tp1: tp1 > 0 ? tp1 : null, openedAt: now, automated: true, assetClass: "us_equity", score: num(m.score),
+      entry: num(m.entry) > 0 ? num(m.entry) : null,
     }];
   });
 }
@@ -596,11 +597,10 @@ export type MirrorMode = "paper" | "live";
 /** Paper practices at the live account's size: a third of its $30 start. */
 export const PAPER_MOMENTUM_BUDGET = 10;
 /**
- * A paper same-day test day's budget per trade (engineering choice): no
- * Execute-grade setup on 2026-11-13 had a contract within a 20% spread under
- * $187, so the live size would test nothing.
+ * A paper same-day test day's budget per trade: the live size, now that a
+ * test day may buy contracts expiring that day (owner, 2026-11-13).
  */
-export const PAPER_TEST_BUDGET = 500;
+export const PAPER_TEST_BUDGET = 10;
 /**
  * The owner's options plan runs on both accounts (owner, 2026-11-13: "Go
  * with A. But only apply to icharles account for now", then "Add the rules
@@ -892,7 +892,8 @@ async function runMirror(supabase: SupabaseClient, mode: MirrorMode): Promise<Mi
       // A paper same-day test day also follows the day's Execute-grade setups
       // (the owner's open monitors read since the evening before), each as
       // its own trade keyed by its monitor; a setup that leaves Execute is sold.
-      if (mode === "paper" && PAPER_TEST_DAYS.includes(nyDate(Date.now()))) lines.push(...(await readTestSetups(supabase, userId)));
+      const sameDayDay = (mode === "paper" ? PAPER_TEST_DAYS : LIVE_SAME_DAY_DAYS).includes(nyDate(Date.now()));
+      if (sameDayDay) lines.push(...(await readTestSetups(supabase, userId)));
       const [account2, positions2] = m.placed > 0 ? await Promise.all([getAccount(planCreds), getPositions(planCreds)]) : [account, positions];
       const testDay = mode === "paper" && PAPER_TEST_DAYS.includes(nyDate(Date.now()));
       const planBudget = testDay ? { fixedBudget: PAPER_TEST_BUDGET } : budget;

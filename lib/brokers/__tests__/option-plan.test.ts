@@ -14,7 +14,7 @@ vi.mock("@/lib/brokers/alpaca", () => alpaca);
 const data = vi.hoisted(() => ({
   fetchMovers: vi.fn(),
   fetchDayRanges: vi.fn(async () => new Map()),
-  fetchOptionSnapshots: vi.fn(async () => ({})),
+  fetchOptionSnapshots: vi.fn<(q: unknown) => Promise<Record<string, unknown>>>(async () => ({})),
 }));
 vi.mock("@/lib/data/alpaca", () => data);
 
@@ -27,6 +27,7 @@ import {
   planEntryHold,
   planExit,
   planSpreadLimit,
+  sameDayMomentum,
   planTakeProfit,
   planTradeId,
   type PlanStockLine,
@@ -177,7 +178,8 @@ describe("optionPlanPass", () => {
     alpaca.getOpenOrdersNested.mockResolvedValue([]);
     alpaca.listOptionContracts.mockResolvedValue([{ symbol: CALL, open_interest: "350" }]);
     data.fetchDayRanges.mockResolvedValue(new Map([["RUN", { price: 20, high: 21, low: 19 }]]));
-    data.fetchOptionSnapshots.mockResolvedValue({ [CALL]: quote(0.09, 0.08, 0.2) });
+    // The chain answers a query by underlying; held contracts are valued from their own quotes.
+    data.fetchOptionSnapshots.mockImplementation(async (q: unknown) => ("symbols" in (q as object) ? {} : { [CALL]: quote(0.09, 0.08, 0.2) }));
   });
 
   it("carries the app's Execute-grade trade as a call and rests a +50% take-profit while the account is small", async () => {
@@ -254,6 +256,21 @@ describe("optionPlanPass", () => {
     expect(String(events[0].note)).toMatch(/broke the trade's stop/);
   });
 
+  it("values a held contract at the middle of its quote, so a wide spread doesn't read as a cut", async () => {
+    alpaca.listOrders.mockResolvedValue(bought("2026-11-13T15:00:00Z"));
+    alpaca.getOpenOrdersNested.mockResolvedValue([{ id: "t1", symbol: CALL, side: "sell" }]);
+    // Bought at 0.10 on a 0.05 x 0.10 quote: the bid is half the cost, the middle is 0.075.
+    data.fetchOptionSnapshots.mockImplementation(async (q: unknown) => ("symbols" in (q as object) ? { [CALL]: quote(0.1, 0.05) } : {}));
+    await optionPlanPass(supabase, creds, account, [held({ current_price: "0.05" }) as never], OPEN, [line()], new Set(), Date.now() + 30_000, MON_11);
+    expect(alpaca.closePosition).not.toHaveBeenCalled();
+    // With no quote, the position's own price is read.
+    data.fetchOptionSnapshots.mockResolvedValue({});
+    alpaca.closePosition.mockResolvedValue({ id: "x1", status: "accepted" });
+    alpaca.getOrder.mockImplementation(async (_c: unknown, id: string) => (id === "t1" ? { id, status: "canceled" } : { id, status: "filled", filled_qty: "1", filled_avg_price: "0.05" }));
+    await optionPlanPass(supabase, creds, account, [held({ current_price: "0.05" }) as never], OPEN, [line()], new Set(), Date.now() + 30_000, MON_11);
+    expect(alpaca.closePosition).toHaveBeenCalledWith(creds, CALL);
+  });
+
   it("sells when the app closes the stock trade", async () => {
     alpaca.listOrders.mockResolvedValue(bought("2026-11-13T15:00:00Z"));
     alpaca.closePosition.mockResolvedValue({ id: "x1", status: "accepted" });
@@ -324,19 +341,55 @@ describe("optionPlanPass", () => {
     const fri = { isOpen: true, nextClose: Date.parse("2026-11-13T21:00:00Z") };
     alpaca.placeOrder.mockResolvedValue({ id: "b1", status: "accepted" });
     alpaca.getOrder.mockResolvedValue({ id: "b1", status: "canceled", filled_qty: "0" });
-    const fresh = line({ openedAt: new Date(FRI_11).toISOString() });
-    const live = await optionPlanPass(supabase, creds, account, [], fri, [fresh], new Set(), Date.now() + 30_000, FRI_11);
+    // A Friday that is no same-day day: live keeps its rules.
+    const FRI20 = FRI_11 + 7 * 86_400_000;
+    const live = await optionPlanPass(supabase, creds, account, [], { isOpen: true, nextClose: fri.nextClose + 7 * 86_400_000 }, [line({ openedAt: new Date(FRI20).toISOString() })], new Set(), Date.now() + 30_000, FRI20);
     expect(alpaca.placeOrder).not.toHaveBeenCalled();
     expect(live.held.join(" ")).toMatch(/Monday to Thursday/);
+    // A same-day day needs clear momentum: price past the entry level and within 1% of the day's high.
+    const fresh = line({ openedAt: new Date(FRI_11).toISOString(), entry: 19 });
+    data.fetchDayRanges.mockResolvedValue(new Map([["RUN", { price: 20, high: 21, low: 19 }]]));
+    const flat = await optionPlanPass(supabase, creds, account, [], fri, [fresh], new Set(), Date.now() + 30_000, FRI_11, { mode: "paper", fixedBudget: 500 });
+    expect(alpaca.placeOrder).not.toHaveBeenCalled();
+    expect(flat.held.join(" ")).toMatch(/momentum/);
+    data.fetchDayRanges.mockResolvedValue(new Map([["RUN", { price: 20, high: 20.1, low: 19 }]]));
     await optionPlanPass(supabase, creds, account, [], fri, [fresh], new Set(), Date.now() + 30_000, FRI_11, { mode: "paper", fixedBudget: 500 });
     expect(alpaca.placeOrder).toHaveBeenCalledWith(creds, expect.objectContaining({ symbol: CALL, side: "buy" }));
     // No entry in the last hour of a test day.
     alpaca.placeOrder.mockClear();
-    const late = await optionPlanPass(supabase, creds, account, [], fri, [line({ openedAt: new Date(FRI_11 + 4 * 3600_000).toISOString() })], new Set(), Date.now() + 30_000, FRI_11 + 4.5 * 3600_000, { mode: "paper", fixedBudget: 500 });
+    const late = await optionPlanPass(supabase, creds, account, [], fri, [line({ openedAt: new Date(FRI_11 + 4 * 3600_000).toISOString(), entry: 19 })], new Set(), Date.now() + 30_000, FRI_11 + 4.5 * 3600_000, { mode: "paper", fixedBudget: 500 });
     expect(alpaca.placeOrder).not.toHaveBeenCalled();
     expect(late.held.join(" ")).toMatch(/last hour/);
+    // A test day may buy a contract expiring that day; live never takes one inside 7 days.
+    const ODTE = "RUN261113C00022000";
+    data.fetchOptionSnapshots.mockImplementation(async (q: unknown) => ("symbols" in (q as object) ? {} : { [ODTE]: quote(0.05, 0.04, 0.2) }));
+    alpaca.listOptionContracts.mockResolvedValue([{ symbol: ODTE, open_interest: "900" }]);
+    await optionPlanPass(supabase, creds, account, [], fri, [line({ positionId: ID2, openedAt: new Date(FRI_11).toISOString(), entry: 19 })], new Set(), Date.now() + 30_000, FRI_11, { mode: "paper", fixedBudget: 10 });
+    expect(alpaca.placeOrder).toHaveBeenCalledWith(creds, expect.objectContaining({ symbol: ODTE, side: "buy" }));
     expect(planExit({ avgEntry: 0.1, current: 0.12, armed: false, stock: { side: "long", price: 20, stop: 18, tp1: 24 }, toClose: 50, weekday: 3, sameDay: true })).toBe("close_out");
     expect(planExit({ avgEntry: 0.1, current: 0.12, armed: false, stock: { side: "long", price: 20, stop: 18, tp1: 24 }, toClose: 50, weekday: 3 })).toBeNull();
+  });
+
+  it("live on a same-day day: buys on clear momentum, and keeps a day trade for next week", async () => {
+    const FRI_11 = Date.parse("2026-11-13T16:00:00Z");
+    const fri = { isOpen: true, nextClose: Date.parse("2026-11-13T21:00:00Z") };
+    const ODTE = "RUN261113C00022000";
+    data.fetchOptionSnapshots.mockImplementation(async (q: unknown) => ("symbols" in (q as object) ? {} : { [ODTE]: quote(0.05, 0.04, 0.2) }));
+    alpaca.listOptionContracts.mockResolvedValue([{ symbol: ODTE, open_interest: "900" }]);
+    data.fetchDayRanges.mockResolvedValue(new Map([["RUN", { price: 20, high: 20.1, low: 19 }]]));
+    alpaca.placeOrder.mockResolvedValue({ id: "b1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "b1", status: "canceled", filled_qty: "0" });
+    const fresh = line({ openedAt: new Date(FRI_11).toISOString(), entry: 19 });
+    await optionPlanPass(supabase, creds, account, [], fri, [fresh], new Set(), Date.now() + 30_000, FRI_11);
+    expect(alpaca.placeOrder).toHaveBeenCalledWith(creds, expect.objectContaining({ symbol: ODTE, side: "buy" }));
+    // Two day trades used: one left, kept for next week.
+    alpaca.placeOrder.mockClear();
+    const r = await optionPlanPass(supabase, creds, { ...account, daytrade_count: 2 }, [], fri, [fresh], new Set(), Date.now() + 30_000, FRI_11);
+    expect(alpaca.placeOrder).not.toHaveBeenCalled();
+    expect(r.held.join(" ")).toMatch(/reserve/);
+    expect(sameDayMomentum("short", 21, { price: 20, high: 21, low: 19.9 })).toBe(true);
+    expect(sameDayMomentum("short", 19, { price: 20, high: 21, low: 19.9 })).toBe(false);
+    expect(sameDayMomentum("long", null, { price: 20, high: 20, low: 19 })).toBe(false);
   });
 
   it("is flat by Friday's close and buys nothing on a Friday", async () => {
