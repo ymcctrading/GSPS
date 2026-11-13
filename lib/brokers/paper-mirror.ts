@@ -85,7 +85,8 @@ import { tradingDisabled } from "@/lib/trade/kill-switch";
 import { OWNER_EMAILS } from "@/lib/auth/owner";
 import { readLiveAlpacaConnection } from "@/lib/brokers/live-creds";
 import { momentumPass } from "@/lib/brokers/live-momentum";
-import { optionPlanPass, type PlanStockLine } from "@/lib/brokers/option-plan";
+import { PAPER_TEST_DAYS, optionPlanPass, type PlanStockLine } from "@/lib/brokers/option-plan";
+import { nyDate } from "@/lib/brokers/live-momentum";
 import { readPlanScores } from "@/lib/automation/portfolio-manager";
 
 /** Positions opened before this are never mirrored (they'd be bought at today's price). */
@@ -516,6 +517,28 @@ export async function readSimLines(supabase: SupabaseClient, userId: string): Pr
   });
 }
 
+/** The owner's Execute-grade setups read in the last day, as plan lines (a paper same-day test only). */
+async function readTestSetups(supabase: SupabaseClient, userId: string): Promise<PlanStockLine[]> {
+  const { data, error } = await supabase
+    .from("active_monitors")
+    .select("id, symbol, direction, score, stop_loss, take_profit_1, last_evaluated_at")
+    .eq("profile_id", userId)
+    .eq("state", "EXECUTE")
+    .gte("last_evaluated_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString());
+  if (error) throw new Error(`active_monitors: ${error.message}`);
+  const now = new Date().toISOString();
+  return (data ?? []).flatMap((m) => {
+    const stop = num(m.stop_loss);
+    const tp1 = num(m.take_profit_1);
+    if (m.direction !== "bullish" && m.direction !== "bearish") return [];
+    if (!(stop > 0) || !/^[A-Z]{1,5}$/.test(String(m.symbol))) return [];
+    return [{
+      positionId: m.id as string, symbol: String(m.symbol), side: m.direction === "bullish" ? ("long" as const) : ("short" as const),
+      stop, tp1: tp1 > 0 ? tp1 : null, openedAt: now, automated: true, assetClass: "us_equity", score: num(m.score),
+    }];
+  });
+}
+
 /** Every open line, plus any line (missed, closed, stopped) for a position the simulator still holds. */
 async function readMirrorLines(supabase: SupabaseClient, mode: MirrorMode, simIds: string[]): Promise<MirrorLine[]> {
   const cols = "position_id, symbol, side, status, target_qty, sim_qty, open_order_id, add_order_id, add_seq, stop_order_id, stop_price, stop_qty, opened_at";
@@ -572,6 +595,12 @@ export type MirrorMode = "paper" | "live";
 
 /** Paper practices at the live account's size: a third of its $30 start. */
 export const PAPER_MOMENTUM_BUDGET = 10;
+/**
+ * A paper same-day test day's budget per trade (engineering choice): no
+ * Execute-grade setup on 2026-11-13 had a contract within a 20% spread under
+ * $187, so the live size would test nothing.
+ */
+export const PAPER_TEST_BUDGET = 500;
 /**
  * The owner's options plan runs on both accounts (owner, 2026-11-13: "Go
  * with A. But only apply to icharles account for now", then "Add the rules
@@ -860,8 +889,14 @@ async function runMirror(supabase: SupabaseClient, mode: MirrorMode): Promise<Mi
         automated: l.automated, assetClass: l.assetClass,
         score: scores.get(`${l.symbol.toUpperCase()}:${l.side === "long" ? "bullish" : "bearish"}`) ?? null,
       }));
+      // A paper same-day test day also follows the day's Execute-grade setups
+      // (the owner's open monitors read since the evening before), each as
+      // its own trade keyed by its monitor; a setup that leaves Execute is sold.
+      if (mode === "paper" && PAPER_TEST_DAYS.includes(nyDate(Date.now()))) lines.push(...(await readTestSetups(supabase, userId)));
       const [account2, positions2] = m.placed > 0 ? await Promise.all([getAccount(planCreds), getPositions(planCreds)]) : [account, positions];
-      const p = await optionPlanPass(supabase, planCreds, account2, positions2, clock, lines, mirrorSymbols, started + MIRROR_BUDGET_MS * 2, Date.now(), { mode, ...budget });
+      const testDay = mode === "paper" && PAPER_TEST_DAYS.includes(nyDate(Date.now()));
+      const planBudget = testDay ? { fixedBudget: PAPER_TEST_BUDGET } : budget;
+      const p = await optionPlanPass(supabase, planCreds, account2, positions2, clock, lines, mirrorSymbols, started + MIRROR_BUDGET_MS * 2, Date.now(), { mode, ...planBudget });
       result.placed += p.placed;
       result.held.push(...p.held);
       result.errors.push(...p.errors);
