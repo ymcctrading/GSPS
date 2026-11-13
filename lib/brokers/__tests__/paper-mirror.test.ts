@@ -191,6 +191,11 @@ describe("planMirrorActions", () => {
     expect(planMirrorActions([], [coinLine], held([["BTC/USD", 0.001]]), gate({ marketOpen: false }))[0]).toMatchObject({ kind: "close", qty: 0.001 });
   });
 
+  it("records a crypto short as missed rather than retrying it", () => {
+    const short = sim({ positionId: "c1", symbol: "BTC/USD", assetClass: "crypto", side: "short", qty: 0.001, price: 90000, stop: 92000 });
+    expect(planMirrorActions([short], [], held([]), gate())[0]).toMatchObject({ kind: "missed", reason: "The broker doesn't short crypto." });
+  });
+
   it("holds stock opens for the day-trade rule, never a coin's, and never a coin's same-day sell", () => {
     const coinSim = sim({ positionId: "c1", symbol: "BTC/USD", assetClass: "crypto", qty: 0.001, price: 90000, stop: 88000 });
     const a = planMirrorActions([sim(), coinSim], [], held([]), gate({ pdtOpenHold: true, pdtNote: "Day trades used." }));

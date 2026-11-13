@@ -213,6 +213,20 @@ describe("runPaperMirror", () => {
     expect(alpaca.envCreds).not.toHaveBeenCalledWith("live");
   });
 
+  it("paper: a coin's add goes immediate-or-cancel (crypto takes no day order)", async () => {
+    const { client } = fakeSupabase({
+      positions: [{ id: "c1", symbol: "BTC/USD", side: "long", qty: "0.002", avg_entry_price: "90000", stop_loss: "88000", opened_at: opened, asset_class: "crypto" }],
+      orders: [{ symbol: "BTC/USD", created_at: opened }],
+      paper_mirror_lines: [{ position_id: "c1", symbol: "BTC/USD", side: "long", status: "open", target_qty: "0.001", sim_qty: "0.001", open_order_id: "o1", add_seq: 0, stop_order_id: "s1", stop_price: "88000", stop_qty: "0.001" }],
+    });
+    alpaca.getPositions.mockResolvedValue([{ symbol: "BTCUSD", qty: "0.001", side: "long", asset_class: "crypto" }]);
+    alpaca.placeOrder.mockResolvedValue({ id: "a1", status: "accepted" });
+    alpaca.getOrder.mockResolvedValue({ id: "a1", status: "filled", filled_qty: "0.001", filled_avg_price: "90010" });
+    alpaca.replaceOrder.mockResolvedValue({ id: "s2", status: "new" });
+    await runPaperMirror(client);
+    expect(alpaca.placeOrder).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ symbol: "BTC/USD", qty: 0.001, type: "market", timeInForce: "ioc" }));
+  });
+
   it("live: does nothing without a connected live account, and never reads env keys", async () => {
     const { client } = fakeSupabase({});
     const r = await runLiveMirror(client);
